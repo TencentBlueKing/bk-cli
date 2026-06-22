@@ -31,7 +31,7 @@ jobs:
           args: --current --strip header
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OUTPUT: RELEASE_NOTES.md
+          OUTPUT: ${{ runner.temp }}/RELEASE_NOTES.md
 
       - name: Resolve BK_TE_DOMAIN
         shell: bash
@@ -58,7 +58,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean --release-notes RELEASE_NOTES.md
+          args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
