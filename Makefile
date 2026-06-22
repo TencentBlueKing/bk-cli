@@ -4,11 +4,11 @@ VERSION ?= dev
 COMMIT_ID ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 ifndef BK_TE_DOMAIN
-ifeq ($(wildcard bk_te_domain),)
-$(warning missing required bk_te_domain file in repo root)
-$(error create bk_te_domain with the TE domain value)
-endif
+ifneq ($(wildcard bk_te_domain),)
 BK_TE_DOMAIN ?= $(shell cat bk_te_domain)
+else
+BK_TE_DOMAIN ?=
+endif
 endif
 COMMON_LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commitID=$(COMMIT_ID) -X main.buildTime=$(BUILD_TIME)
 LDFLAGS := -ldflags "$(COMMON_LDFLAGS) -X github.com/TencentBlueKing/bk-cli/internal/config.bkTEDomain=$(BK_TE_DOMAIN)"

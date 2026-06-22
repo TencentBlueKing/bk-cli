@@ -520,9 +520,9 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
 当前仅保留以下兼容规则：
 
 - 构建时通过 `BK_TE_DOMAIN` 向二进制注入兼容域名。Makefile 会优先读取仓库根目录
-  已提交的 `bk_te_domain` 文件。
-- 如果 `bk_te_domain` 缺失，Makefile 会先给出告警，再直接失败；显式传入
-  `BK_TE_DOMAIN=<domain>` 时仍以显式值为准。
+  已提交的 `bk_te_domain` 文件；如果文件不存在，则默认注入空值。
+- 显式传入 `BK_TE_DOMAIN=<domain>` 时仍以显式值为准；当该值为空时，不启用这组
+  兼容映射。
 - 当目标 `gateway_name` 是 `bk-job`，且 `bk_api_url_tmpl` 是
   `https://{gateway_name}.apigw.<domain>` 或
   `https://bkapi.<domain>/api/{gateway_name}`（可带尾部 `/`）时，
