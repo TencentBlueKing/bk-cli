@@ -105,5 +105,5 @@ func expectedReleaseAssetName(version, goos, goarch string) string {
 	if goos == "windows" {
 		ext = "zip"
 	}
-	return fmt.Sprintf("bk-cli_%s_%s_%s.%s", version, goos, goarch, ext)
+	return fmt.Sprintf("bk-cli_%s_%s_%s.%s", strings.TrimPrefix(version, "v"), goos, goarch, ext)
 }

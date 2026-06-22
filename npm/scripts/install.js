@@ -47,8 +47,8 @@ if (!platform || !arch) {
 
 const isWindows = process.platform === "win32";
 const ext = isWindows ? ".zip" : ".tar.gz";
-// goreleaser naming: bk-cli_VERSION_OS_ARCH.tar.gz/.zip
-const archiveName = `${NAME}_v${VERSION}_${platform}_${arch}${ext}`;
+// Release paths keep "v"; GoReleaser archive names use .Version without it.
+const archiveName = `${NAME}_${VERSION}_${platform}_${arch}${ext}`;
 
 const GITHUB_RELEASE_URL = `https://github.com/TencentBlueKing/bk-cli/releases/download/v${VERSION}/${archiveName}`;
 

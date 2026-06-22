@@ -57,6 +57,14 @@ var _ = Describe("GitHubSource", func() {
 		Expect(info.DownloadURL).To(Equal(expected))
 	})
 
+	It("matches GoReleaser asset names without a leading tag prefix", func() {
+		assetName := expectedReleaseAssetName("v1.2.3", "linux", "amd64")
+		Expect(assetName).To(Equal("bk-cli_1.2.3_linux_amd64.tar.gz"))
+
+		assetName = expectedReleaseAssetName("1.2.3", "windows", "arm64")
+		Expect(assetName).To(Equal("bk-cli_1.2.3_windows_arm64.zip"))
+	})
+
 	It("returns an error when the endpoint is not successful", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
