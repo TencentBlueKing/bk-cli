@@ -1,0 +1,46 @@
+id: PAAS-004
+name: paas legacy gateway template dry run
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init legacy context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - https://{gateway_name}.apigw.te.example
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: preview paas yaml action
+    command:
+      - paas
+      - get_deployment_result
+      - --app_code
+      - bk-demo
+      - --module
+      - default
+      - --deployment_id
+      - "12345"
+      - --dry-run
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.url
+          contains: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/deployments/12345/result/

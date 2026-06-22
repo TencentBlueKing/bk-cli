@@ -1,0 +1,45 @@
+id: CMDB-007
+name: cmdb list_biz_hosts_all happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list biz hosts all
+    command:
+      - cmdb
+      - list_biz_hosts_all
+      - --bk_biz_id
+      - "2"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.count
+          equals: 2
+        - path: data.info
+          kind: list
+        - path: data.info
+          length_at_least: 2

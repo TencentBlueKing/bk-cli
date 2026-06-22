@@ -1,0 +1,105 @@
+name: apigateway
+gateway_name: bk-apigateway
+description: "BlueKing API Gateway management - discover gateways and APIs"
+actions:
+  - name: list_gateways
+    description: "List all API gateways"
+    method: GET
+    path: "/api/v2/open/gateways/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+    params:
+      - name: name
+        in: query
+        type: string
+        description: "Gateway name filter"
+        required: false
+      - name: fuzzy
+        in: query
+        type: bool
+        description: "Enable fuzzy name matching"
+        required: false
+        default: "false"
+      - name: keyword
+        in: query
+        type: string
+        description: "Search keyword in description"
+        required: false
+    examples:
+      - "bk-cli apigateway list_gateways --name bk-iam"
+      - "bk-cli apigateway list_gateways --name iam --fuzzy"
+      - "bk-cli apigateway list_gateways --keyword monitor"
+    timeout: 30s
+
+  - name: list_gateway_apis
+    description: "List APIs of a specific gateway"
+    method: GET
+    path: "/api/v2/open/gateways/{gateway_name}/resources/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+    params:
+      - name: gateway_name
+        in: path
+        type: string
+        description: "Gateway name"
+        required: true
+      - name: keyword
+        in: query
+        type: string
+        description: "Search keyword"
+        required: false
+    examples:
+      - "bk-cli apigateway list_gateway_apis --gateway_name bk-iam"
+      - "bk-cli apigateway list_gateway_apis --gateway_name bk-iam --keyword system"
+    timeout: 30s
+
+  - name: retrieve_gateway_api_details
+    description: "Get detailed API schema for a specific resource"
+    method: GET
+    path: "/api/v2/open/gateways/{gateway_name}/resources/{api_name}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+    params:
+      - name: gateway_name
+        in: path
+        type: string
+        description: "Gateway name"
+        required: true
+      - name: api_name
+        in: path
+        type: string
+        description: "API resource name"
+        required: true
+      - name: stage_name
+        in: query
+        type: string
+        description: "API stage name (optional, default is 'prod')"
+        required: false
+        default: "prod"
+    examples:
+      - "bk-cli apigateway retrieve_gateway_api_details --gateway_name bk-iam --api_name create_system"
+    timeout: 30s
+
+  - name: query_log_by_request_id
+    description: "Query API gateway log by request ID"
+    method: GET
+    path: "/api/v2/open/tools/log/query_by_request_id/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+    params:
+      - name: request_id
+        in: query
+        type: string
+        description: "The request ID to query"
+        required: true
+    examples:
+      - "bk-cli apigateway query_log_by_request_id --request_id=9f6563e4-cc2d-402d-b8d0-11ad26d7f6a9"
+    timeout: 30s

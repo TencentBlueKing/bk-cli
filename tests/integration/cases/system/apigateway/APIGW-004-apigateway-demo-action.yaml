@@ -1,0 +1,50 @@
+id: APIGW-004
+name: apigateway demo_action happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: run demo action
+    command:
+      - apigateway
+      - demo_action
+      - --name
+      - demo
+      - --public
+      - --body
+      - '{"hello":"world"}'
+      - --header
+      - X-Test-Mode:integration
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.received.name
+          equals: demo
+        - path: data.received.public
+          equals: true
+        - path: data.upstream.items.0.name
+          equals: demo

@@ -1,0 +1,4 @@
+name: subsystem
+gateway_name: bk-subsystem
+description: "Embed fixture for one-level subsystem YAML loading"
+actions: []

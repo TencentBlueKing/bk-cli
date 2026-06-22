@@ -1,0 +1,63 @@
+name: stream
+gateway_name: devops
+description: "BlueKing DevOps Stream commands"
+actions:
+  - name: get_pipelines_list_info
+    description: "Get Stream pipeline list"
+    method: GET
+    path: "/v4/apigw-user/stream/gitProjects/{gitProjectId}/pipeline_listInfo"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: gitProjectId
+        in: path
+        type: string
+        description: "Gongfeng project ID (numeric)"
+        required: true
+
+  - name: get_name2pipeline_info
+    description: "Get pipeline information by YAML file path"
+    method: GET
+    path: "/v4/apigw-user/stream/gitProjects/{projectId}/name_to_pipelineInfo"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "BlueKing project ID (fixed format: git_${GongfengProjectId})"
+        required: true
+      - name: yamlPath
+        in: query
+        type: string
+        description: "Repository path of the pipeline YAML file (.ci/xxx.yml or .ci/xxx.yaml)"
+        required: true
+
+  - name: get_pipelines_manual_trigger_info
+    description: "Get manual trigger startup information"
+    method: GET
+    path: "/v4/apigw-user/stream/gitProjects/{projectId}/manual"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "BlueKing project ID (fixed format: git_${GongfengProjectId})"
+        required: true
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID (p-xxx)"
+        required: true
+      - name: branchName
+        in: query
+        type: string
+        description: "Branch name of the pipeline"
+        required: true

@@ -1,0 +1,9 @@
+# Integration run outputs
+/integration/artifacts/latest/
+
+# Python cache files from mock service work
+**/__pycache__/
+**/*.pyc
+
+# Local temp files created while debugging tests
+**/*.tmp

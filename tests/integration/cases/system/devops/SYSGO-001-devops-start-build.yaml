@@ -1,0 +1,52 @@
+id: SYSGO-001
+name: devops pipeline start_build success
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: start build
+    command:
+      - devops
+      - pipeline
+      - start_build
+      - --projectId
+      - demo
+      - --pipelineId
+      - pipe-1
+      - --body
+      - '{"from":"integration"}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 201
+        - path: data.projectId
+          equals: demo
+        - path: data.pipelineId
+          equals: pipe-1
+        - path: data.received_body.from
+          equals: integration

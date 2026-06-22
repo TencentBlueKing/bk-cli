@@ -1,0 +1,46 @@
+id: DEVOPS-019
+name: devops stream get_name2pipeline_info happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_name2pipeline_info
+    command:
+      - devops
+      - stream
+      - get_name2pipeline_info
+      - --projectId
+      - git_12345
+      - --yamlPath
+      - .ci/demo.yml
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v4/apigw-user/stream/gitProjects/git_12345/name_to_pipelineInfo
+        - path: data.query.yamlPath
+          equals: .ci/demo.yml

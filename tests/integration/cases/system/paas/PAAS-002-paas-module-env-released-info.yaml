@@ -1,0 +1,45 @@
+id: PAAS-002
+name: paas module_env_released_info happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get released info
+    command:
+      - paas
+      - module_env_released_info
+      - --code
+      - bk-demo
+      - --module_name
+      - default
+      - --environment
+      - prod
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/envs/prod/released_info/

@@ -1,0 +1,105 @@
+name: sops
+gateway_name: bk-sops
+description: "BlueKing Standard OPS (SOPS) commands"
+actions:
+  - name: get_template_list
+    description: "List flow templates in a business"
+    method: GET
+    path: "/get_template_list/{bk_biz_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: bk_biz_id
+        in: path
+        type: int
+        description: "Business ID"
+        required: true
+      - name: name_keyword
+        in: query
+        type: string
+        description: "Filter templates by name keyword"
+        required: false
+    examples:
+      - "bk-cli sops get_template_list --bk_biz_id 2"
+      - "bk-cli sops get_template_list --bk_biz_id 2 --name_keyword deploy"
+
+  - name: get_task_list
+    description: "List tasks in a business"
+    method: GET
+    path: "/get_task_list/{bk_biz_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: bk_biz_id
+        in: path
+        type: int
+        description: "Business ID"
+        required: true
+      - name: keyword
+        in: query
+        type: string
+        description: "Filter tasks by name keyword"
+        required: false
+      - name: limit
+        in: query
+        type: int
+        description: "Maximum number of tasks to return"
+        required: false
+        default: "100"
+      - name: offset
+        in: query
+        type: int
+        description: "Offset for pagination"
+        required: false
+        default: "0"
+    examples:
+      - "bk-cli sops get_task_list --bk_biz_id 2"
+      - "bk-cli sops get_task_list --bk_biz_id 2 --keyword deploy --limit 50"
+
+  - name: get_task_status
+    description: "Query task execution status"
+    method: GET
+    path: "/get_task_status/{task_id}/{bk_biz_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: task_id
+        in: path
+        type: int
+        description: "Task ID"
+        required: true
+      - name: bk_biz_id
+        in: path
+        type: int
+        description: "Business ID"
+        required: true
+    examples:
+      - "bk-cli sops get_task_status --task_id 100 --bk_biz_id 2"
+
+  - name: get_task_detail
+    description: "Query task details including name, template, and input parameters"
+    method: GET
+    path: "/get_task_detail/{task_id}/{bk_biz_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: task_id
+        in: path
+        type: int
+        description: "Task ID"
+        required: true
+      - name: bk_biz_id
+        in: path
+        type: int
+        description: "Business ID"
+        required: true
+    examples:
+      - "bk-cli sops get_task_detail --task_id 100 --bk_biz_id 2"

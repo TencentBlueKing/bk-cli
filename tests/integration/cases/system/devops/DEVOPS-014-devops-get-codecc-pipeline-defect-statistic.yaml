@@ -1,0 +1,50 @@
+id: DEVOPS-014
+name: devops codecc get_pipeline_defect_statistic happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_pipeline_defect_statistic
+    command:
+      - devops
+      - codecc
+      - get_pipeline_defect_statistic
+      - --pipelineId
+      - p-1
+      - --buildId
+      - b-1
+      - --dimension
+      - SECURITY
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/apigw-user/codecc/pipeline/defect/statistic
+        - path: data.query.pipelineId
+          equals: p-1
+        - path: data.query.dimension
+          equals: SECURITY

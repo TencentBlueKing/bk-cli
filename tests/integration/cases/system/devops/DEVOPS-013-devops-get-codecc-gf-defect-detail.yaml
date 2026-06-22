@@ -1,0 +1,50 @@
+id: DEVOPS-013
+name: devops codecc get_gf_defect_detail happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_gf_defect_detail
+    command:
+      - devops
+      - codecc
+      - get_gf_defect_detail
+      - --gongfengId
+      - "12345"
+      - --toolName
+      - CPPLINT
+      - --pageSize
+      - "5"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/apigw-user/codecc/gongfeng/defect/list
+        - path: data.query.gongfengId
+          equals: "12345"
+        - path: data.query.toolName
+          equals: CPPLINT

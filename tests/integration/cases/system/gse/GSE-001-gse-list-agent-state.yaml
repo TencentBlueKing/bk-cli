@@ -1,0 +1,45 @@
+id: GSE-001
+name: gse list_agent_state happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list agent state
+    command:
+      - gse
+      - list_agent_state
+      - --agent_id_list
+      - 02000000000000000000000000000001,02000000000000000000000000000002
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /bk-gse/prod/api/v2/cluster/list_agent_state
+        - path: data.body.agent_id_list.0
+          equals: "02000000000000000000000000000001"
+        - path: data.body.agent_id_list.1
+          equals: "02000000000000000000000000000002"

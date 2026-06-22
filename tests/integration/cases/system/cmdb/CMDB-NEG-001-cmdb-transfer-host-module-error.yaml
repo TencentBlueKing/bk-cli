@@ -1,0 +1,48 @@
+id: CMDB-NEG-001
+name: cmdb transfer_host_module upstream failure
+tags:
+  - coverage-system_go
+  - suite-integration
+  - uses-mock
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: transfer host module with mock failure
+    command:
+      - cmdb
+      - transfer_host_module
+      - --bk_biz_id
+      - "2"
+      - --bk_host_ids
+      - 101
+      - --bk_module_ids
+      - 201
+      - --header
+      - X-Mock-Scenario:CMDB-NEG-001
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 409
+        - path: data.error
+          equals: transfer_conflict

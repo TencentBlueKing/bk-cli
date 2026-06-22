@@ -1,0 +1,8 @@
+node_modules/
+bin/
+dist/
+coverage/
+*.log
+.env
+.env.*
+README.md

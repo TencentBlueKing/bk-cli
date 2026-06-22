@@ -1,0 +1,265 @@
+name: pipeline
+gateway_name: devops
+description: "BlueKing DevOps pipeline commands"
+actions:
+  - name: get_build_list
+    description: "Get pipeline build history"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/build_histories"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID (English project name)"
+        required: true
+      - name: archiveFlag
+        in: query
+        type: bool
+        description: "Whether to query archived builds"
+        required: false
+      - name: buildNoStart
+        in: query
+        type: int
+        description: "Filter builds by starting build number"
+        required: false
+      - name: buildNoEnd
+        in: query
+        type: int
+        description: "Filter builds by ending build number"
+        required: false
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID (string starting with p-)"
+        required: true
+      - name: endTimeStartTime
+        in: query
+        type: int
+        description: "Filter builds by end time start, in milliseconds since epoch (13 digits)"
+        required: false
+      - name: endTimeEndTime
+        in: query
+        type: int
+        description: "Filter builds by end time end, in milliseconds since epoch (13 digits)"
+        required: false
+      - name: startTimeStartTime
+        in: query
+        type: int
+        description: "Filter builds by start time start, in milliseconds since epoch (13 digits)"
+        required: false
+      - name: startTimeEndTime
+        in: query
+        type: int
+        description: "Filter builds by start time end, in milliseconds since epoch (13 digits)"
+        required: false
+      - name: startUser
+        in: query
+        type: string
+        description: "Filter builds by starter"
+        required: false
+      - name: status
+        in: query
+        type: string
+        description: "Filter builds by status: SUCCEED, FAILED, CANCELED, RUNNING, QUEUE, STAGE_SUCCESS"
+        required: false
+      - name: trigger
+        in: query
+        type: string
+        description: "Filter builds by trigger type: MANUAL, TIME_TRIGGER, WEB_HOOK, PIPELINE, REMOTE"
+        required: false
+      - name: page
+        in: query
+        type: int
+        description: "Page number"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size (default 20, max 100)"
+        required: false
+    examples:
+      - "bk-cli devops pipeline get_build_list --projectId myproject --pipelineId p-xxx"
+      - "bk-cli devops pipeline get_build_list --projectId myproject --pipelineId p-xxx --status SUCCEED --page 1 --pageSize 50"
+
+  - name: get_build_status
+    description: "Get build status details, including stageStatus"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/build_status"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID (English project name)"
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID (string starting with b-)"
+        required: true
+    examples:
+      - "bk-cli devops pipeline get_build_status --projectId myproject --buildId b-xxx"
+
+  - name: get_build_start_info
+    description: "Get manual build startup parameters"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/build_manual_startup_info"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID (English project name)"
+        required: true
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID"
+        required: true
+    examples:
+      - "bk-cli devops pipeline get_build_start_info --projectId myproject --pipelineId p-xxx"
+
+  - name: get_artifactory_list
+    description: "Get files by metadata"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/artifactories/file_info"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID"
+        required: true
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID (string starting with p-)"
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID (string starting with b-)"
+        required: true
+      - name: page
+        in: query
+        type: int
+        description: "Page number"
+        required: true
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size"
+        required: true
+
+  - name: get_artifactory_user_download_url
+    description: "Get a user download URL"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/artifactories/user_download_url"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID"
+        required: true
+      - name: artifactoryType
+        in: query
+        type: string
+        description: "Artifactory type: PIPELINE for pipeline repository, CUSTOM_DIR for custom repository"
+        required: true
+      - name: path
+        in: query
+        type: string
+        description: "Artifact path"
+        required: true
+
+  - name: get_artifactory_third_party_download_url
+    description: "Get a third-party server-side download URL for pipeline artifacts"
+    method: GET
+    path: "/v2/apigw-user/artifactories/projects/{projectId}/thirdPartyDownloadUrl"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID"
+        required: true
+      - name: artifactoryType
+        in: query
+        type: string
+        description: "Artifactory type: PIPELINE for pipeline repository, CUSTOM_DIR for custom repository"
+        required: true
+      - name: path
+        in: query
+        type: string
+        description: "Artifact path"
+        required: true
+      - name: ttl
+        in: query
+        type: int
+        description: "Expiration time in seconds"
+        required: false
+
+  - name: get_view_pipelines
+    description: "Get the pipeline orchestration list for a view"
+    method: GET
+    path: "/v4/apigw-user/projects/{projectId}/pipelineView/listViewPipelines"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: projectId
+        in: path
+        type: string
+        description: "Project ID (English project name)"
+        required: true
+      - name: filterByPipelineName
+        in: query
+        type: string
+        description: "Fuzzy match by pipeline name"
+        required: false
+      - name: filterByCreator
+        in: query
+        type: string
+        description: "Filter by creator"
+        required: false
+      - name: viewId
+        in: query
+        type: string
+        description: "Use allPipeline to query all pipelines"
+        required: false
+      - name: page
+        in: query
+        type: int
+        description: "Page number"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size (default 20, max 100)"
+        required: false
+      - name: sortType
+        in: query
+        type: string
+        description: "Sort type: NAME, CREATE_TIME, UPDATE_TIME, LAST_EXEC_TIME"
+        required: false

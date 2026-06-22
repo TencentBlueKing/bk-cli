@@ -1,0 +1,53 @@
+---
+id: BCS-026
+name: bcs cluster_manager create_node_template happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: create_node_template
+  command:
+  - bcs
+  - cluster_manager
+  - create_node_template
+  - "--projectID"
+  - project-id
+  - "--body"
+  - '{"projectID":"project-id","name":"string","creator":"string"}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: POST
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v1/projects/project-id/nodetemplates"
+    - path: data.body
+      kind: map

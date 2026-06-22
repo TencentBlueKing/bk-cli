@@ -1,0 +1,105 @@
+name: paas
+gateway_name: bkpaas3
+description: "BlueKing PaaS application deployment commands"
+actions:
+  - name: get_deployment_result
+    description: "查询部署任务结果"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/deployments/{deployment_id}/result/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        required: true
+      - name: deployment_id
+        in: path
+        type: string
+        description: "部署任务 ID"
+        required: true
+    examples:
+      - "bk-cli paas get_deployment_result --app_code bk-demo --module default --deployment_id 12345"
+
+  - name: module_env_released_info
+    description: "查询应用模块环境部署信息"
+    method: GET
+    path: "/bkapps/applications/{code}/modules/{module_name}/envs/{environment}/released_info/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module_name
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        required: true
+      - name: environment
+        in: path
+        type: string
+        description: "环境，常见值为 stag 或 prod"
+        required: true
+    examples:
+      - "bk-cli paas module_env_released_info --code bk-demo --module_name default --environment prod"
+
+  - name: deploy_with_module
+    description: "App 部署（支持多模块）"
+    method: POST
+    path: "/bkapps/applications/{app_code}/modules/{module}/envs/{env}/deployments/"
+    timeout: 30s
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "required": ["version_name", "version_type"],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "description": "源码仓库版本号"
+          },
+          "version_name": {
+            "type": "string",
+            "description": "branch 或 tag 的名称"
+          },
+          "version_type": {
+            "type": "string",
+            "description": "对于 svn，支持 trunk/tag；对于 git，支持 branch"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        required: true
+      - name: env
+        in: path
+        type: string
+        description: "环境，常见值为 stag 或 prod"
+        required: true
+    examples:
+      - "bk-cli paas deploy_with_module --app_code bk-demo --module default --env prod --body '{\"revision\":\"{commit_id}\",\"version_type\":\"branch\",\"version_name\":\"master\"}'"

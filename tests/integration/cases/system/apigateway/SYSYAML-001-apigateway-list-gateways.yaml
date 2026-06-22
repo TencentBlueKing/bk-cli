@@ -1,0 +1,43 @@
+id: SYSYAML-001
+name: apigateway list_gateways via yaml action
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list gateways
+    command:
+      - apigateway
+      - list_gateways
+      - --name
+      - integration
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 200
+        - path: data.items.0.name
+          equals: integration

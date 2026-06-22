@@ -1,0 +1,27 @@
+name: cmdb
+gateway_name: bk-cmdb
+description: "BlueKing CMDB system commands"
+actions:
+  - name: get_biz_internal_module
+    description: "Get built-in idle, fault, and recycle modules for a business"
+    method: GET
+    path: "/api/v3/open/topo/internal/{supplier_account}/{bk_biz_id}"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: supplier_account
+        in: path
+        type: string
+        description: "CMDB supplier account path segment"
+        required: false
+        default: "0"
+      - name: bk_biz_id
+        in: path
+        type: int
+        description: "Business ID"
+        required: true
+    examples:
+      - "bk-cli cmdb get_biz_internal_module --bk_biz_id 2"
+      - "bk-cli cmdb get_biz_internal_module --supplier_account 0 --bk_biz_id 2"

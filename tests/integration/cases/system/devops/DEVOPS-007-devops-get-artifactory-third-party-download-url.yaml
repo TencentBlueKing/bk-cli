@@ -1,0 +1,52 @@
+id: DEVOPS-007
+name: devops pipeline get_artifactory_third_party_download_url happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_artifactory_third_party_download_url
+    command:
+      - devops
+      - pipeline
+      - get_artifactory_third_party_download_url
+      - --projectId
+      - demo
+      - --artifactoryType
+      - CUSTOM_DIR
+      - --path
+      - dist/app.tar.gz
+      - --ttl
+      - "300"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v2/apigw-user/artifactories/projects/demo/thirdPartyDownloadUrl
+        - path: data.query.artifactoryType
+          equals: CUSTOM_DIR
+        - path: data.query.ttl
+          equals: "300"

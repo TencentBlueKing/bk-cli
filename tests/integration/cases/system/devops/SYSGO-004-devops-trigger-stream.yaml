@@ -1,0 +1,50 @@
+id: SYSGO-004
+name: devops stream trigger success
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: trigger stream
+    command:
+      - devops
+      - stream
+      - trigger
+      - --projectId
+      - git_12345
+      - --pipelineId
+      - pipe-1
+      - --body
+      - '{"path":".ci/demo.yml","branch":"main","projectId":"git_12345","customCommitMsg":"manual trigger"}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v4/apigw-user/stream/gitProjects/git_12345/openapi_trigger
+        - path: data.query.pipelineId
+          equals: pipe-1
+        - path: data.body.path
+          equals: .ci/demo.yml

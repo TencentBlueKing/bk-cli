@@ -1,0 +1,61 @@
+---
+id: BCS-007
+name: bcs cluster_manager batch_delete_nodes_from_cluster happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: batch_delete_nodes_from_cluster
+  command:
+  - bcs
+  - cluster_manager
+  - batch_delete_nodes_from_cluster
+  - "--clusterID"
+  - BCS-K8S-12345
+  - "--nodeIPs"
+  - 10.0.0.1,10.0.0.2
+  - "--virtualNodeIDs"
+  - virtual-node-1
+  - "--operator"
+  - admin
+  - "--deleteMode"
+  - terminate
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: DELETE
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v1/clusters/BCS-K8S-12345/nodes/-/batch"
+    - path: data.query.nodeIPs
+      equals: 10.0.0.1,10.0.0.2
+    - path: data.body
+      kind: 'null'

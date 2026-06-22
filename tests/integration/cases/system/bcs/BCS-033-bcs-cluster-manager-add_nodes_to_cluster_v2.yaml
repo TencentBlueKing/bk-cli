@@ -1,0 +1,53 @@
+---
+id: BCS-033
+name: bcs cluster_manager add_nodes_to_cluster_v2 happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: add_nodes_to_cluster_v2
+  command:
+  - bcs
+  - cluster_manager
+  - add_nodes_to_cluster_v2
+  - "--clusterID"
+  - BCS-K8S-12345
+  - "--body"
+  - '{"clusterID":"BCS-K8S-12345","nodes":["string"]}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: POST
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v2/cluster/BCS-K8S-12345/node"
+    - path: data.body
+      kind: map

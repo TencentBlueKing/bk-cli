@@ -1,0 +1,42 @@
+# Binaries
+bk-cli
+*.exe
+*.test
+*.out
+
+# Build
+bin/
+dist/
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (user-specific)
+.env*
+
+# Test
+coverage.out
+coverage.html
+.specify
+.claude
+.codex
+.codebuddy
+.worktrees/
+.agents/skills/superpowers
+docs/superpowers
+docs/reviews
+tmp
+node_modules
+package.json
+package-lock.json
+specs.bk
+bk_te_domain

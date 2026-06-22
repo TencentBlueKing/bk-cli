@@ -1,0 +1,51 @@
+id: CMDB-013
+name: cmdb transfer_host_across_biz happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: transfer host across biz
+    command:
+      - cmdb
+      - transfer_host_across_biz
+      - --src_bk_biz_id
+      - "1"
+      - --dst_bk_biz_id
+      - "2"
+      - --bk_host_ids
+      - 101
+      - --bk_module_id
+      - "201"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.body.src_bk_biz_id
+          equals: 1
+        - path: data.body.dst_bk_biz_id
+          equals: 2
+        - path: data.body.bk_module_id
+          equals: 201

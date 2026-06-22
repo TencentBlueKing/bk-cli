@@ -1,0 +1,51 @@
+---
+id: BCS-011
+name: bcs cluster_manager cordon_node happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: cordon_node
+  command:
+  - bcs
+  - cluster_manager
+  - cordon_node
+  - "--body"
+  - '{"nodes":["string"],"innerIPs":["string"],"clusterID":"BCS-K8S-12345"}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: PUT
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v1/node/cordon"
+    - path: data.body
+      kind: map

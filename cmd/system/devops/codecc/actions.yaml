@@ -1,0 +1,268 @@
+name: codecc
+gateway_name: devops
+description: "BlueKing DevOps CodeCC commands"
+actions:
+  - name: get_task_detail
+    description: "Get CodeCC task details"
+    method: GET
+    path: "/apigw-user/codecc/task/detail"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: taskId
+        in: query
+        type: int
+        description: "Unique task ID. Type: number. Example: 123456789"
+        required: true
+
+  - name: get_gf_defect_detail_by_task_id
+    description: "Get CodeCC open source governance defect details by task ID"
+    method: GET
+    path: "/apigw-user/codecc/gongfeng/task/defect/list"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: taskId
+        in: query
+        type: string
+        description: "CodeCC task ID. Required. You can get it from the CodeCC task detail page URL. Type: string. Example: \"123456789\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: toolName
+        in: query
+        type: string
+        description: "Tool name. Optional. Examples: COVERITY, CPPLINT, ESLINT, PYLINT, CHECKSTYLE. When provided, only defects from this tool are returned. Type: string. Example: \"COVERITY\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. Defaults to STANDARD when omitted. If toolName is also provided, toolName takes precedence. Type: string. Example: \"STANDARD\""
+        required: false
+      - name: pageNum
+        in: query
+        type: int
+        description: "Page number. Optional. Starts from 1. Default: 1. Type: number. Example: 1"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size. Optional. Default: 10. Keep this value reasonable to avoid slow responses. Type: number. Example: 10"
+        required: false
+
+  - name: get_defect_detail_by_task_id
+    description: "Get CodeCC defect details by task ID for a regular task"
+    method: GET
+    path: "/apigw-user/codecc/normal/task/defect/list"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: taskId
+        in: query
+        type: string
+        description: "CodeCC task ID. Required. You can get it from the CodeCC task detail page URL. Type: string. Example: \"123456789\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: toolName
+        in: query
+        type: string
+        description: "Tool name. Optional. Examples: COVERITY, CPPLINT, ESLINT, PYLINT, CHECKSTYLE. When provided, only defects from this tool are returned. Type: string. Example: \"COVERITY\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. Defaults to STANDARD when omitted. If toolName is also provided, toolName takes precedence. Type: string. Example: \"STANDARD\""
+        required: false
+      - name: pageNum
+        in: query
+        type: int
+        description: "Page number. Optional. Starts from 1. Default: 1. Type: number. Example: 1"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size. Optional. Default: 10. Keep this value reasonable to avoid slow responses. Type: number. Example: 10"
+        required: false
+
+  - name: get_pipeline_defect_detail
+    description: "Get CodeCC defect details by pipeline ID for a regular task"
+    method: GET
+    path: "/apigw-user/codecc/pipeline/defect/list"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID. Required. Usually formatted as p-xxx. You can get it from the pipeline URL. Type: string. Example: \"p-abc123def456\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: toolName
+        in: query
+        type: string
+        description: "Tool name. Optional. Examples: COVERITY, CPPLINT, ESLINT, PYLINT, CHECKSTYLE. When provided, only defects from this tool are returned. Type: string. Example: \"COVERITY\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. Defaults to STANDARD when omitted. If toolName is also provided, toolName takes precedence. Type: string. Example: \"STANDARD\""
+        required: false
+      - name: pageNum
+        in: query
+        type: int
+        description: "Page number. Optional. Starts from 1. Default: 1. Type: number. Example: 1"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size. Optional. Default: 10. Keep this value reasonable to avoid slow responses. Type: number. Example: 10"
+        required: false
+
+  - name: get_gf_defect_detail
+    description: "Get CodeCC open source governance defect details by Gongfeng ID"
+    method: GET
+    path: "/apigw-user/codecc/gongfeng/defect/list"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: gongfengId
+        in: query
+        type: string
+        description: "Gongfeng project ID. Required. This is the numeric ID from the Gongfeng project URL, for example 12345 in https://git.code.tencent.com/project/12345. Type: string. Example: \"12345\""
+        required: true
+      - name: toolName
+        in: query
+        type: string
+        description: "Tool name. Optional. Examples: COVERITY, CPPLINT, ESLINT, PYLINT, CHECKSTYLE. When provided, only defects from this tool are returned. Type: string. Example: \"COVERITY\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. Defaults to STANDARD when omitted. If toolName is also provided, toolName takes precedence. Type: string. Example: \"STANDARD\""
+        required: false
+      - name: pageNum
+        in: query
+        type: int
+        description: "Page number. Optional. Starts from 1. Default: 1. Type: number. Example: 1"
+        required: false
+      - name: pageSize
+        in: query
+        type: int
+        description: "Page size. Optional. Default: 10. Keep this value reasonable to avoid slow responses. Type: number. Example: 10"
+        required: false
+
+  - name: get_pipeline_defect_statistic
+    description: "Get CodeCC defect statistics by pipeline ID for a regular task"
+    method: GET
+    path: "/apigw-user/codecc/pipeline/defect/statistic"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: pipelineId
+        in: query
+        type: string
+        description: "Pipeline ID. Required. Usually formatted as p-xxx. You can get it from the pipeline URL. Type: string. Example: \"p-abc123def456\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. When omitted, statistics for all five dimensions are returned. Type: string. Example: \"STANDARD\""
+        required: false
+
+  - name: get_gf_defect_statistic
+    description: "Get CodeCC open source governance defect statistics by Gongfeng ID"
+    method: GET
+    path: "/apigw-user/codecc/gongfeng/defect/statistic"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: gongfengId
+        in: query
+        type: string
+        description: "Gongfeng project ID. Required. This is the numeric ID from the Gongfeng project URL, for example 12345 in https://git.code.tencent.com/project/12345. Type: string. Example: \"12345\""
+        required: true
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. When omitted, statistics for all five dimensions are returned. Type: string. Example: \"STANDARD\""
+        required: false
+
+  - name: get_gf_defect_statistic_by_task_id
+    description: "Get CodeCC open source governance defect statistics by task ID"
+    method: GET
+    path: "/apigw-user/codecc/gongfeng/task/defect/statistic"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: taskId
+        in: query
+        type: string
+        description: "Task ID. Type: string. Example: \"123456789\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. When omitted, statistics for all five dimensions are returned. Type: string. Example: \"STANDARD\""
+        required: false
+
+  - name: get_defect_statistic_by_task_id
+    description: "Get CodeCC defect statistics by task ID for a regular task"
+    method: GET
+    path: "/apigw-user/codecc/normal/task/defect/statistic"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+    params:
+      - name: taskId
+        in: query
+        type: string
+        description: "Task ID. Type: string. Example: \"123456789\""
+        required: true
+      - name: buildId
+        in: query
+        type: string
+        description: "Build ID. Optional. Usually formatted as b-xxx. If omitted, the latest build is used for defects or statistics. Type: string. Example: \"b-abc123def456\""
+        required: false
+      - name: dimension
+        in: query
+        type: string
+        description: "Dimension. Optional. STANDARD, SECURITY, DEFECT, CCN, DUPC. When omitted, statistics for all five dimensions are returned. Type: string. Example: \"STANDARD\""
+        required: false

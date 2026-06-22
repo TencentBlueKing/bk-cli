@@ -1,0 +1,45 @@
+id: JOB-006
+name: job legacy gateway template dry run
+tags:
+  - coverage-system_go
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init legacy context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - https://{gateway_name}.apigw.te.example
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: preview job yaml action
+    command:
+      - job
+      - get_job_instance_status
+      - --bk_biz_id
+      - "2"
+      - --job_instance_id
+      - "100"
+      - --dry-run
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.url
+          contains: https://jobv3-cloud.apigw.te.example/prod/api/v3/get_job_instance_status

@@ -1,0 +1,99 @@
+id: CTX-001
+name: context init create use list
+tags:
+  - coverage-context
+  - suite-integration
+steps:
+  - name: init default context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${HTTPBIN_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: message
+          contains: default
+  - name: create systems context
+    command:
+      - context
+      - create
+      - systems
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+      - --bk_auth_url
+      - https://auth.example.com
+      - --tenant_id
+      - tenant-a
+      - --user_key
+      - bk_ticket
+      - --timeout
+      - 2m
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list contexts before switching
+    command:
+      - context
+      - list
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.active
+          equals: default
+        - path: data.contexts
+          kind: list
+        - path: data.contexts
+          length_at_least: 2
+  - name: switch to systems
+    command:
+      - context
+      - use
+      - systems
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list contexts
+    command:
+      - context
+      - list
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.active
+          equals: systems
+        - path: data.contexts
+          kind: list
+        - path: data.contexts
+          length_at_least: 2
+        - path: data.contexts.0.name
+          equals: default
+        - path: data.contexts.0.bk_api_url_tmpl
+          equals: http://httpbin/{gateway_name}
+        - path: data.contexts.0.user_key
+          equals: bk_token
+        - path: data.contexts.0.timeout
+          equals: 1m0s
+        - path: data.contexts.1.name
+          equals: systems
+        - path: data.contexts.1.bk_api_url_tmpl
+          equals: http://mock_api:8080/{gateway_name}
+        - path: data.contexts.1.bk_auth_url
+          equals: https://auth.example.com
+        - path: data.contexts.1.tenant_id
+          equals: tenant-a
+        - path: data.contexts.1.user_key
+          equals: bk_ticket
+        - path: data.contexts.1.timeout
+          equals: 2m0s

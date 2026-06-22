@@ -1,0 +1,50 @@
+id: DEVOPS-020
+name: devops stream get_pipelines_manual_trigger_info happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_pipelines_manual_trigger_info
+    command:
+      - devops
+      - stream
+      - get_pipelines_manual_trigger_info
+      - --projectId
+      - git_12345
+      - --pipelineId
+      - p-1
+      - --branchName
+      - main
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v4/apigw-user/stream/gitProjects/git_12345/manual
+        - path: data.query.pipelineId
+          equals: p-1
+        - path: data.query.branchName
+          equals: main

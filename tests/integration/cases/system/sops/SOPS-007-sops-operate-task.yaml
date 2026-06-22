@@ -1,0 +1,45 @@
+id: SOPS-007
+name: sops operate_task happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: operate task
+    command:
+      - sops
+      - operate_task
+      - --bk_biz_id
+      - "2"
+      - --task_id
+      - "100"
+      - --action
+      - pause
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.body.action
+          equals: pause

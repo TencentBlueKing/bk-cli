@@ -1,0 +1,48 @@
+id: JOB-001
+name: job get_job_instance_status happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get job instance status
+    command:
+      - job
+      - get_job_instance_status
+      - --bk_biz_id
+      - "2"
+      - --job_instance_id
+      - "100"
+      - --return_ip_result
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.query.bk_biz_id
+          equals: "2"
+        - path: data.query.job_instance_id
+          equals: "100"
+        - path: data.query.return_ip_result
+          equals: "true"

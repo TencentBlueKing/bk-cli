@@ -1,0 +1,60 @@
+id: DEVOPS-002
+name: devops pipeline get_build_list happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get build list
+    command:
+      - devops
+      - pipeline
+      - get_build_list
+      - --projectId
+      - demo
+      - --pipelineId
+      - pipe-1
+      - --archiveFlag
+      - "true"
+      - --page
+      - "2"
+      - --pageSize
+      - "5"
+      - --status
+      - SUCCEED
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v4/apigw-user/projects/demo/build_histories
+        - path: data.query.archiveFlag
+          equals: "true"
+        - path: data.query.pipelineId
+          equals: pipe-1
+        - path: data.query.page
+          equals: "2"
+        - path: data.query.pageSize
+          equals: "5"

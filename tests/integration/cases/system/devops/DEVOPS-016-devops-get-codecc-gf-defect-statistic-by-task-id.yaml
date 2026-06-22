@@ -1,0 +1,50 @@
+id: DEVOPS-016
+name: devops codecc get_gf_defect_statistic_by_task_id happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_gf_defect_statistic_by_task_id
+    command:
+      - devops
+      - codecc
+      - get_gf_defect_statistic_by_task_id
+      - --taskId
+      - "123456789"
+      - --buildId
+      - b-1
+      - --dimension
+      - CCN
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/apigw-user/codecc/gongfeng/task/defect/statistic
+        - path: data.query.taskId
+          equals: "123456789"
+        - path: data.query.dimension
+          equals: CCN

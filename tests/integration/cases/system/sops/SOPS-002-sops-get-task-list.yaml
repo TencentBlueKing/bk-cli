@@ -1,0 +1,51 @@
+id: SOPS-002
+name: sops get_task_list happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get task list
+    command:
+      - sops
+      - get_task_list
+      - --bk_biz_id
+      - "2"
+      - --keyword
+      - deploy
+      - --limit
+      - "50"
+      - --offset
+      - "10"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.query.keyword
+          equals: deploy
+        - path: data.query.limit
+          equals: "50"
+        - path: data.query.offset
+          equals: "10"

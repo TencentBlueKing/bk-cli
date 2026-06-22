@@ -1,0 +1,51 @@
+id: SOPS-005
+name: sops create_task happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: create task
+    command:
+      - sops
+      - create_task
+      - --bk_biz_id
+      - "2"
+      - --template_id
+      - "100"
+      - --name
+      - deploy-v1
+      - --constants
+      - '{"deploy_key":"value"}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.body.name
+          equals: deploy-v1
+        - path: data.body.flow_type
+          equals: common
+        - path: data.body.constants.deploy_key
+          equals: value

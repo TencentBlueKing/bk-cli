@@ -1,0 +1,50 @@
+id: DEVOPS-006
+name: devops pipeline get_artifactory_user_download_url happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: get_artifactory_user_download_url
+    command:
+      - devops
+      - pipeline
+      - get_artifactory_user_download_url
+      - --projectId
+      - demo
+      - --artifactoryType
+      - PIPELINE
+      - --path
+      - dist/app.tar.gz
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /devops/prod/v4/apigw-user/projects/demo/artifactories/user_download_url
+        - path: data.query.artifactoryType
+          equals: PIPELINE
+        - path: data.query.path
+          equals: dist/app.tar.gz

@@ -1,0 +1,57 @@
+---
+id: BCS-031
+name: bcs cluster_manager delete_template_config happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: delete_template_config
+  command:
+  - bcs
+  - cluster_manager
+  - delete_template_config
+  - "--templateConfigID"
+  - template-config-id
+  - "--businessID"
+  - business-id
+  - "--projectID"
+  - project-id
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: DELETE
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v1/templateconfigs/template-config-id"
+    - path: data.query.businessID
+      equals: business-id
+    - path: data.body
+      kind: 'null'

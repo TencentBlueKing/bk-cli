@@ -1,0 +1,4 @@
+bk_api_url_tmpl: "http://httpbin/{gateway_name}"
+tenant_id: "integration-tenant"
+user_key: "bk_token"
+timeout: 30s

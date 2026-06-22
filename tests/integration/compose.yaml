@@ -1,0 +1,53 @@
+services:
+  httpbin:
+    image: kennethreitz/httpbin:latest@sha256:599fe5e5073102dbb0ee3dbb65f049dab44fa9fc251f6835c9990f8fb196a72b
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/80 && printf \"GET /get HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && head -n 1 <&3 | grep \"200\" >/dev/null'",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  mock_api:
+    build:
+      context: ${REPO_ROOT}
+      dockerfile: tests/integration/mock_api/Dockerfile
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2).read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  test:
+    build:
+      context: ${REPO_ROOT}
+      dockerfile: tests/integration/runner/Dockerfile
+    depends_on:
+      httpbin:
+        condition: service_healthy
+      mock_api:
+        condition: service_healthy
+    environment:
+      BK_CLI_BIN: ${BK_CLI_BIN:-/workspace/bin/bk-cli}
+      CASE: ${CASE:-}
+      CASES_DIR: ${CASES_DIR:-/workspace/tests/integration/cases}
+      FIXTURES_DIR: ${FIXTURES_DIR:-/workspace/tests/integration/fixtures}
+      REPORT_DIR: ${REPORT_DIR:-/workspace/tests/integration/artifacts/latest}
+      RUNNER_BIN: ${RUNNER_BIN:-/workspace/bin/bk-cli-int}
+      SCENARIO: ${SCENARIO:-}
+    env_file:
+      - ./fixtures/env/common.env
+    volumes:
+      - ${REPO_ROOT}:/workspace
+    working_dir: /workspace

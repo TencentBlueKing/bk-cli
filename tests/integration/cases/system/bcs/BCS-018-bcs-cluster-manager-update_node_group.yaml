@@ -1,0 +1,53 @@
+---
+id: BCS-018
+name: bcs cluster_manager update_node_group happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - "--bk_api_url_tmpl"
+  - "${MOCK_API_BASE_URL}/{gateway_name}"
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - "--access_token"
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: update_node_group
+  command:
+  - bcs
+  - cluster_manager
+  - update_node_group
+  - "--nodeGroupID"
+  - node-group-id
+  - "--body"
+  - '{"desc":"string","name":"string","tags":{"key":"string"}}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: status
+      equals: 200
+    - path: data.gateway
+      equals: bcs-api-gateway
+    - path: data.method
+      equals: PUT
+    - path: data.path
+      contains: "/bcs-api-gateway/prod/clustermanager/v1/nodegroup/node-group-id"
+    - path: data.body
+      kind: map

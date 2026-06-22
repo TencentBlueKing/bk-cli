@@ -1,0 +1,55 @@
+id: JOB-005
+name: job fast_execute_script happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: fast execute script
+    command:
+      - job
+      - fast_execute_script
+      - --bk_biz_id
+      - "2"
+      - --script_content
+      - echo hello
+      - --script_language
+      - shell
+      - --account_alias
+      - root
+      - --target_server
+      - '{"host_id_list":[1]}'
+      - --task_name
+      - integration-script
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.body.script_language
+          equals: 1
+        - path: data.body.script_content
+          equals: ZWNobyBoZWxsbw==
+        - path: data.body.task_name
+          equals: integration-script

@@ -1,0 +1,56 @@
+id: AUTH-002
+name: auth check requires credentials
+tags:
+  - coverage-auth
+  - suite-integration
+steps:
+  - name: init default context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${HTTPBIN_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: auth check without login
+    command:
+      - auth
+      - check
+    expect:
+      exit_code: nonzero
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: no_credentials
+        - path: error.message
+          contains: No credentials
+  - name: login with access token
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: auth check after login
+    command:
+      - auth
+      - check
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.context
+          equals: default
+        - path: data.credential_type
+          equals: access_token
+        - path: data.has_credentials
+          equals: true

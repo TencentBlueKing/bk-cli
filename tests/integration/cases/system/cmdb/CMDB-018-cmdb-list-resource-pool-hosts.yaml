@@ -1,0 +1,49 @@
+id: CMDB-018
+name: cmdb list_resource_pool_hosts happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: list resource pool hosts
+    command:
+      - cmdb
+      - list_resource_pool_hosts
+      - --host_ips
+      - 10.0.0.1
+      - --fields
+      - bk_host_id,bk_host_innerip
+      - --start
+      - "0"
+      - --limit
+      - "100"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.count
+          equals: 2
+        - path: data.echo.body.page.limit
+          equals: 100

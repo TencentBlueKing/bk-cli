@@ -1,0 +1,44 @@
+id: CMDB-NEG-002
+name: cmdb delete_host upstream failure
+tags:
+  - coverage-system_go
+  - suite-integration
+  - uses-mock
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: delete host with mock failure
+    command:
+      - cmdb
+      - delete_host
+      - --bk_host_ids
+      - 100,200
+      - --header
+      - X-Mock-Scenario:CMDB-NEG-002
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 400
+        - path: data.error
+          equals: delete_rejected
