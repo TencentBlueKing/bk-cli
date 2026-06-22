@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.7] - 2026-06-22
+
+### Bug Fixes
+
+- move to github and refactor the ci for github actions
+- fix ci fails
+
 ## [0.2.6] - 2026-06-11
 
 ### Features
