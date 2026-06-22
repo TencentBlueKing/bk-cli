@@ -1,0 +1,28 @@
+{
+  "name": "@blueking/bk-cli",
+  "version": "0.2.6",
+  "description": "BlueKing CLI - agent-first CLI for BlueKing APIs",
+  "bin": {
+    "bk-cli": "scripts/run.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT",
+  "files": [
+    "scripts/install.js",
+    "scripts/run.js"
+  ]
+}

@@ -37,6 +37,7 @@ docs/reviews
 tmp
 node_modules
 package.json
+!npm/package.json
 package-lock.json
 specs.bk
 bk_te_domain
