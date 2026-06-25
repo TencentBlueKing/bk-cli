@@ -1,5 +1,3 @@
-# bk-cli
-
 ![img](docs/resource/img/bk_cli.png)
 
 [![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://github.com/TencentBlueKing/bk-cli/blob/main/LICENSE.txt) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/TencentBlueKing/bk-cli/pulls)
