@@ -20,6 +20,7 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"os"
 
@@ -34,12 +35,16 @@ var (
 	buildTime = "unknown"
 )
 
+//go:embed skills/*/SKILL.md skills/*/references/*
+var skillsFS embed.FS
+
 func main() {
 	cmd.SetBuildInfo(cmd.BuildInfo{
 		Version:   version,
 		CommitID:  commitID,
 		BuildTime: buildTime,
 	})
+	cmd.SetSkillsFS(skillsFS)
 	if err := cmd.Execute(); err != nil {
 		var cliErr *output.CLIError
 		if errors.As(err, &cliErr) {

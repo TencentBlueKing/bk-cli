@@ -16,6 +16,7 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes
 - **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
+- **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
 
