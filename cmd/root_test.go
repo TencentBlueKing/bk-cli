@@ -150,6 +150,9 @@ var _ = Describe("version command", func() {
 		)
 		Expect(out.String()).To(ContainSubstring("help        [root] Help about any command"))
 		Expect(out.String()).To(
+			ContainSubstring("skills      [root] Read embedded bk-cli skill content (list / read)"),
+		)
+		Expect(out.String()).To(
 			ContainSubstring(
 				"apigateway  [system] BlueKing API Gateway management - discover gateways and APIs",
 			),

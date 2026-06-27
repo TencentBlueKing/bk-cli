@@ -48,7 +48,17 @@ bk-cli --help
 
 ### 安装 SKILL (建议)
 
-建议给使用 `bk-cli` 的 agent 安装 skills
+`bk-cli` 二进制已经内置随当前版本发布的 skills，agent 可以直接读取：
+
+```
+bk-cli skills list
+bk-cli skills read bk-cli-shared
+bk-cli skills read bk-cli-shared/references/api-debug.md
+```
+
+`skills list` 输出 JSON，适合 agent 先发现有哪些 skill；`skills read` 默认输出原始 Markdown，适合直接读取 `SKILL.md` 或 reference 文件。
+
+如果 agent 运行环境需要把这些 skills 安装到独立的技能系统中，也可以从仓库安装。
 
 必装 skills:
 
