@@ -61,17 +61,28 @@ var _ = Describe("ResolveBizHosts", func() {
 
 		var body map[string]any
 		Expect(json.Unmarshal([]byte(spec.BodyJSON), &body)).To(Succeed())
-		Expect(body["fields"]).To(ContainElements("bk_host_id", "bk_host_innerip", "bk_cloud_id", "bk_host_name"))
+		Expect(
+			body["fields"],
+		).To(
+			ContainElements("bk_host_id", "bk_host_innerip", "bk_cloud_id", "bk_host_name"),
+		)
 		Expect(body).To(HaveKey("host_property_filter"))
 	})
 
 	It("resolves all requested hosts", func() {
 		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
 			Expect(r.URL.Path).To(Equal("/bk-cmdb/prod/api/v3/open/hosts/app/2/list_hosts"))
-			_, _ = w.Write([]byte(`{"count":2,"info":[{"bk_host_id":101,"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"},{"bk_host_id":102,"bk_host_innerip":"10.0.0.2","bk_cloud_id":27,"bk_host_name":"host-102"}]}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"count":2,"info":[{"bk_host_id":101,"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"},{"bk_host_id":102,"bk_host_innerip":"10.0.0.2","bk_cloud_id":27,"bk_host_name":"host-102"}]}`,
+				),
+			)
 		})
 
-		result, err := ResolveBizHosts(runtime, ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1,27:10.0.0.2", Stage: "prod"})
+		result, err := ResolveBizHosts(
+			runtime,
+			ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1,27:10.0.0.2", Stage: "prod"},
+		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.HostIDs).To(Equal([]int64{101, 102}))
 		Expect(result.Hosts).To(HaveLen(2))
@@ -87,15 +98,26 @@ var _ = Describe("ResolveBizHosts", func() {
 
 	It("fails when only some requested hosts match", func() {
 		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(`{"count":1,"info":[{"bk_host_id":101,"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"}]}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"count":1,"info":[{"bk_host_id":101,"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"}]}`,
+				),
+			)
 		})
-		_, err := ResolveBizHosts(runtime, ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1,10.0.0.2", Stage: "prod"})
+		_, err := ResolveBizHosts(
+			runtime,
+			ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1,10.0.0.2", Stage: "prod"},
+		)
 		Expect(err).To(MatchError(ContainSubstring("only resolved 1 of 2 requested hosts")))
 	})
 
 	It("fails when a host entry omits bk_host_id", func() {
 		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(`{"count":1,"info":[{"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"}]}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"count":1,"info":[{"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"}]}`,
+				),
+			)
 		})
 		_, err := ResolveBizHosts(runtime, ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1", Stage: "prod"})
 		Expect(err).To(MatchError(ContainSubstring("without bk_host_id")))
