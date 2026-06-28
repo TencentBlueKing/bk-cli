@@ -221,12 +221,8 @@ func ResolveBizHosts(runtime *syslib.Runtime, input ResolveBizHostsInput) (*Reso
 			"Check --hosts and --biz",
 		)
 	}
-	if len(hosts) != len(requested) {
-		return nil, output.UserError(
-			"invalid_argument",
-			fmt.Sprintf("only resolved %d of %d requested hosts", len(hosts), len(requested)),
-			"Check --hosts and rerun without missing hosts",
-		)
+	if err := validateResolvedHosts(requested, hosts); err != nil {
+		return nil, err
 	}
 	return &ResolveBizHostsResult{
 		Requested: requested,
@@ -234,6 +230,39 @@ func ResolveBizHosts(runtime *syslib.Runtime, input ResolveBizHostsInput) (*Reso
 		HostIDs:   hostIDs,
 		Envelope:  result.Envelope,
 	}, nil
+}
+
+func validateResolvedHosts(requested []HostIP, hosts []Host) error {
+	requestedSet := make(map[string]struct{}, len(requested))
+	for _, item := range requested {
+		requestedSet[hostKey(item.CloudID, item.IP)] = struct{}{}
+	}
+
+	resolvedSet := make(map[string]struct{}, len(hosts))
+	for _, host := range hosts {
+		key := hostKey(host.CloudID, host.IP)
+		if _, ok := requestedSet[key]; !ok {
+			return output.UserError(
+				"invalid_argument",
+				"cmdb returned an unexpected host "+key,
+				"Check --hosts and --biz",
+			)
+		}
+		resolvedSet[key] = struct{}{}
+	}
+
+	if len(resolvedSet) != len(requestedSet) {
+		return output.UserError(
+			"invalid_argument",
+			fmt.Sprintf("only resolved %d of %d requested hosts", len(resolvedSet), len(requestedSet)),
+			"Check --hosts and rerun without missing hosts",
+		)
+	}
+	return nil
+}
+
+func hostKey(cloudID int, ip string) string {
+	return fmt.Sprintf("%d:%s", cloudID, ip)
 }
 
 func parseHostIPToken(token string) (HostIP, error) {

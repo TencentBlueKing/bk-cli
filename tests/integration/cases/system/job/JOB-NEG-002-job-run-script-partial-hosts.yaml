@@ -1,5 +1,5 @@
 id: JOB-NEG-002
-name: job +run-script rejects partial host resolution
+name: job +run-script rejects partial cloud-aware host resolution
 tags:
   - coverage-system_go
   - suite-integration
@@ -26,14 +26,14 @@ steps:
       checks:
         - path: ok
           equals: true
-  - name: run script shortcut with missing host
+  - name: run script shortcut with wrong cloud host
     command:
       - job
       - +run-script
       - --biz
       - "2"
       - --hosts
-      - 10.0.0.1,10.0.0.99
+      - 10.0.0.1,27:10.0.0.2
       - --script_content
       - echo hello
     expect:

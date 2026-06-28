@@ -111,6 +111,21 @@ var _ = Describe("ResolveBizHosts", func() {
 		Expect(err).To(MatchError(ContainSubstring("only resolved 1 of 2 requested hosts")))
 	})
 
+	It("fails when CMDB returns a host from a different cloud area", func() {
+		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write(
+				[]byte(
+					`{"count":1,"info":[{"bk_host_id":102,"bk_host_innerip":"10.0.0.2","bk_cloud_id":0,"bk_host_name":"host-102"}]}`,
+				),
+			)
+		})
+		_, err := ResolveBizHosts(
+			runtime,
+			ResolveBizHostsInput{BizID: 2, Hosts: "27:10.0.0.2", Stage: "prod"},
+		)
+		Expect(err).To(MatchError(ContainSubstring("cmdb returned an unexpected host 0:10.0.0.2")))
+	})
+
 	It("fails when a host entry omits bk_host_id", func() {
 		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(
