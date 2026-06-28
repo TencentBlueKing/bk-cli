@@ -19,6 +19,7 @@
 package cmdb
 
 import (
+	"io"
 	"os"
 
 	json "github.com/goccy/go-json"
@@ -72,7 +73,31 @@ var _ = Describe("cmdb list_biz_hosts", func() {
 		Expect(cmd.Flags().Set("bk_biz_id", "2")).To(Succeed())
 		Expect(cmd.Flags().Set("host_ips", "10.0.0.1,bad-token")).To(Succeed())
 
-		err := cmd.RunE(cmd, nil)
+		stderr, err := captureStderr(func() error {
+			return cmd.RunE(cmd, nil)
+		})
 		Expect(err).To(MatchError(ContainSubstring("host_ips contains an invalid host entry")))
+		Expect(stderr).To(ContainSubstring(`"hint": "Use --host_ips 10.0.0.1,27:10.0.0.2"`))
 	})
 })
+
+func captureStderr(run func() error) (string, error) {
+	originalStderr := os.Stderr
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		return "", err
+	}
+	os.Stderr = writer
+
+	runErr := run()
+
+	_ = writer.Close()
+	os.Stderr = originalStderr
+
+	output, readErr := io.ReadAll(reader)
+	_ = reader.Close()
+	if readErr != nil {
+		return "", readErr
+	}
+	return string(output), runErr
+}

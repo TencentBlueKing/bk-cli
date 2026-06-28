@@ -18,22 +18,4 @@
 
 package job
 
-import (
-	"strconv"
-
-	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
-)
-
 const gatewayName = "bk-job"
-
-func buildBizScopePayload(bizID int) map[string]any {
-	return map[string]any{
-		"bk_scope_type": "biz",
-		"bk_scope_id":   strconv.Itoa(bizID),
-		"bk_biz_id":     bizID,
-	}
-}
-
-func validateBizID(bizID int) error {
-	return systemcmd.ValidatePositiveIntFlag("bk_biz_id", bizID)
-}

@@ -115,6 +115,30 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
         return jsonify(data), status
 
+    def host_filter_groups(host_filter: dict[str, Any]) -> list[tuple[int, set[str]]]:
+        rules = host_filter.get("rules") or []
+        direct_ips: set[str] = set()
+        direct_cloud_id: int | None = None
+        nested_groups: list[tuple[int, set[str]]] = []
+
+        for rule in rules:
+            nested_rules = rule.get("rules") or []
+            if nested_rules:
+                nested_groups.extend(host_filter_groups(rule))
+                continue
+
+            if rule.get("field") == "bk_host_innerip":
+                direct_ips.update(rule.get("value") or [])
+            if rule.get("field") == "bk_cloud_id":
+                try:
+                    direct_cloud_id = int(rule.get("value"))
+                except (TypeError, ValueError):
+                    direct_cloud_id = None
+
+        if direct_ips and direct_cloud_id is not None:
+            return [(direct_cloud_id, direct_ips)]
+        return nested_groups
+
     @app.get("/healthz")
     def healthz():
         return jsonify({"ok": True, "service": "mock_api"})
@@ -246,9 +270,21 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     "bk_host_name": "host-102",
                 },
             ]
+            host_filter = payload.get("host_property_filter") or {}
+            requested_groups = host_filter_groups(host_filter)
+            total_count = len(hosts)
+            if requested_groups:
+                hosts = [
+                    host
+                    for host in hosts
+                    if any(
+                        host["bk_cloud_id"] == cloud_id and host["bk_host_innerip"] in ips
+                        for cloud_id, ips in requested_groups
+                    )
+                ]
             return jsonify(
                 {
-                    "count": len(hosts),
+                    "count": total_count,
                     "info": hosts[start : start + limit],
                     "echo": echo_payload(gateway, stage, tail),
                 }
