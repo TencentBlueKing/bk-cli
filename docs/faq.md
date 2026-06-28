@@ -10,6 +10,14 @@
 
 另外，需要确保 `bk-cli` 安装所在机器能访问对应环境的网关地址。
 
+如果不确定当前机器是否配置正确，可以先运行：
+
+```
+bk-cli doctor
+```
+
+它会检查本地 context、当前选中的 context、登录凭据摘要、`bk_api_url_tmpl` 渲染结果和网关连通性。只想看本地状态、不做网络探测时，使用 `bk-cli doctor --offline`。
+
 ## 安装
 
 ## SKILLs

@@ -15,6 +15,7 @@
 
 - `context` 用来保存“你连哪个环境或账号 (隔离)
 - `auth` 用来保存“你用什么凭据访问”
+- `doctor` 用来排查当前 context、凭据、URL 渲染和网关连通性
 - `api` 是最通用的兜底方式
 - system 子命令更省心，适合常见操作
 
@@ -43,6 +44,7 @@ make install
 
 ```
 bk-cli version
+bk-cli doctor --offline
 bk-cli --help
 ```
 
@@ -181,9 +183,11 @@ bk-cli auth login --access_token="your_access_token"
 ```
 bk-cli auth status
 bk-cli auth check
+bk-cli doctor
 ```
 
 `auth status` 用来看当前 context 是否已有凭据，`auth check` 更适合脚本里做 fail-fast。
+`doctor` 适合排查当前机器上的 context 列表、选中的 context、凭据类型、脱敏票据、URL 模板渲染结果和网关连通性。
 
 ### 第三步：先发一个原始 API 请求
 
@@ -253,6 +257,10 @@ bk-cli auth status
 
 # 脚本里检查是否已登录
 bk-cli auth check
+
+# 排查 context、凭据、URL 渲染和网关连通性
+bk-cli doctor
+bk-cli doctor --offline
 
 # 删除当前环境凭据
 bk-cli auth logout

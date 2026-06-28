@@ -122,6 +122,7 @@ Rules that should stay true:
 | `cmd/auth` | `auth login/status/check/logout` |
 | `cmd/api` | Raw API command |
 | `cmd/context` | Context lifecycle commands |
+| `cmd/doctor.go` | Root-level environment diagnostics command |
 | `cmd/update` | Self-update command |
 | `cmd/system` | Public system commands plus YAML/Go action registration |
 | `cmd/system/testutil` | Shared helpers for system command tests |
@@ -134,6 +135,7 @@ Rules that should stay true:
 - `api`
 - `completion`
 - `context`
+- `doctor`
 - `help`
 - `update`
 - `version`
