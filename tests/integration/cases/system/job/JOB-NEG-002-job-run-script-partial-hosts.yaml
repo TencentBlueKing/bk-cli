@@ -1,0 +1,45 @@
+id: JOB-NEG-002
+name: job +run-script rejects partial host resolution
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: run script shortcut with missing host
+    command:
+      - job
+      - +run-script
+      - --biz
+      - "2"
+      - --hosts
+      - 10.0.0.1,10.0.0.99
+      - --script_content
+      - echo hello
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: invalid_argument

@@ -1,0 +1,55 @@
+id: JOB-007
+name: job +run-script shortcut happy path
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: run script shortcut
+    command:
+      - job
+      - +run-script
+      - --biz
+      - "2"
+      - --hosts
+      - 10.0.0.1
+      - --script_content
+      - echo hello
+      - --script_language
+      - shell
+      - --account_alias
+      - root
+      - --task_name
+      - integration-shortcut
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.body.target_server.host_id_list.0
+          equals: 101
+        - path: data.body.script_content
+          equals: ZWNobyBoZWxsbw==
+        - path: data.body.task_name
+          equals: integration-shortcut

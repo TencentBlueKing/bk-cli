@@ -246,6 +246,17 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     "bk_host_name": "host-102",
                 },
             ]
+            requested_ips = set()
+            host_filter = payload.get("host_property_filter") or {}
+            filter_rules = host_filter.get("rules") or []
+            for rule in filter_rules:
+                if rule.get("field") == "bk_host_innerip":
+                    requested_ips.update(rule.get("value") or [])
+                for nested in rule.get("rules") or []:
+                    if nested.get("field") == "bk_host_innerip":
+                        requested_ips.update(nested.get("value") or [])
+            if requested_ips:
+                hosts = [host for host in hosts if host["bk_host_innerip"] in requested_ips]
             return jsonify(
                 {
                     "count": len(hosts),
