@@ -336,9 +336,16 @@ bk-cli job fast_execute_script \
   --script_content "echo hello" \
   --target_server '{"host_id_list":[1]}'
 
+bk-cli job +run-script \
+  --biz 2 \
+  --hosts 10.0.0.1,27:10.0.0.2 \
+  --script_content "echo hello"
+
 bk-cli bcs cluster_manager update_cluster --clusterID BCS-K8S-12345 \
   --body '{"clusterID":"BCS-K8S-12345"}'
 ```
+
+`job +run-script` 是快捷指令，会先用 CMDB 将 IP 解析为主机 ID，再调用 Job 快速执行脚本；如果你已经有 `target_server` JSON，仍可直接使用 `job fast_execute_script`。
 
 建议习惯性地先看帮助：
 
