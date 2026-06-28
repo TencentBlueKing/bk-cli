@@ -38,6 +38,8 @@ const GatewayName = "bk-cmdb"
 
 var defaultHostFields = []string{"bk_host_id", "bk_host_innerip", "bk_cloud_id", "bk_host_name"}
 
+const defaultHostsUsageHint = "--hosts 10.0.0.1,27:10.0.0.2"
+
 type HostIP struct {
 	IP      string
 	CloudID int
@@ -67,6 +69,11 @@ type ResolveBizHostsResult struct {
 
 // ParseHostIPs parses the shared CMDB host token grammar into distinct cloud/IP pairs.
 func ParseHostIPs(raw string) ([]HostIP, error) {
+	return ParseHostIPsWithHint(raw, defaultHostsUsageHint)
+}
+
+// ParseHostIPsWithHint parses the shared CMDB host token grammar into distinct cloud/IP pairs.
+func ParseHostIPsWithHint(raw, usageHint string) ([]HostIP, error) {
 	tokens := strings.FieldsFunc(raw, func(r rune) bool {
 		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' '
 	})
@@ -74,7 +81,7 @@ func ParseHostIPs(raw string) ([]HostIP, error) {
 		return nil, output.UserError(
 			"invalid_argument",
 			"host_ips must include at least one host entry",
-			"Use --hosts 10.0.0.1,27:10.0.0.2",
+			"Use "+usageHint,
 		)
 	}
 	hostIPs := make([]HostIP, 0, len(tokens))
@@ -85,7 +92,7 @@ func ParseHostIPs(raw string) ([]HostIP, error) {
 			return nil, output.UserError(
 				"invalid_argument",
 				fmt.Sprintf("host_ips contains an invalid host entry %q", token),
-				"Use --hosts 10.0.0.1,27:10.0.0.2",
+				"Use "+usageHint,
 			)
 		}
 		key := fmt.Sprintf("%d:%s", hostIP.CloudID, hostIP.IP)
@@ -280,6 +287,13 @@ func parseHostsEnvelope(env *output.Envelope) ([]Host, error) {
 	hosts := make([]Host, 0, len(payload.Info))
 	seen := make(map[int64]struct{}, len(payload.Info))
 	for _, item := range payload.Info {
+		if item.ID <= 0 {
+			return nil, output.SystemError(
+				"response_error",
+				"cmdb host lookup response contains a host entry without bk_host_id",
+				"",
+			)
+		}
 		if _, ok := seen[item.ID]; ok {
 			continue
 		}

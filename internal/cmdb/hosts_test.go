@@ -92,6 +92,14 @@ var _ = Describe("ResolveBizHosts", func() {
 		_, err := ResolveBizHosts(runtime, ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1,10.0.0.2", Stage: "prod"})
 		Expect(err).To(MatchError(ContainSubstring("only resolved 1 of 2 requested hosts")))
 	})
+
+	It("fails when a host entry omits bk_host_id", func() {
+		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"count":1,"info":[{"bk_host_innerip":"10.0.0.1","bk_cloud_id":0,"bk_host_name":"host-101"}]}`))
+		})
+		_, err := ResolveBizHosts(runtime, ResolveBizHostsInput{BizID: 2, Hosts: "10.0.0.1", Stage: "prod"})
+		Expect(err).To(MatchError(ContainSubstring("without bk_host_id")))
+	})
 })
 
 func setupCMDBRuntime(handler http.HandlerFunc) *syslib.Runtime {

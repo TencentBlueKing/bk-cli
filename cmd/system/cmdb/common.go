@@ -20,7 +20,6 @@
 package cmdb
 
 import (
-	"maps"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -114,23 +113,15 @@ func buildHostQueryBody(
 		return "", err
 	}
 
-	payload := map[string]any{
-		"fields": fields,
-		"page": map[string]int{
-			"start": start,
-			"limit": limit,
-		},
-	}
-	maps.Copy(payload, extra)
+	var hostIPs []internalcmdb.HostIP
 	if strings.TrimSpace(hostIPsRaw) != "" {
-		hostIPs, err := internalcmdb.ParseHostIPs(hostIPsRaw)
+		parsedHostIPs, err := internalcmdb.ParseHostIPsWithHint(hostIPsRaw, "--host_ips 10.0.0.1,27:10.0.0.2")
 		if err != nil {
 			return "", err
 		}
-		payload["host_property_filter"] = internalcmdb.BuildHostPropertyFilter(hostIPs)
+		hostIPs = parsedHostIPs
 	}
-
-	return systemcmd.MarshalJSON(payload)
+	return internalcmdb.BuildHostQueryBody(fields, start, limit, hostIPs, extra)
 }
 
 func buildTransferHostsToSingleTargetBody(bodyOverride string, bizID int, hostIDsCSV string) (string, error) {
@@ -269,7 +260,7 @@ func newTransferHostsToSingleTargetCmd(
 }
 
 func parseHostIPs(raw string) ([]hostIP, error) {
-	return internalcmdb.ParseHostIPs(raw)
+	return internalcmdb.ParseHostIPsWithHint(raw, "--host_ips 10.0.0.1,27:10.0.0.2")
 }
 
 func buildHostPropertyFilter(hostIPs []hostIP) map[string]any {
