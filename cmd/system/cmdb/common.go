@@ -20,14 +20,12 @@
 package cmdb
 
 import (
-	"fmt"
 	"maps"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	internalcmdb "github.com/TencentBlueKing/bk-cli/internal/cmdb"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
@@ -36,10 +34,7 @@ import (
 
 const gatewayName = "bk-cmdb"
 
-type hostIP struct {
-	IP      string
-	CloudID int
-}
+type hostIP = internalcmdb.HostIP
 
 type hostListCommandSpec struct {
 	Name          string
@@ -128,11 +123,11 @@ func buildHostQueryBody(
 	}
 	maps.Copy(payload, extra)
 	if strings.TrimSpace(hostIPsRaw) != "" {
-		hostIPs, err := parseHostIPs(hostIPsRaw)
+		hostIPs, err := internalcmdb.ParseHostIPs(hostIPsRaw)
 		if err != nil {
 			return "", err
 		}
-		payload["host_property_filter"] = buildHostPropertyFilter(hostIPs)
+		payload["host_property_filter"] = internalcmdb.BuildHostPropertyFilter(hostIPs)
 	}
 
 	return systemcmd.MarshalJSON(payload)
@@ -274,113 +269,9 @@ func newTransferHostsToSingleTargetCmd(
 }
 
 func parseHostIPs(raw string) ([]hostIP, error) {
-	tokens := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' '
-	})
-	if len(tokens) == 0 {
-		return nil, output.UserError(
-			"invalid_argument",
-			"host_ips must include at least one host entry",
-			"Use --host_ips 10.0.0.1,27:10.0.0.2",
-		)
-	}
-
-	hostIPs := make([]hostIP, 0, len(tokens))
-	seen := make(map[string]struct{}, len(tokens))
-	for _, token := range tokens {
-		hostIP, err := parseHostIPToken(token)
-		if err != nil {
-			return nil, output.UserError(
-				"invalid_argument",
-				fmt.Sprintf("host_ips contains an invalid host entry %q", token),
-				"Use --host_ips 10.0.0.1,27:10.0.0.2",
-			)
-		}
-		key := fmt.Sprintf("%d:%s", hostIP.CloudID, hostIP.IP)
-		if _, exists := seen[key]; exists {
-			continue
-		}
-		seen[key] = struct{}{}
-		hostIPs = append(hostIPs, hostIP)
-	}
-
-	return hostIPs, nil
-}
-
-func parseHostIPToken(token string) (hostIP, error) {
-	if strings.Count(token, ":") == 0 {
-		if !utils.IsIPv4(token) {
-			return hostIP{}, fmt.Errorf("invalid IP")
-		}
-		return hostIP{IP: token, CloudID: 0}, nil
-	}
-	if strings.Count(token, ":") != 1 {
-		return hostIP{}, fmt.Errorf("invalid cloud:ip format")
-	}
-
-	parts := strings.SplitN(token, ":", 2)
-	cloudID, err := strconv.Atoi(parts[0])
-	if err != nil || cloudID < 0 {
-		return hostIP{}, fmt.Errorf("invalid cloud ID")
-	}
-	if !utils.IsIPv4(parts[1]) {
-		return hostIP{}, fmt.Errorf("invalid IP")
-	}
-	return hostIP{IP: parts[1], CloudID: cloudID}, nil
+	return internalcmdb.ParseHostIPs(raw)
 }
 
 func buildHostPropertyFilter(hostIPs []hostIP) map[string]any {
-	groups := make(map[int][]string, len(hostIPs))
-	for _, hostIP := range hostIPs {
-		groups[hostIP.CloudID] = append(groups[hostIP.CloudID], hostIP.IP)
-	}
-
-	cloudIDs := make([]int, 0, len(groups))
-	for cloudID := range groups {
-		cloudIDs = append(cloudIDs, cloudID)
-	}
-	sort.Ints(cloudIDs)
-
-	if len(cloudIDs) == 1 {
-		cloudID := cloudIDs[0]
-		return map[string]any{
-			"condition": "AND",
-			"rules": []map[string]any{
-				{
-					"field":    "bk_host_innerip",
-					"operator": "in",
-					"value":    groups[cloudID],
-				},
-				{
-					"field":    "bk_cloud_id",
-					"operator": "equal",
-					"value":    cloudID,
-				},
-			},
-		}
-	}
-
-	rules := make([]map[string]any, 0, len(cloudIDs))
-	for _, cloudID := range cloudIDs {
-		rules = append(rules, map[string]any{
-			"condition": "AND",
-			"rules": []map[string]any{
-				{
-					"field":    "bk_host_innerip",
-					"operator": "in",
-					"value":    groups[cloudID],
-				},
-				{
-					"field":    "bk_cloud_id",
-					"operator": "equal",
-					"value":    cloudID,
-				},
-			},
-		})
-	}
-
-	return map[string]any{
-		"condition": "OR",
-		"rules":     rules,
-	}
+	return internalcmdb.BuildHostPropertyFilter(hostIPs)
 }
