@@ -255,11 +255,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 for nested in rule.get("rules") or []:
                     if nested.get("field") == "bk_host_innerip":
                         requested_ips.update(nested.get("value") or [])
+            total_count = len(hosts)
             if requested_ips:
                 hosts = [host for host in hosts if host["bk_host_innerip"] in requested_ips]
             return jsonify(
                 {
-                    "count": len(hosts),
+                    "count": total_count,
                     "info": hosts[start : start + limit],
                     "echo": echo_payload(gateway, stage, tail),
                 }
