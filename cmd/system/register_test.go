@@ -543,6 +543,168 @@ actions:
 		Expect(subsystemGo.Name()).To(Equal("start_build"))
 	})
 
+	It("rejects unknown action names under system command groups", func() {
+		root := &cobra.Command{
+			Use:           "bk-cli",
+			SilenceUsage:  true,
+			SilenceErrors: true,
+		}
+		yamlFS := fstest.MapFS{
+			"demo/actions.yaml": {
+				Data: []byte(`
+name: demo
+gateway_name: bk-demo
+description: "Demo service"
+actions:
+  - name: list_items
+    description: "List items"
+    method: GET
+    path: "/api/v1/items/"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+`),
+			},
+		}
+
+		err := registerSystemSpecs(root, []systemcmd.SystemSpec{
+			{
+				Name:        "demo",
+				Description: "Demo service",
+				YAMLFile:    "demo/actions.yaml",
+			},
+		}, testBuildDeps(nil), yamlFS)
+		Expect(err).NotTo(HaveOccurred())
+
+		systemCmd, _, err := root.Find([]string{"demo"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(systemCmd.Args).NotTo(BeNil())
+
+		err = systemCmd.Args(systemCmd, []string{"missing_action"})
+		Expect(err).To(MatchError(ContainSubstring(`unknown command "missing_action" for "bk-cli demo"`)))
+	})
+
+	It("rejects unknown action names under subsystem command groups", func() {
+		root := &cobra.Command{
+			Use:           "bk-cli",
+			SilenceUsage:  true,
+			SilenceErrors: true,
+		}
+		yamlFS := fstest.MapFS{
+			"devops/pipeline/actions.yaml": {
+				Data: []byte(`
+name: pipeline
+gateway_name: devops-pipeline
+description: "Pipeline commands"
+actions:
+  - name: get_build_list
+    method: GET
+    path: "/builds"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: true
+      resourcePermissionRequired: false
+`),
+			},
+		}
+
+		err := registerSystemSpecs(root, []systemcmd.SystemSpec{
+			{
+				Name:        "devops",
+				Description: "DevOps commands",
+				Subsystems: []systemcmd.SystemSpec{
+					{
+						Name:        "pipeline",
+						Description: "Pipeline commands",
+						YAMLFile:    "devops/pipeline/actions.yaml",
+					},
+				},
+			},
+		}, testBuildDeps(nil), yamlFS)
+		Expect(err).NotTo(HaveOccurred())
+
+		subsystemCmd, _, err := root.Find([]string{"devops", "pipeline"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(subsystemCmd.Args).NotTo(BeNil())
+
+		err = subsystemCmd.Args(subsystemCmd, []string{"missing_action"})
+		Expect(
+			err,
+		).To(
+			MatchError(ContainSubstring(`unknown command "missing_action" for "bk-cli devops pipeline"`)),
+		)
+	})
+
+	It("rejects extra positional arguments for YAML actions", func() {
+		root := &cobra.Command{
+			Use:           "bk-cli",
+			SilenceUsage:  true,
+			SilenceErrors: true,
+		}
+		yamlFS := fstest.MapFS{
+			"demo/actions.yaml": {
+				Data: []byte(`
+name: demo
+gateway_name: bk-demo
+description: "Demo service"
+actions:
+  - name: list_items
+    description: "List items"
+    method: GET
+    path: "/api/v1/items/"
+    authConfig:
+      appVerifiedRequired: false
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+`),
+			},
+		}
+
+		err := registerSystemSpecs(root, []systemcmd.SystemSpec{
+			{
+				Name:        "demo",
+				Description: "Demo service",
+				YAMLFile:    "demo/actions.yaml",
+			},
+		}, testBuildDeps(nil), yamlFS)
+		Expect(err).NotTo(HaveOccurred())
+
+		root.SetArgs([]string{"demo", "list_items", "extra"})
+		err = root.Execute()
+		Expect(err).To(MatchError(ContainSubstring(`unknown command "extra" for "bk-cli demo list_items"`)))
+	})
+
+	It("rejects extra positional arguments for Go actions", func() {
+		root := &cobra.Command{
+			Use:           "bk-cli",
+			SilenceUsage:  true,
+			SilenceErrors: true,
+		}
+
+		err := registerSystemSpecs(root, []systemcmd.SystemSpec{
+			{
+				Name:        "logic",
+				Description: "Logic service",
+				RegisterGoActions: func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
+					parent.AddCommand(&cobra.Command{
+						Use:   "orchestrate",
+						Short: "Run orchestration logic",
+						RunE: func(cmd *cobra.Command, args []string) error {
+							return nil
+						},
+					})
+					return nil
+				},
+			},
+		}, testBuildDeps(nil), fstest.MapFS{})
+		Expect(err).NotTo(HaveOccurred())
+
+		root.SetArgs([]string{"logic", "orchestrate", "extra"})
+		err = root.Execute()
+		Expect(err).To(MatchError(ContainSubstring(`unknown command "extra" for "bk-cli logic orchestrate"`)))
+	})
+
 	It("returns an error when a parent YAML action conflicts with a subsystem name", func() {
 		root := &cobra.Command{Use: "bk-cli"}
 		yamlFS := fstest.MapFS{
