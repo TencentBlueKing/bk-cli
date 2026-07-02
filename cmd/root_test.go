@@ -161,4 +161,73 @@ var _ = Describe("version command", func() {
 			ContainSubstring("bk_error_code 9900403 (IAM permission error)"),
 		)
 	})
+
+	It("rejects unknown system action names before help handling", func() {
+		cmd := newRootCmd()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+
+		err := executeRoot(cmd, []string{"sops", "start_taks", "-h"})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(`unknown command "start_taks" for "bk-cli sops"`))
+		Expect(out.String()).NotTo(ContainSubstring("Available Commands:"))
+	})
+
+	It("keeps valid system action help available", func() {
+		cmd := newRootCmd()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+
+		err := executeRoot(cmd, []string{"sops", "start_task", "-h"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.String()).To(ContainSubstring("Start executing a created task"))
+		Expect(out.String()).To(ContainSubstring("--task_id int"))
+	})
+
+	It("allows separated explicit bool values for system action flags", func() {
+		args := []string{
+			"devops",
+			"pipeline",
+			"get_build_list",
+			"--projectId",
+			"demo",
+			"--archiveFlag",
+			"true",
+		}
+
+		cmd := newRootCmd()
+		normalizedArgs := normalizeSystemCommandBoolArgs(cmd, args)
+		Expect(normalizedArgs).To(Equal([]string{
+			"devops",
+			"pipeline",
+			"get_build_list",
+			"--projectId",
+			"demo",
+			"--archiveFlag=true",
+		}))
+
+		Expect(validateSystemCommandArgs(newRootCmd(), normalizedArgs)).To(Succeed())
+	})
+
+	It("still rejects extra args after separated explicit bool values", func() {
+		args := []string{
+			"devops",
+			"pipeline",
+			"get_build_list",
+			"--projectId",
+			"demo",
+			"--archiveFlag",
+			"true",
+			"extra",
+		}
+
+		normalizedArgs := normalizeSystemCommandBoolArgs(newRootCmd(), args)
+		err := validateSystemCommandArgs(newRootCmd(), normalizedArgs)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(
+			`unknown command "extra" for "bk-cli devops pipeline get_build_list"`,
+		))
+	})
 })

@@ -123,6 +123,7 @@ func registerCommandGroups(
 		groupCmd := &cobra.Command{
 			Use:   spec.Name,
 			Short: withSystemCommandPrefix(spec.Description),
+			Args:  cobra.NoArgs,
 		}
 
 		if spec.YAMLFile != "" {
@@ -149,6 +150,8 @@ func registerCommandGroups(
 				return err
 			}
 		}
+
+		setDefaultNoArgs(groupCmd)
 
 		if err := validateUniqueChildCommands(groupCmd, groupName); err != nil {
 			return err
@@ -294,6 +297,7 @@ func buildYAMLActionCmd(
 		Short:   action.Description,
 		Long:    action.Description,
 		Example: examples.String(),
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if bodySchemaHelp {
 				return fmt.Errorf(
@@ -388,4 +392,16 @@ func buildHeaderFlagUsage(inputSpec *syslib.ActionInputSpec) string {
 	}
 
 	return usage + ". YAML header params: " + strings.Join(examples, ", ")
+}
+
+func setDefaultNoArgs(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	if cmd.Args == nil {
+		cmd.Args = cobra.NoArgs
+	}
+	for _, child := range cmd.Commands() {
+		setDefaultNoArgs(child)
+	}
 }

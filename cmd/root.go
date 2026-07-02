@@ -22,9 +22,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 
 	apicmd "github.com/TencentBlueKing/bk-cli/cmd/api"
 	authcmd "github.com/TencentBlueKing/bk-cli/cmd/auth"
@@ -216,5 +218,204 @@ Examples:
 
 // Execute runs the root command.
 func Execute() error {
-	return newRootCmd().Execute()
+	return executeRoot(newRootCmd(), os.Args[1:])
+}
+
+func executeRoot(root *cobra.Command, args []string) error {
+	args = normalizeSystemCommandBoolArgs(root, args)
+	if err := validateSystemCommandArgs(root, args); err != nil {
+		return err
+	}
+
+	root.SetArgs(args)
+	return root.Execute()
+}
+
+func normalizeSystemCommandBoolArgs(root *cobra.Command, args []string) []string {
+	cmd, remainingArgs, err := root.Find(args)
+	if err != nil || !isSystemCommandPath(cmd) || len(remainingArgs) == 0 {
+		return args
+	}
+
+	commandArgsLen := len(args) - len(remainingArgs)
+	if commandArgsLen < 0 || !stringSlicesEqual(args[commandArgsLen:], remainingArgs) {
+		return args
+	}
+
+	normalizedRemainingArgs, changed := normalizeBoolFlagValues(cmd, remainingArgs)
+	if !changed {
+		return args
+	}
+
+	normalizedArgs := make([]string, 0, commandArgsLen+len(normalizedRemainingArgs))
+	normalizedArgs = append(normalizedArgs, args[:commandArgsLen]...)
+	normalizedArgs = append(normalizedArgs, normalizedRemainingArgs...)
+	return normalizedArgs
+}
+
+func normalizeBoolFlagValues(cmd *cobra.Command, args []string) ([]string, bool) {
+	cmd.InitDefaultHelpFlag()
+
+	normalized := make([]string, 0, len(args))
+	changed := false
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			normalized = append(normalized, args[i:]...)
+			break
+		}
+		if strings.HasPrefix(arg, "--") {
+			name, hasValue := splitLongFlag(arg)
+			knownFlag := lookupLongFlag(cmd, name)
+			if hasValue || knownFlag == nil || !isBoolFlag(knownFlag) || i+1 >= len(args) {
+				normalized = append(normalized, arg)
+				continue
+			}
+			if _, err := strconv.ParseBool(args[i+1]); err != nil {
+				normalized = append(normalized, arg)
+				continue
+			}
+
+			normalized = append(normalized, arg+"="+args[i+1])
+			changed = true
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "-") && arg != "-" && len(arg) == 2 {
+			knownFlag := lookupShortFlag(cmd, arg[1:])
+			if knownFlag == nil || !isBoolFlag(knownFlag) || i+1 >= len(args) {
+				normalized = append(normalized, arg)
+				continue
+			}
+			if _, err := strconv.ParseBool(args[i+1]); err != nil {
+				normalized = append(normalized, arg)
+				continue
+			}
+
+			normalized = append(normalized, arg+"="+args[i+1])
+			changed = true
+			i++
+			continue
+		}
+
+		normalized = append(normalized, arg)
+	}
+
+	return normalized, changed
+}
+
+func isBoolFlag(f *flag.Flag) bool {
+	return f != nil && f.NoOptDefVal != ""
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func validateSystemCommandArgs(root *cobra.Command, args []string) error {
+	cmd, remainingArgs, err := root.Find(args)
+	if err != nil {
+		return err
+	}
+	if !isSystemCommandPath(cmd) {
+		return nil
+	}
+
+	positionals, ok := remainingPositionals(cmd, remainingArgs)
+	if !ok {
+		return nil
+	}
+	if len(positionals) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("unknown command %q for %q", positionals[0], cmd.CommandPath())
+}
+
+func isSystemCommandPath(cmd *cobra.Command) bool {
+	for current := cmd; current != nil; current = current.Parent() {
+		if strings.HasPrefix(current.Short, systemCommandPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func remainingPositionals(cmd *cobra.Command, args []string) ([]string, bool) {
+	cmd.InitDefaultHelpFlag()
+
+	positionals := make([]string, 0, len(args))
+	skipNext := false
+
+	for i, arg := range args {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		if arg == "--" {
+			positionals = append(positionals, args[i+1:]...)
+			break
+		}
+		if strings.HasPrefix(arg, "--") {
+			name, hasValue := splitLongFlag(arg)
+			knownFlag := lookupLongFlag(cmd, name)
+			if knownFlag == nil {
+				return nil, false
+			}
+			if !hasValue && knownFlag.NoOptDefVal == "" {
+				skipNext = true
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "-") && arg != "-" {
+			if len(arg) != 2 {
+				return nil, false
+			}
+			knownFlag := lookupShortFlag(cmd, arg[1:])
+			if knownFlag == nil {
+				return nil, false
+			}
+			if knownFlag.NoOptDefVal == "" {
+				skipNext = true
+			}
+			continue
+		}
+
+		positionals = append(positionals, arg)
+	}
+
+	return positionals, true
+}
+
+func splitLongFlag(arg string) (string, bool) {
+	name := strings.TrimPrefix(arg, "--")
+	if before, _, found := strings.Cut(name, "="); found {
+		return before, true
+	}
+	return name, false
+}
+
+func lookupLongFlag(cmd *cobra.Command, name string) *flag.Flag {
+	return cmd.Flag(name)
+}
+
+func lookupShortFlag(cmd *cobra.Command, shorthand string) *flag.Flag {
+	for current := cmd; current != nil; current = current.Parent() {
+		if f := current.Flags().ShorthandLookup(shorthand); f != nil {
+			return f
+		}
+		if f := current.PersistentFlags().ShorthandLookup(shorthand); f != nil {
+			return f
+		}
+	}
+	return nil
 }
