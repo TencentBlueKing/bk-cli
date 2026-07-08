@@ -54,9 +54,10 @@ bk-cli --help
 bk-cli skills list
 bk-cli skills read bk-cli-shared
 bk-cli skills read bk-cli-shared/references/api-debug.md
+bk-cli skills read bk-cli-shared --raw
 ```
 
-`skills list` 输出 JSON，适合 agent 先发现有哪些 skill；`skills read` 默认输出原始 Markdown，适合直接读取 `SKILL.md` 或 reference 文件。
+`skills list` 和 `skills read` 默认输出 JSON，适合 agent 先发现并结构化读取 skill；需要直接读取原始 `SKILL.md` 或 reference Markdown 文件时，对 `skills read` 显式加 `--raw`。
 
 如果 agent 运行环境需要把这些 skills 安装到独立的技能系统中，也可以从仓库安装。
 

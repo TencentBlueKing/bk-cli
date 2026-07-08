@@ -100,21 +100,29 @@ Examples:
 
 func newSkillsReadCmd() *cobra.Command {
 	var asJSON bool
+	var raw bool
 	cmd := &cobra.Command{
 		Use:   "read <name>[/<path>] [path]",
 		Short: "Print an embedded skill file",
 		Long: `Print a skill's SKILL.md, or a reference file under that skill.
 
-By default this command writes raw file content to stdout so agents can consume
-the markdown directly. Use --json when a structured envelope is required.
+By default this command writes a JSON envelope to stdout. Use --raw when the
+raw markdown file content is required.
 
 Examples:
   bk-cli skills read bk-cli-shared
   bk-cli skills read bk-cli-shared references/api-debug.md
   bk-cli skills read bk-cli-shared/references/api-debug.md
-  bk-cli skills read bk-cli-shared --json`,
+  bk-cli skills read bk-cli-shared --raw`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if raw && asJSON {
+				return output.UserError(
+					"invalid_argument",
+					"--raw and --json cannot be used together",
+					"Use --raw for markdown, or omit it for JSON",
+				)
+			}
 			name, relPath, err := parseSkillReadTarget(args)
 			if err != nil {
 				return err
@@ -123,19 +131,20 @@ Examples:
 			if err != nil {
 				return err
 			}
-			if asJSON {
-				data := map[string]any{
-					"skill":   name,
-					"path":    listedPath,
-					"content": string(content),
-				}
-				return output.SuccessData(data).WriteJSON(cmd.OutOrStdout())
+			if raw {
+				_, err = cmd.OutOrStdout().Write(content)
+				return err
 			}
-			_, err = cmd.OutOrStdout().Write(content)
-			return err
+			data := map[string]any{
+				"skill":   name,
+				"path":    listedPath,
+				"content": string(content),
+			}
+			return output.SuccessData(data).WriteJSON(cmd.OutOrStdout())
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "Output a JSON envelope instead of raw markdown")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "No-op; read output is JSON unless --raw is set")
+	cmd.Flags().BoolVar(&raw, "raw", false, "Output raw markdown instead of a JSON envelope")
 	return cmd
 }
 

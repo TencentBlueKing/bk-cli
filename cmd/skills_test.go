@@ -87,7 +87,7 @@ description: 共享规则
 		Expect(out.String()).NotTo(ContainSubstring("ignored.sh"))
 	})
 
-	It("reads a skill SKILL.md as raw markdown by default", func() {
+	It("reads a skill SKILL.md as structured JSON by default", func() {
 		cmd := newRootCmd()
 		out := &bytes.Buffer{}
 		cmd.SetOut(out)
@@ -96,10 +96,18 @@ description: 共享规则
 
 		err := cmd.Execute()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(out.String()).To(Equal(sharedSkill))
+
+		var env map[string]any
+		Expect(json.Unmarshal(out.Bytes(), &env)).To(Succeed())
+		Expect(env["ok"]).To(BeTrue())
+
+		data := env["data"].(map[string]any)
+		Expect(data["skill"]).To(Equal("bk-cli-shared"))
+		Expect(data["path"]).To(Equal("SKILL.md"))
+		Expect(data["content"]).To(Equal(sharedSkill))
 	})
 
-	It("reads a reference file under a skill", func() {
+	It("reads a reference file under a skill as structured JSON by default", func() {
 		cmd := newRootCmd()
 		out := &bytes.Buffer{}
 		cmd.SetOut(out)
@@ -108,7 +116,50 @@ description: 共享规则
 
 		err := cmd.Execute()
 		Expect(err).NotTo(HaveOccurred())
+
+		var env map[string]any
+		Expect(json.Unmarshal(out.Bytes(), &env)).To(Succeed())
+		Expect(env["ok"]).To(BeTrue())
+
+		data := env["data"].(map[string]any)
+		Expect(data["skill"]).To(Equal("bk-cli-shared"))
+		Expect(data["path"]).To(Equal("references/api-debug.md"))
+		Expect(data["content"]).To(Equal(apiDebug))
+	})
+
+	It("reads a skill SKILL.md as raw markdown with --raw", func() {
+		cmd := newRootCmd()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(&bytes.Buffer{})
+		cmd.SetArgs([]string{"skills", "read", "bk-cli-shared", "--raw"})
+
+		err := cmd.Execute()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.String()).To(Equal(sharedSkill))
+	})
+
+	It("reads a reference file as raw markdown with --raw", func() {
+		cmd := newRootCmd()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(&bytes.Buffer{})
+		cmd.SetArgs([]string{"skills", "read", "bk-cli-shared/references/api-debug.md", "--raw"})
+
+		err := cmd.Execute()
+		Expect(err).NotTo(HaveOccurred())
 		Expect(out.String()).To(Equal(apiDebug))
+	})
+
+	It("rejects conflicting read output flags", func() {
+		cmd := newRootCmd()
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		cmd.SetArgs([]string{"skills", "read", "bk-cli-shared", "--raw", "--json"})
+
+		err := cmd.Execute()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("--raw and --json cannot be used together"))
 	})
 
 	It("rejects path traversal when reading skill content", func() {
