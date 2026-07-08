@@ -1,6 +1,7 @@
 package cmdb
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -86,6 +87,53 @@ var _ = Describe("ResolveBizHosts", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.HostIDs).To(Equal([]int64{101, 102}))
 		Expect(result.Hosts).To(HaveLen(2))
+	})
+
+	It("continues paging until all requested hosts resolve", func() {
+		requestedHosts := make([]string, 0, 501)
+		for i := 1; i <= 501; i++ {
+			requestedHosts = append(requestedHosts, fmt.Sprintf("10.0.%d.%d", i/255, i%255+1))
+		}
+
+		var starts []int
+		runtime := setupCMDBRuntime(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Page struct {
+					Start int `json:"start"`
+					Limit int `json:"limit"`
+				} `json:"page"`
+			}
+			Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+			starts = append(starts, body.Page.Start)
+
+			end := body.Page.Start + body.Page.Limit
+			if end > len(requestedHosts) {
+				end = len(requestedHosts)
+			}
+
+			info := make([]map[string]any, 0, end-body.Page.Start)
+			for i := body.Page.Start; i < end; i++ {
+				info = append(info, map[string]any{
+					"bk_host_id":      i + 1,
+					"bk_host_innerip": requestedHosts[i],
+					"bk_cloud_id":     0,
+					"bk_host_name":    fmt.Sprintf("host-%d", i+1),
+				})
+			}
+
+			Expect(json.NewEncoder(w).Encode(map[string]any{
+				"count": len(requestedHosts),
+				"info":  info,
+			})).To(Succeed())
+		})
+
+		result, err := ResolveBizHosts(
+			runtime,
+			ResolveBizHostsInput{BizID: 2, Hosts: strings.Join(requestedHosts, ","), Stage: "prod"},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.HostIDs).To(HaveLen(501))
+		Expect(starts).To(Equal([]int{0, 500}))
 	})
 
 	It("fails when no hosts match", func() {

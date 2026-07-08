@@ -38,7 +38,11 @@ const GatewayName = "bk-cmdb"
 
 var defaultHostFields = []string{"bk_host_id", "bk_host_innerip", "bk_cloud_id", "bk_host_name"}
 
-const defaultHostsUsageHint = "--hosts 10.0.0.1,27:10.0.0.2"
+const (
+	defaultHostsUsageHint  = "--hosts 10.0.0.1,27:10.0.0.2"
+	defaultHostLookupLimit = 500
+	maxHostLookupPages     = 1000
+)
 
 type HostIP struct {
 	IP      string
@@ -141,23 +145,43 @@ func BuildHostPropertyFilter(hostIPs []HostIP) map[string]any {
 
 // BuildBizHostsRequest builds the CMDB business host lookup request and returns the parsed host list.
 func BuildBizHostsRequest(input ResolveBizHostsInput) (syslib.RequestSpec, []HostIP, error) {
-	if err := systemcmd.ValidatePositiveIntFlag("biz", input.BizID); err != nil {
+	requested, limit, err := prepareBizHostsLookup(input)
+	if err != nil {
 		return syslib.RequestSpec{}, nil, err
+	}
+	spec, err := buildBizHostsRequest(input, requested, 0, limit)
+	if err != nil {
+		return syslib.RequestSpec{}, nil, err
+	}
+	return spec, requested, nil
+}
+
+func prepareBizHostsLookup(input ResolveBizHostsInput) ([]HostIP, int, error) {
+	if err := systemcmd.ValidatePositiveIntFlag("biz", input.BizID); err != nil {
+		return nil, 0, err
 	}
 	requested, err := ParseHostIPs(input.Hosts)
 	if err != nil {
-		return syslib.RequestSpec{}, nil, err
+		return nil, 0, err
 	}
 	limit := input.Limit
 	if limit == 0 {
-		limit = 500
+		limit = defaultHostLookupLimit
 	}
 	if err := systemcmd.ValidatePositiveIntFlag("limit", limit); err != nil {
-		return syslib.RequestSpec{}, nil, err
+		return nil, 0, err
 	}
-	bodyJSON, err := BuildHostQueryBody(defaultHostFields, 0, limit, requested, nil)
+	return requested, limit, nil
+}
+
+func buildBizHostsRequest(
+	input ResolveBizHostsInput,
+	requested []HostIP,
+	start, limit int,
+) (syslib.RequestSpec, error) {
+	bodyJSON, err := BuildHostQueryBody(defaultHostFields, start, limit, requested, nil)
 	if err != nil {
-		return syslib.RequestSpec{}, nil, err
+		return syslib.RequestSpec{}, err
 	}
 	return syslib.RequestSpec{
 		GatewayName: GatewayName,
@@ -171,7 +195,7 @@ func BuildBizHostsRequest(input ResolveBizHostsInput) (syslib.RequestSpec, []Hos
 			UserVerifiedRequired:       true,
 			ResourcePermissionRequired: true,
 		},
-	}, requested, nil
+	}, nil
 }
 
 // BuildHostQueryBody builds the CMDB host list request body shared by command and internal callers.
@@ -198,18 +222,77 @@ func BuildHostQueryBody(fields []string, start, limit int, hostIPs []HostIP, ext
 
 // ResolveBizHosts executes the CMDB business host lookup and validates that every requested host resolved.
 func ResolveBizHosts(runtime *syslib.Runtime, input ResolveBizHostsInput) (*ResolveBizHostsResult, error) {
-	spec, requested, err := BuildBizHostsRequest(input)
+	requested, limit, err := prepareBizHostsLookup(input)
 	if err != nil {
 		return nil, err
 	}
-	result, err := syslib.ExecuteRequest(runtime, spec)
-	if err != nil {
-		return nil, err
+
+	hosts := make([]Host, 0, len(requested))
+	seenHostIDs := make(map[int64]struct{}, len(requested))
+	var lastEnvelope *output.Envelope
+	completed := false
+
+	for page := range maxHostLookupPages {
+		start := page * limit
+		spec, err := buildBizHostsRequest(input, requested, start, limit)
+		if err != nil {
+			return nil, err
+		}
+
+		result, err := syslib.ExecuteRequest(runtime, spec)
+		if err != nil {
+			return nil, err
+		}
+		count, pageHosts, err := parseHostsEnvelope(result.Envelope)
+		if err != nil {
+			return nil, err
+		}
+		lastEnvelope = result.Envelope
+
+		if len(pageHosts) == 0 {
+			completed = true
+			break
+		}
+
+		addedThisPage := 0
+		for _, host := range pageHosts {
+			if _, ok := seenHostIDs[host.ID]; ok {
+				continue
+			}
+			seenHostIDs[host.ID] = struct{}{}
+			hosts = append(hosts, host)
+			addedThisPage++
+		}
+		if addedThisPage == 0 {
+			return nil, output.SystemError(
+				"pagination_inconsistent",
+				fmt.Sprintf(
+					"cmdb host lookup received a page with no new hosts at start %d; "+
+						"pagination may be unstable while data is changing",
+					start,
+				),
+				"",
+			)
+		}
+
+		if len(pageHosts) < limit || (count > 0 && len(hosts) >= count) {
+			completed = true
+			break
+		}
 	}
-	hosts, err := parseHostsEnvelope(result.Envelope)
-	if err != nil {
-		return nil, err
+
+	if !completed {
+		return nil, output.SystemError(
+			"pagination_limit",
+			fmt.Sprintf(
+				"cmdb host lookup exceeded maximum page iterations (%d); collected %d unique hosts",
+				maxHostLookupPages,
+				len(hosts),
+			),
+			"",
+		)
 	}
+
 	hostIDs := make([]int64, 0, len(hosts))
 	for _, host := range hosts {
 		hostIDs = append(hostIDs, host.ID)
@@ -228,7 +311,7 @@ func ResolveBizHosts(runtime *syslib.Runtime, input ResolveBizHostsInput) (*Reso
 		Requested: requested,
 		Hosts:     hosts,
 		HostIDs:   hostIDs,
-		Envelope:  result.Envelope,
+		Envelope:  buildResolvedHostsEnvelope(lastEnvelope, hosts),
 	}, nil
 }
 
@@ -286,20 +369,21 @@ func parseHostIPToken(token string) (HostIP, error) {
 	return HostIP{IP: parts[1], CloudID: cloudID}, nil
 }
 
-func parseHostsEnvelope(env *output.Envelope) ([]Host, error) {
+func parseHostsEnvelope(env *output.Envelope) (int, []Host, error) {
 	if env == nil {
-		return nil, fmt.Errorf("cmdb host lookup received an empty response envelope")
+		return 0, nil, fmt.Errorf("cmdb host lookup received an empty response envelope")
 	}
 	data, err := json.Marshal(env.Data)
 	if err != nil {
-		return nil, output.SystemError(
+		return 0, nil, output.SystemError(
 			"response_error",
 			fmt.Sprintf("failed to marshal cmdb host response: %s", err),
 			"",
 		)
 	}
 	var payload struct {
-		Info []struct {
+		Count int `json:"count"`
+		Info  []struct {
 			ID      int64  `json:"bk_host_id"`
 			IP      string `json:"bk_host_innerip"`
 			CloudID int    `json:"bk_cloud_id"`
@@ -307,7 +391,7 @@ func parseHostsEnvelope(env *output.Envelope) ([]Host, error) {
 		} `json:"info"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, output.SystemError(
+		return 0, nil, output.SystemError(
 			"response_error",
 			fmt.Sprintf("failed to parse cmdb host response: %s", err),
 			"",
@@ -317,7 +401,7 @@ func parseHostsEnvelope(env *output.Envelope) ([]Host, error) {
 	seen := make(map[int64]struct{}, len(payload.Info))
 	for _, item := range payload.Info {
 		if item.ID <= 0 {
-			return nil, output.SystemError(
+			return 0, nil, output.SystemError(
 				"response_error",
 				"cmdb host lookup response contains a host entry without bk_host_id",
 				"",
@@ -334,5 +418,25 @@ func parseHostsEnvelope(env *output.Envelope) ([]Host, error) {
 			Name:    item.Name,
 		})
 	}
-	return hosts, nil
+	return payload.Count, hosts, nil
+}
+
+func buildResolvedHostsEnvelope(env *output.Envelope, hosts []Host) *output.Envelope {
+	if env == nil {
+		return nil
+	}
+	info := make([]map[string]any, 0, len(hosts))
+	for _, host := range hosts {
+		info = append(info, map[string]any{
+			"bk_host_id":      host.ID,
+			"bk_host_innerip": host.IP,
+			"bk_cloud_id":     host.CloudID,
+			"bk_host_name":    host.Name,
+		})
+	}
+	env.Data = map[string]any{
+		"count": len(hosts),
+		"info":  info,
+	}
+	return env
 }
