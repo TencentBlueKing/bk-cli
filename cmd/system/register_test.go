@@ -697,6 +697,7 @@ actions:
 			{"paas", "get_deployment_result"},
 			{"paas", "module_env_released_info"},
 			{"paas", "deploy_with_module"},
+			{"paas", "create_cloud_native_app"},
 			{"cmdb", "search_business"},
 			{"cmdb", "create_set"},
 			{"job", "get_job_instance_status"},
