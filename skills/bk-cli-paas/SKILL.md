@@ -77,5 +77,5 @@ bk-cli paas create_cloud_native_app \
 - 创建云原生应用。
 - 调用路径：`POST /bkapps/cloud-native/`
 - 请求体根字段：`code`、`name`、`source_config`、`bkapp_spec` 必填；`app_tenant_mode`、`auth_code`、`is_plugin_app`、`advanced_options` 按需传入。
-- `source_config.source_origin` 表示源码来源，常见值：`1` 为已授权代码仓库，`6` 为云原生镜像。
+- `source_config.source_origin` 表示源码来源，常见值：`1` 为已授权代码仓库；`6` 对应上游 `SourceOrigin.CNATIVE_IMAGE`，表示仅托管镜像的云原生应用。
 - `bkapp_spec.build_config.build_method` 支持 `buildpack`、`dockerfile`、`custom_image`；`dockerfile` 场景通常需要 `dockerfile_path`，`custom_image` 场景需要 `image_repository` 且通常需要 `processes`。

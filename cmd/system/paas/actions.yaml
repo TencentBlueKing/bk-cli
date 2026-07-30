@@ -141,7 +141,7 @@ actions:
             "properties": {
               "source_origin": {
                 "type": "integer",
-                "description": "源码来源，1 表示已授权代码仓库，6 表示云原生镜像"
+                "description": "源码来源，1 表示已授权代码仓库；6 表示上游 SourceOrigin.CNATIVE_IMAGE，仅托管镜像的云原生应用"
               },
               "source_control_type": {
                 "type": "string",
