@@ -211,6 +211,7 @@ bk-cli api bk-demo POST /api/v2/resources/ \
 ```
 bk-cli apigateway list_gateways --name bk-iam --fuzzy
 bk-cli cmdb search_business --bk_biz_id 2
+bk-cli paas create_cloud_native_app -h --body-schema
 ```
 
 如果你不知道参数怎么写，最稳妥的方式就是：
@@ -338,6 +339,9 @@ bk-cli job fast_execute_script \
 
 bk-cli bcs cluster_manager update_cluster --clusterID BCS-K8S-12345 \
   --body '{"clusterID":"BCS-K8S-12345"}'
+
+bk-cli paas create_cloud_native_app \
+  --body '{"code":"bk-demo","name":"bk-demo","source_config":{"source_origin":1,"source_repo_url":"https://github.com/octocat/helloWorld.git","source_repo_auth_info":{},"source_dir":"","source_init_template":"docker"},"bkapp_spec":{"build_config":{"build_method":"dockerfile","dockerfile_path":"Dockerfile"}}}'
 ```
 
 建议习惯性地先看帮助：
@@ -347,6 +351,7 @@ bk-cli bcs cluster_manager update_cluster --help
 bk-cli bcs cluster_manager update_cluster -h --body-schema
 bk-cli job --help
 bk-cli job fast_execute_script --help
+bk-cli paas create_cloud_native_app -h --body-schema
 ```
 
 ## 6. 这些参数很常用
