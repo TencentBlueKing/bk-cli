@@ -1,5 +1,5 @@
-id: PAAS-001
-name: paas get_deployment_result happy path
+id: PAAS-012
+name: paas list_processes happy path
 tags:
   - coverage-system_yaml
   - suite-integration
@@ -26,18 +26,24 @@ steps:
       checks:
         - path: ok
           equals: true
-  - name: get deployment result
+  - name: list processes
     command:
       - paas
-      - get_deployment_result
+      - list_processes
       - --app_code
       - bk-demo
-      - --deployment_id
-      - "12345"
+      - --env
+      - stag
+      - --release_id
+      - "123"
     expect:
       exit_code: 0
       checks:
         - path: ok
           equals: true
+        - path: data.method
+          equals: GET
         - path: data.path
-          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/deployments/12345/result/
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/envs/stag/processes/list/
+        - path: data.query.release_id
+          equals: "123"

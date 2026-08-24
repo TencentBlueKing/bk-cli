@@ -32,8 +32,6 @@ steps:
       - deploy_with_module
       - --app_code
       - bk-demo
-      - --module
-      - default
       - --env
       - prod
       - --body

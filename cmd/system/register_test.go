@@ -694,8 +694,18 @@ actions:
 			{"bcs", "cluster_manager", "delete_nodes_from_cluster"},
 			{"bcs", "cluster_manager", "update_node_group"},
 			{"bcs", "cluster_manager", "clean_nodes_in_group_v2"},
-			{"paas", "get_deployment_result"},
+			{"paas", "get_minimal_app_list"},
+			{"paas", "get_app_info"},
+			{"paas", "list_app_modules"},
+			{"paas", "get_repo_branches"},
+			{"paas", "get_deployments_list"},
+			{"paas", "streams_history_events"},
+			{"paas", "list_processes"},
 			{"paas", "module_env_released_info"},
+			{"paas", "module_env_released_state"},
+			{"paas", "search_standard_log_with_post"},
+			{"paas", "create_module"},
+			{"paas", "get_deployment_result"},
 			{"paas", "deploy_with_module"},
 			{"paas", "create_cloud_native_app"},
 			{"cmdb", "search_business"},
@@ -768,7 +778,7 @@ actions:
 		Expect(deleteTemplateConfig.Flag("projectID")).NotTo(BeNil())
 	})
 
-	It("registers PaaS YAML actions with generated path flags", func() {
+	It("registers PaaS YAML actions with generated flags", func() {
 		root := &cobra.Command{Use: "bk-cli"}
 
 		err := registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)
@@ -793,7 +803,103 @@ actions:
 		Expect(err).NotTo(HaveOccurred())
 		Expect(releasedInfo.Flag("code")).NotTo(BeNil())
 		Expect(releasedInfo.Flag("module_name")).NotTo(BeNil())
+		Expect(releasedInfo.Flag("module_name").DefValue).To(Equal("default"))
 		Expect(releasedInfo.Flag("environment")).NotTo(BeNil())
+
+		minimalList, _, err := root.Find([]string{
+			"paas",
+			"get_minimal_app_list",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(minimalList.Flag("app_status")).NotTo(BeNil())
+		Expect(minimalList.Flag("source_origin")).NotTo(BeNil())
+
+		appInfo, _, err := root.Find([]string{
+			"paas",
+			"get_app_info",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(appInfo.Flag("app_code")).NotTo(BeNil())
+
+		modules, _, err := root.Find([]string{
+			"paas",
+			"list_app_modules",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(modules.Flag("app_code")).NotTo(BeNil())
+		Expect(modules.Flag("source_origin")).NotTo(BeNil())
+
+		branches, _, err := root.Find([]string{
+			"paas",
+			"get_repo_branches",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(branches.Flag("app_code")).NotTo(BeNil())
+		Expect(branches.Flag("module")).NotTo(BeNil())
+		Expect(branches.Flag("module").DefValue).To(Equal("default"))
+
+		deployments, _, err := root.Find([]string{
+			"paas",
+			"get_deployments_list",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(deployments.Flag("app_code")).NotTo(BeNil())
+		Expect(deployments.Flag("module")).NotTo(BeNil())
+		Expect(deployments.Flag("module").DefValue).To(Equal("default"))
+		Expect(deployments.Flag("environment")).NotTo(BeNil())
+		Expect(deployments.Flag("operator")).NotTo(BeNil())
+		Expect(deployments.Flag("limit")).NotTo(BeNil())
+		Expect(deployments.Flag("offset")).NotTo(BeNil())
+
+		streamEvents, _, err := root.Find([]string{
+			"paas",
+			"streams_history_events",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(streamEvents.Flag("channel_id")).NotTo(BeNil())
+		Expect(streamEvents.Flag("last_event_id")).NotTo(BeNil())
+
+		processes, _, err := root.Find([]string{
+			"paas",
+			"list_processes",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(processes.Flag("app_code")).NotTo(BeNil())
+		Expect(processes.Flag("module")).NotTo(BeNil())
+		Expect(processes.Flag("module").DefValue).To(Equal("default"))
+		Expect(processes.Flag("env")).NotTo(BeNil())
+		Expect(processes.Flag("release_id")).NotTo(BeNil())
+
+		releasedState, _, err := root.Find([]string{
+			"paas",
+			"module_env_released_state",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(releasedState.Flag("code")).NotTo(BeNil())
+		Expect(releasedState.Flag("module_name")).NotTo(BeNil())
+		Expect(releasedState.Flag("module_name").DefValue).To(Equal("default"))
+		Expect(releasedState.Flag("environment")).NotTo(BeNil())
+
+		standardLog, _, err := root.Find([]string{
+			"paas",
+			"search_standard_log_with_post",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(standardLog.Flag("app_code")).NotTo(BeNil())
+		Expect(standardLog.Flag("module")).NotTo(BeNil())
+		Expect(standardLog.Flag("module").DefValue).To(Equal("default"))
+		Expect(standardLog.Flag("time_range")).NotTo(BeNil())
+		Expect(standardLog.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(standardLog.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
+
+		createModule, _, err := root.Find([]string{
+			"paas",
+			"create_module",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(createModule.Flag("app_code")).NotTo(BeNil())
+		Expect(createModule.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(createModule.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
 
 		deployWithModule, _, err := root.Find([]string{
 			"paas",
@@ -802,6 +908,7 @@ actions:
 		Expect(err).NotTo(HaveOccurred())
 		Expect(deployWithModule.Flag("app_code")).NotTo(BeNil())
 		Expect(deployWithModule.Flag("module")).NotTo(BeNil())
+		Expect(deployWithModule.Flag("module").DefValue).To(Equal("default"))
 		Expect(deployWithModule.Flag("env")).NotTo(BeNil())
 	})
 

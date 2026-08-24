@@ -147,7 +147,7 @@ These are the current registered systems in `cmd/system/register.go`:
 |----------------|------------------|-------|
 | `apigateway` | `cmd/system/apigateway` | mixed YAML + Go |
 | `bcs` | `cmd/system/bcs` | subsystem-based YAML; `cluster_manager` uses `bcs-api-gateway` |
-| `paas` | `cmd/system/paas` | YAML-driven PaaS deployment actions |
+| `paas` | `cmd/system/paas` | YAML-driven PaaS application, module, deployment, log, and process actions |
 | `cmdb` | `cmd/system/cmdb` | mixed YAML + Go |
 | `job` | `cmd/system/job` | mixed YAML + Go |
 | `sops` | `cmd/system/sops` | mixed YAML + Go |

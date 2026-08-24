@@ -32,8 +32,6 @@ steps:
       - module_env_released_info
       - --code
       - bk-demo
-      - --module_name
-      - default
       - --environment
       - prod
     expect:

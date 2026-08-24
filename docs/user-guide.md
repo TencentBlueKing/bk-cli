@@ -342,6 +342,11 @@ bk-cli bcs cluster_manager update_cluster --clusterID BCS-K8S-12345 \
 
 bk-cli paas create_cloud_native_app \
   --body '{"code":"bk-demo","name":"bk-demo","source_config":{"source_origin":1,"source_repo_url":"https://github.com/octocat/helloWorld.git","source_repo_auth_info":{},"source_dir":"","source_init_template":"docker"},"bkapp_spec":{"build_config":{"build_method":"dockerfile","dockerfile_path":"Dockerfile"}}}'
+
+bk-cli paas get_minimal_app_list --app_status normal
+bk-cli paas deploy_with_module --app_code bk-demo --env stag \
+  --body '{"version_type":"branch","version_name":"master"}'
+
 ```
 
 建议习惯性地先看帮助：
