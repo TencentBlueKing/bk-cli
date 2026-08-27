@@ -630,3 +630,225 @@ actions:
       resourcePermissionRequired: true
     examples:
       - "bk-cli paas create_cloud_native_app --body '{\"code\":\"bk-demo\",\"name\":\"bk-demo\",\"source_config\":{\"source_origin\":1,\"source_repo_url\":\"https://github.com/octocat/helloWorld.git\",\"source_repo_auth_info\":{},\"source_dir\":\"\",\"source_init_template\":\"docker\"},\"bkapp_spec\":{\"build_config\":{\"build_method\":\"dockerfile\",\"dockerfile_path\":\"Dockerfile\"}}}'"
+
+  - name: list_config_vars
+    description: "查看应用模块的环境变量列表"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/config_vars/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+    examples:
+      - "bk-cli paas list_config_vars --app_code bk-demo"
+      - "bk-cli paas list_config_vars --app_code bk-demo --module default"
+
+  - name: get_config_var
+    description: "通过 key 查询环境变量"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/config_vars/{config_var_key}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+      - name: config_var_key
+        in: path
+        type: string
+        description: "环境变量 key"
+        required: true
+    examples:
+      - "bk-cli paas get_config_var --app_code bk-demo --config_var_key FOO"
+      - "bk-cli paas get_config_var --app_code bk-demo --module default --config_var_key FOO"
+
+  - name: set_config_var_value
+    description: "通过 key 创建或更新环境变量"
+    method: POST
+    path: "/bkapps/applications/{app_code}/modules/{module}/config_vars/{config_var_key}/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "required": ["environment_name"],
+        "properties": {
+          "environment_name": {
+            "type": "string",
+            "description": "生效环境。stag=预发布，prod=生产，_global_=所有环境"
+          },
+          "value": {
+            "type": "string",
+            "description": "环境变量值。新建时必填，更新时为空则不改 value"
+          },
+          "description": {
+            "type": "string",
+            "description": "变量描述，不超过 200 个字符"
+          },
+          "is_sensitive": {
+            "type": "boolean",
+            "description": "是否敏感。敏感值在查询时会被掩码"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+      - name: config_var_key
+        in: path
+        type: string
+        description: "环境变量 key"
+        required: true
+    examples:
+      - "bk-cli paas set_config_var_value --app_code bk-demo --config_var_key FOO --body '{\"environment_name\":\"stag\",\"value\":\"bar\",\"description\":\"demo config\",\"is_sensitive\":false}'"
+      - "bk-cli paas set_config_var_value --app_code bk-demo --module default --config_var_key SECRET --body '{\"environment_name\":\"prod\",\"value\":\"secret\",\"is_sensitive\":true}'"
+
+  - name: list_module_services
+    description: "查看应用模块的增强服务"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/services/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+    examples:
+      - "bk-cli paas list_module_services --app_code bk-demo"
+      - "bk-cli paas list_module_services --app_code bk-demo --module default"
+
+  - name: bind_service
+    description: "绑定应用模块与增强服务"
+    method: POST
+    path: "/services/service-attachments/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "required": ["code", "service_id"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "应用 ID"
+          },
+          "service_id": {
+            "type": "string",
+            "description": "增强服务 UUID，可通过 list_module_services 的 unbound[].uuid 获取"
+          },
+          "module_name": {
+            "type": "string",
+            "description": "模块名，默认 default"
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "手动指定方案 ID。不传则使用平台默认方案"
+          },
+          "env_plan_id_map": {
+            "type": "object",
+            "description": "分环境方案 ID，例如 {\"stag\": \"<plan_id>\", \"prod\": \"<plan_id>\"}"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli paas bind_service --body '{\"code\":\"bk-demo\",\"service_id\":\"svc-uuid\",\"module_name\":\"default\"}'"
+      - "bk-cli paas bind_service --body '{\"code\":\"bk-demo\",\"service_id\":\"svc-uuid\",\"module_name\":\"default\",\"env_plan_id_map\":{\"stag\":\"plan-stag\",\"prod\":\"plan-prod\"}}'"
+
+  - name: get_service_instance_by_module
+    description: "查看应用模块与增强服务的绑定关系详情"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/services/{service_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+      - name: service_id
+        in: path
+        type: string
+        description: "增强服务 UUID"
+        required: true
+    examples:
+      - "bk-cli paas get_service_instance_by_module --app_code bk-demo --service_id svc-uuid"
+      - "bk-cli paas get_service_instance_by_module --app_code bk-demo --module default --service_id svc-uuid"
+
+  - name: unbind_service
+    description: "解绑应用模块与增强服务"
+    method: DELETE
+    path: "/bkapps/applications/{app_code}/modules/{module}/services/{service_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+      - name: service_id
+        in: path
+        type: string
+        description: "增强服务 UUID"
+        required: true
+    examples:
+      - "bk-cli paas unbind_service --app_code bk-demo --service_id svc-uuid"
+      - "bk-cli paas unbind_service --app_code bk-demo --module default --service_id svc-uuid"

@@ -1,0 +1,55 @@
+id: PAAS-018
+name: paas set_config_var_value happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: set config var value
+    command:
+      - paas
+      - set_config_var_value
+      - --app_code
+      - bk-demo
+      - --config_var_key
+      - FOO
+      - --body
+      - '{"environment_name":"stag","value":"bar","description":"demo config","is_sensitive":false}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.method
+          equals: POST
+        - path: data.path
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/config_vars/FOO/
+        - path: data.body.environment_name
+          equals: stag
+        - path: data.body.value
+          equals: bar
+        - path: data.body.description
+          equals: demo config
+        - path: data.body.is_sensitive
+          equals: false

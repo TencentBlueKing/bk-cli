@@ -1,11 +1,11 @@
 ---
 name: bk-cli-paas
-description: 当需要通过 `bk-cli paas` 查询蓝鲸 PaaS 应用、模块、部署、日志、进程信息，创建云原生应用或模块，或触发支持多模块的部署动作时使用。
+description: 当需要通过 `bk-cli paas` 查询蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量、增强服务信息，创建云原生应用或模块，或触发支持多模块的部署动作时使用。
 ---
 
 # bk-cli paas — 蓝鲸 PaaS 应用部署能力
 
-用于通过 `bk-cli paas` 调用蓝鲸 PaaS 应用、模块、部署、日志和进程相关 API。
+用于通过 `bk-cli paas` 调用蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量和增强服务相关 API。
 
 CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`。共享 skill 负责认证、context、tenant、stage、dry-run、verbose、header/body 和通用请求规则；本 skill 只补充 `paas` 命令自己的语义与输入约定。
 
@@ -27,6 +27,13 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - `get_deployment_result`
 - `deploy_with_module`
 - `create_cloud_native_app`
+- `list_config_vars`
+- `get_config_var`
+- `set_config_var_value`
+- `list_module_services`
+- `bind_service`
+- `get_service_instance_by_module`
+- `unbind_service`
 
 ## 输入约定
 
@@ -34,7 +41,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - 应用 ID 使用 PaaS 应用 `app_code`，部分接口按上游原始参数名使用 `code`。
 - 模块名使用 PaaS 模块名称；未指定模块时，通常使用默认模块 `default`。相关命令已把 `module` 或 `module_name` 默认值设为 `default`。
 - 环境参数使用接口原始参数名：`env` 或 `environment`，常见值为 `stag` 或 `prod`。写操作默认先用 `stag`，除非用户明确要求 `prod`。
-- `deploy_with_module`、`create_module`、`create_cloud_native_app` 等复杂请求体通过共享 `--body '<json>'` 传入；查看完整结构可运行 `bk-cli paas <action> -h --body-schema`。
+- `deploy_with_module`、`create_module`、`create_cloud_native_app`、`set_config_var_value`、`bind_service` 等复杂请求体通过共享 `--body '<json>'` 传入；查看完整结构可运行 `bk-cli paas <action> -h --body-schema`。
 
 ## 常用工作流
 
@@ -44,7 +51,9 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 4. 代码仓库部署前用 `get_repo_branches` 取得 `name` / `type` / `revision`，填入 `deploy_with_module` 的 `--body`。
 5. 部署后用 `get_deployments_list` 找部署任务，再用 `streams_history_events` 查看日志流。
 6. 需要看运行态时，用 `module_env_released_state`、`list_processes` 或 `search_standard_log_with_post`。
-7. 需要创建云原生应用或模块时，分别使用 `create_cloud_native_app` 或 `create_module`。
+7. 需要管理环境变量时，用 `list_config_vars`、`get_config_var`、`set_config_var_value`。
+8. 需要管理增强服务绑定时，用 `list_module_services`、`bind_service`、`get_service_instance_by_module`、`unbind_service`。
+9. 需要创建云原生应用或模块时，分别使用 `create_cloud_native_app` 或 `create_module`。
 
 ## Commands
 
@@ -218,3 +227,84 @@ bk-cli paas create_cloud_native_app \
 - 请求体根字段：`code`、`name`、`source_config`、`bkapp_spec` 必填；`app_tenant_mode`、`auth_code`、`is_plugin_app`、`advanced_options` 按需传入。
 - `source_config.source_origin` 表示源码来源，常见值：`1` 为已授权代码仓库；`6` 对应上游 `SourceOrigin.CNATIVE_IMAGE`，表示仅托管镜像的云原生应用。
 - `bkapp_spec.build_config.build_method` 支持 `buildpack`、`dockerfile`、`custom_image`；`dockerfile` 场景通常需要 `dockerfile_path`，`custom_image` 场景需要 `image_repository` 且通常需要 `processes`。
+
+
+#### `list_config_vars`
+
+```bash
+bk-cli paas list_config_vars --app_code bk-demo
+bk-cli paas list_config_vars --app_code bk-demo --module default
+```
+
+- 查看应用模块的环境变量列表，默认模块为 `default`。
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/config_vars/`
+
+#### `get_config_var`
+
+```bash
+bk-cli paas get_config_var --app_code bk-demo --config_var_key FOO
+bk-cli paas get_config_var --app_code bk-demo --module default --config_var_key FOO
+```
+
+- 通过 key 查询单个环境变量，默认模块为 `default`。
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/config_vars/{config_var_key}/`
+
+#### `set_config_var_value`
+
+```bash
+bk-cli paas set_config_var_value \
+  --app_code bk-demo \
+  --config_var_key FOO \
+  --body '{"environment_name":"stag","value":"bar","description":"demo config","is_sensitive":false}'
+```
+
+- 通过 key 创建或更新环境变量，默认模块为 `default`。
+- 调用路径：`POST /bkapps/applications/{app_code}/modules/{module}/config_vars/{config_var_key}/`
+- 请求体必填字段：`environment_name`；取值常见为 `stag`、`prod` 或 `_global_`。新建变量时同时传 `value`。
+- 敏感变量设置 `is_sensitive=true`，查询结果中的值可能由上游掩码。
+
+#### `list_module_services`
+
+```bash
+bk-cli paas list_module_services --app_code bk-demo
+bk-cli paas list_module_services --app_code bk-demo --module default
+```
+
+- 查看应用模块的增强服务，默认模块为 `default`。
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/services/`
+- 返回通常会按已绑定、共享和未绑定服务分组；绑定前可从未绑定服务中确认 `service_id`。
+
+#### `bind_service`
+
+```bash
+bk-cli paas bind_service \
+  --body '{"code":"bk-demo","service_id":"svc-uuid","module_name":"default"}'
+```
+
+- 绑定应用模块与增强服务。
+- 调用路径：`POST /services/service-attachments/`
+- 请求体必填字段：`code`、`service_id`；`module_name` 不传时由上游按默认模块处理，建议显式传 `default`。
+- 需要指定服务方案时传 `plan_id`，需要分环境方案时传 `env_plan_id_map`。
+
+#### `get_service_instance_by_module`
+
+```bash
+bk-cli paas get_service_instance_by_module \
+  --app_code bk-demo \
+  --service_id svc-uuid
+```
+
+- 查看应用模块与增强服务的绑定关系详情，默认模块为 `default`。
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/services/{service_id}/`
+
+#### `unbind_service`
+
+```bash
+bk-cli paas unbind_service \
+  --app_code bk-demo \
+  --service_id svc-uuid
+```
+
+- 解绑应用模块与增强服务，默认模块为 `default`。
+- 调用路径：`DELETE /bkapps/applications/{app_code}/modules/{module}/services/{service_id}/`
+- 解绑是写操作，真实执行前建议先加 `--dry-run` 确认 app、module 和 service_id。

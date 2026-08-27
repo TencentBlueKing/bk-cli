@@ -708,6 +708,13 @@ actions:
 			{"paas", "get_deployment_result"},
 			{"paas", "deploy_with_module"},
 			{"paas", "create_cloud_native_app"},
+			{"paas", "list_config_vars"},
+			{"paas", "get_config_var"},
+			{"paas", "set_config_var_value"},
+			{"paas", "list_module_services"},
+			{"paas", "bind_service"},
+			{"paas", "get_service_instance_by_module"},
+			{"paas", "unbind_service"},
 			{"cmdb", "search_business"},
 			{"cmdb", "create_set"},
 			{"job", "get_job_instance_status"},
@@ -910,6 +917,74 @@ actions:
 		Expect(deployWithModule.Flag("module")).NotTo(BeNil())
 		Expect(deployWithModule.Flag("module").DefValue).To(Equal("default"))
 		Expect(deployWithModule.Flag("env")).NotTo(BeNil())
+
+		configVars, _, err := root.Find([]string{
+			"paas",
+			"list_config_vars",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configVars.Flag("app_code")).NotTo(BeNil())
+		Expect(configVars.Flag("module")).NotTo(BeNil())
+		Expect(configVars.Flag("module").DefValue).To(Equal("default"))
+
+		configVar, _, err := root.Find([]string{
+			"paas",
+			"get_config_var",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configVar.Flag("app_code")).NotTo(BeNil())
+		Expect(configVar.Flag("module")).NotTo(BeNil())
+		Expect(configVar.Flag("module").DefValue).To(Equal("default"))
+		Expect(configVar.Flag("config_var_key")).NotTo(BeNil())
+
+		setConfigVar, _, err := root.Find([]string{
+			"paas",
+			"set_config_var_value",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setConfigVar.Flag("app_code")).NotTo(BeNil())
+		Expect(setConfigVar.Flag("module")).NotTo(BeNil())
+		Expect(setConfigVar.Flag("module").DefValue).To(Equal("default"))
+		Expect(setConfigVar.Flag("config_var_key")).NotTo(BeNil())
+		Expect(setConfigVar.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(setConfigVar.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
+
+		moduleServices, _, err := root.Find([]string{
+			"paas",
+			"list_module_services",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(moduleServices.Flag("app_code")).NotTo(BeNil())
+		Expect(moduleServices.Flag("module")).NotTo(BeNil())
+		Expect(moduleServices.Flag("module").DefValue).To(Equal("default"))
+
+		bindService, _, err := root.Find([]string{
+			"paas",
+			"bind_service",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(bindService.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(bindService.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
+
+		serviceInstance, _, err := root.Find([]string{
+			"paas",
+			"get_service_instance_by_module",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(serviceInstance.Flag("app_code")).NotTo(BeNil())
+		Expect(serviceInstance.Flag("module")).NotTo(BeNil())
+		Expect(serviceInstance.Flag("module").DefValue).To(Equal("default"))
+		Expect(serviceInstance.Flag("service_id")).NotTo(BeNil())
+
+		unbindService, _, err := root.Find([]string{
+			"paas",
+			"unbind_service",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(unbindService.Flag("app_code")).NotTo(BeNil())
+		Expect(unbindService.Flag("module")).NotTo(BeNil())
+		Expect(unbindService.Flag("module").DefValue).To(Equal("default"))
+		Expect(unbindService.Flag("service_id")).NotTo(BeNil())
 	})
 
 	It("does not register empty systems", func() {

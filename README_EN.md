@@ -15,7 +15,7 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Three layers of invocation**: raw API calls, system subcommands, and shortcuts (planned)
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes
-- **Rich system commands**: built-in BlueKing system subcommands, including common PaaS app, module, deployment, and log operations, with raw `api` calls kept as a fallback
+- **Rich system commands**: built-in BlueKing system subcommands, including common PaaS app, module, deployment, log, config variable, and add-on service operations, with raw `api` calls kept as a fallback
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
 
