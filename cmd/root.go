@@ -161,6 +161,7 @@ Examples:
 	cmd.AddCommand(markRootCommand(authcmd.NewAuthCmd()))
 	cmd.AddCommand(markRootCommand(apicmd.NewAPICmd(GetContext, IsDryRun, IsVerbose, IsInsecure)))
 	cmd.AddCommand(markRootCommand(ctxcmd.NewContextCmd()))
+	cmd.AddCommand(markRootCommand(newSkillsCmd()))
 	cmd.AddCommand(markRootCommand(updatecmd.NewUpdateCmd(GetVersion, IsDryRun)))
 
 	// Register YAML-driven system subcommands

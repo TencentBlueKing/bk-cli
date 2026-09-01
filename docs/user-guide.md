@@ -50,7 +50,18 @@ bk-cli --help
 
 ### 安装 SKILL (建议)
 
-建议给使用 `bk-cli` 的 agent 安装 skills
+`bk-cli` 二进制已经内置随当前版本发布的 skills，agent 可以直接读取：
+
+```
+bk-cli skills list
+bk-cli skills read bk-cli-shared
+bk-cli skills read bk-cli-shared/references/api-debug.md
+bk-cli skills read bk-cli-shared --raw
+```
+
+`skills list` 和 `skills read` 默认输出 JSON，适合 agent 先发现并结构化读取 skill；需要直接读取原始 `SKILL.md` 或 reference Markdown 文件时，对 `skills read` 显式加 `--raw`。
+
+如果 agent 运行环境需要把这些 skills 安装到独立的技能系统中，也可以从仓库安装。
 
 必装 skills:
 
@@ -215,6 +226,7 @@ bk-cli api bk-demo POST /api/v2/resources/ \
 ```
 bk-cli apigateway list_gateways --name bk-iam --fuzzy
 bk-cli cmdb search_business --bk_biz_id 2
+bk-cli paas create_cloud_native_app -h --body-schema
 ```
 
 如果你不知道参数怎么写，最稳妥的方式就是：
@@ -346,6 +358,9 @@ bk-cli job fast_execute_script \
 
 bk-cli bcs cluster_manager update_cluster --clusterID BCS-K8S-12345 \
   --body '{"clusterID":"BCS-K8S-12345"}'
+
+bk-cli paas create_cloud_native_app \
+  --body '{"code":"bk-demo","name":"bk-demo","source_config":{"source_origin":1,"source_repo_url":"https://github.com/octocat/helloWorld.git","source_repo_auth_info":{},"source_dir":"","source_init_template":"docker"},"bkapp_spec":{"build_config":{"build_method":"dockerfile","dockerfile_path":"Dockerfile"}}}'
 ```
 
 建议习惯性地先看帮助：
@@ -355,6 +370,7 @@ bk-cli bcs cluster_manager update_cluster --help
 bk-cli bcs cluster_manager update_cluster -h --body-schema
 bk-cli job --help
 bk-cli job fast_execute_script --help
+bk-cli paas create_cloud_native_app -h --body-schema
 ```
 
 ## 6. 这些参数很常用

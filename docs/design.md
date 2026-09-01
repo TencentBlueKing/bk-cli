@@ -286,9 +286,11 @@ bk-cli 针对 Agent 和自动化场景做了多项约束型优化，这些不是
 
 默认情况下，执行型命令成功时，stdout 必须输出带 `ok` 字段的结构化 JSON，而不是任意文本。这样 Agent 可以只依赖字段而不是依赖字符串文案。
 
-这里的"执行型命令"包括 `version`、`doctor`、`context`、`auth`、`api` 以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的 `help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。
+这里的"执行型命令"包括 `version`、`doctor`、`context`、`auth`、`api`、`skills` 以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的 `help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。
 
 当前 CLI 默认输出为 `json`。
+
+`bk-cli skills read --raw` 是当前唯一显式原始文件输出入口，用于直接读取打包的 Markdown 内容；它不是全局 `--raw` 能力，也不改变执行型命令默认 stdout 为 JSON envelope 的契约。
 
 ### 6.2 错误输出统一写入 stderr
 

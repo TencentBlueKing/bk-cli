@@ -103,3 +103,137 @@ actions:
         required: true
     examples:
       - "bk-cli paas deploy_with_module --app_code bk-demo --module default --env prod --body '{\"revision\":\"{commit_id}\",\"version_type\":\"branch\",\"version_name\":\"master\"}'"
+
+  - name: create_cloud_native_app
+    description: "创建云原生应用"
+    method: POST
+    path: "/bkapps/cloud-native/"
+    timeout: 30s
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "required": ["code", "name", "source_config", "bkapp_spec"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "应用 ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "应用名称"
+          },
+          "app_tenant_mode": {
+            "type": "string",
+            "description": "应用租户模式，常见值为 single 或 global"
+          },
+          "auth_code": {
+            "type": "string",
+            "description": "使用保留应用 ID 前缀时需要提供的 8 位授权码"
+          },
+          "is_plugin_app": {
+            "type": "boolean",
+            "description": "是否创建为插件应用"
+          },
+          "source_config": {
+            "type": "object",
+            "required": ["source_origin"],
+            "properties": {
+              "source_origin": {
+                "type": "integer",
+                "description": "源码来源，1 表示已授权代码仓库；6 表示上游 SourceOrigin.CNATIVE_IMAGE，仅托管镜像的云原生应用"
+              },
+              "source_control_type": {
+                "type": "string",
+                "description": "代码仓库类型"
+              },
+              "source_repo_url": {
+                "type": "string",
+                "description": "代码仓库或镜像仓库地址"
+              },
+              "source_repo_auth_info": {
+                "type": "object",
+                "description": "代码仓库认证信息"
+              },
+              "source_dir": {
+                "type": "string",
+                "description": "源码构建目录"
+              },
+              "source_init_template": {
+                "type": "string",
+                "description": "初始化模板名称"
+              },
+              "auto_create_repo": {
+                "type": "boolean",
+                "description": "是否由平台新建代码仓库"
+              },
+              "repo_group": {
+                "type": "string",
+                "description": "新建代码仓库的项目组"
+              },
+              "repo_name": {
+                "type": "string",
+                "description": "新建代码仓库的名称"
+              },
+              "write_template_to_repo": {
+                "type": "boolean",
+                "description": "是否将模板代码初始化到代码仓库中"
+              }
+            }
+          },
+          "bkapp_spec": {
+            "type": "object",
+            "required": ["build_config"],
+            "properties": {
+              "build_config": {
+                "type": "object",
+                "required": ["build_method"],
+                "properties": {
+                  "build_method": {
+                    "type": "string",
+                    "description": "构建方式，支持 buildpack、dockerfile、custom_image"
+                  },
+                  "dockerfile_path": {
+                    "type": "string",
+                    "description": "Dockerfile 路径，build_method 为 dockerfile 时使用"
+                  },
+                  "docker_build_args": {
+                    "type": "object",
+                    "description": "Docker 构建参数"
+                  },
+                  "image_repository": {
+                    "type": "string",
+                    "description": "镜像仓库，build_method 为 custom_image 时必填且需和 source_config.source_repo_url 一致"
+                  },
+                  "image_credential": {
+                    "type": "object",
+                    "description": "镜像凭证，包含 name、username、password"
+                  },
+                  "tag_options": {
+                    "type": "object",
+                    "description": "镜像 Tag 规则"
+                  }
+                }
+              },
+              "processes": {
+                "type": "array",
+                "description": "进程配置；custom_image 场景必填"
+              },
+              "hook": {
+                "type": "object",
+                "description": "部署前置钩子配置"
+              }
+            }
+          },
+          "advanced_options": {
+            "type": "object",
+            "description": "高级创建选项，例如 env_cluster_names"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli paas create_cloud_native_app --body '{\"code\":\"bk-demo\",\"name\":\"bk-demo\",\"source_config\":{\"source_origin\":1,\"source_repo_url\":\"https://github.com/octocat/helloWorld.git\",\"source_repo_auth_info\":{},\"source_dir\":\"\",\"source_init_template\":\"docker\"},\"bkapp_spec\":{\"build_config\":{\"build_method\":\"dockerfile\",\"dockerfile_path\":\"Dockerfile\"}}}'"
