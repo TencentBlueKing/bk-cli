@@ -16,32 +16,16 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// Package job implements the Job platform system command and its Go-implemented actions.
 package job
 
 import (
-	"github.com/spf13/cobra"
+	"testing"
 
-	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// NewSystemSpec returns the top-level job system spec used during command registration.
-func NewSystemSpec() systemcmd.SystemSpec {
-	return systemcmd.SystemSpec{
-		Name:        "job",
-		Description: "BlueKing Job platform (BK-JOB) commands",
-		YAMLFile:    "job/actions.yaml",
-		RegisterGoActions: func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
-			builders := []func(systemcmd.BuildDeps) *cobra.Command{
-				newFastTransferFileCmd,
-				newPushConfigFileCmd,
-				newFastExecuteScriptCmd,
-				newRunScriptCmd,
-			}
-			for _, build := range builders {
-				parent.AddCommand(build(deps))
-			}
-			return nil
-		},
-	}
+func TestJob(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "internal/job Suite")
 }

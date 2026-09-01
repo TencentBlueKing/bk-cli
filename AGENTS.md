@@ -295,6 +295,33 @@ Prefer the shared helpers instead of rebuilding command plumbing:
 
 When a Go-implemented action supports both named flags and raw `--body`, treat `--body` as the explicit override. Skip local body synthesis if `--body` is provided; otherwise validate enough local inputs to build a correct request. When a flag accepts structured JSON, parse and validate it locally before putting it into the final payload.
 
+### Shortcut implementation contract
+
+Shortcuts are task-level recipes over existing atomic system actions. They make common multi-step workflows easier to run, but must not replace or weaken the atomic `system + action` command surface.
+
+Dependency rules:
+
+- `cmd/system/<system>` packages must not import another `cmd/system/<other-system>` package.
+- Do not call Cobra commands from other Cobra commands to reuse behavior.
+- Cross-system reuse must go through `internal/*`.
+- Atomic reusable operation logic belongs in `internal/<domain>`.
+- Workflow-only composition belongs in `internal/shortcut/<system>`.
+
+Implementation rules:
+
+- `cmd/system/<system>` shortcut files are thin Cobra wrappers for flags, help, examples, runtime resolution, and output.
+- Shortcuts must reuse the same runtime, context, and credential across internal steps.
+- Shortcuts must use `internal/system` and `internal/requestexec` request paths and keep shared `--stage`, `--header`, `--dry-run`, `--verbose`, `--insecure`, timeout, tenant, auth, and output semantics.
+- If a shortcut performs more than one upstream call, dry-run output must show ordered step previews and must not invent data that requires a skipped earlier request.
+- Shortcut output must preserve the JSON envelope contract; workflow metadata belongs under `data.shortcut` or `data.steps`.
+
+Testing and docs rules:
+
+- Add focused unit tests for extracted atomic internal operations.
+- Add shortcut orchestration tests for step order, stop conditions, and payload handoff.
+- Add integration coverage when public shortcut behavior changes.
+- Update the relevant system skill doc and user-facing docs when adding a shortcut.
+
 ## Runtime, auth, and request behavior
 
 Detailed shared request-contract rules live in `docs/design.md`. When you add or change request behavior, treat `docs/design.md` as the source of truth for:

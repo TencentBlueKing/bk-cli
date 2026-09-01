@@ -19,26 +19,13 @@
 package job
 
 import (
-	"encoding/base64"
-	"fmt"
-	"maps"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/TencentBlueKing/bk-cli/internal/output"
-	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
+	jobsvc "github.com/TencentBlueKing/bk-cli/internal/job"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
 )
-
-var validScriptLanguages = map[string]int{
-	"shell":      1,
-	"bat":        2,
-	"perl":       3,
-	"python":     4,
-	"powershell": 5,
-}
 
 func newFastExecuteScriptCmd(deps systemcmd.BuildDeps) *cobra.Command {
 	var (
@@ -86,27 +73,28 @@ Do not mix partial --body fragments with synthesized flags.`,
 				return err
 			}
 
-			bodyJSON, err := buildFastExecScriptBody(
-				body, bizID, scriptContent, scriptFile, scriptLanguage,
-				targetServer, accountAlias, scriptParam, timeout, taskName,
-			)
+			result, err := jobsvc.FastExecuteScript(runtime, jobsvc.FastExecuteScriptInput{
+				BizID:            bizID,
+				ScriptContent:    scriptContent,
+				ScriptFile:       scriptFile,
+				ScriptLanguage:   scriptLanguage,
+				TargetServerJSON: targetServer,
+				AccountAlias:     accountAlias,
+				ScriptParam:      scriptParam,
+				Timeout:          timeout,
+				TaskName:         taskName,
+				Stage:            stage,
+				BodyOverride:     body,
+				Headers:          headers,
+			})
 			if err != nil {
 				return err
 			}
 
-			return systemcmd.ExecuteRequest(cmd, runtime, "fast_execute_script", syslib.RequestSpec{
-				GatewayName: gatewayName,
-				Method:      "POST",
-				Path:        "/api/v3/fast_execute_script",
-				BodyJSON:    bodyJSON,
-				Headers:     headers,
-				Stage:       stage,
-				AuthConfig: &syslib.AuthConfig{
-					AppVerifiedRequired:        true,
-					UserVerifiedRequired:       true,
-					ResourcePermissionRequired: true,
-				},
-			}, nil)
+			if err := systemcmd.EnsureEnvelope("fast_execute_script", result.Envelope); err != nil {
+				return err
+			}
+			return result.Envelope.WriteJSON(cmd.OutOrStdout())
 		},
 	}
 
@@ -129,99 +117,4 @@ Do not mix partial --body fragments with synthesized flags.`,
 	cmd.MarkFlagsMutuallyExclusive("script_content", "script_file")
 
 	return cmd
-}
-
-func buildFastExecScriptBody(
-	bodyOverride string,
-	bizID int,
-	scriptContent, scriptFile, scriptLanguage string,
-	targetServer string,
-	accountAlias, scriptParam string,
-	timeout int,
-	taskName string,
-) (string, error) {
-	if bodyOverride != "" {
-		return bodyOverride, nil
-	}
-	if err := validateBizID(bizID); err != nil {
-		return "", err
-	}
-	resolvedScriptContent, err := resolveFastExecuteScriptContent(scriptContent, scriptFile)
-	if err != nil {
-		return "", err
-	}
-	parsedTargetServer, err := systemcmd.ParseJSONObjectFlag("target_server", targetServer)
-	if err != nil {
-		return "", err
-	}
-
-	langID, ok := validScriptLanguages[scriptLanguage]
-	if !ok {
-		return "", output.UserError(
-			"invalid_argument",
-			"script_language must be one of: shell, bat, perl, python, powershell",
-			"Use --script_language shell",
-		)
-	}
-
-	payload := buildBizScopePayload(bizID)
-	maps.Copy(payload, map[string]any{
-		"script_language": langID,
-		"script_content":  base64.StdEncoding.EncodeToString([]byte(resolvedScriptContent)),
-		"target_server":   parsedTargetServer,
-		"timeout":         timeout,
-	})
-
-	if accountAlias != "" {
-		payload["account_alias"] = accountAlias
-	}
-	if scriptParam != "" {
-		payload["script_param"] = base64.StdEncoding.EncodeToString([]byte(scriptParam))
-	}
-	if taskName != "" {
-		payload["task_name"] = taskName
-	}
-	return systemcmd.MarshalJSON(payload)
-}
-
-func resolveFastExecuteScriptContent(scriptContent, scriptFile string) (string, error) {
-	contentProvided := strings.TrimSpace(scriptContent) != ""
-	fileProvided := strings.TrimSpace(scriptFile) != ""
-
-	if contentProvided && fileProvided {
-		return "", output.UserError(
-			"invalid_argument",
-			"script_content and script_file cannot be used together",
-			"Use exactly one of --script_content or --script_file",
-		)
-	}
-	if !contentProvided && !fileProvided {
-		return "", output.UserError(
-			"invalid_argument",
-			"one of script_content or script_file is required when --body is not provided",
-			"Use --script_content 'echo hello', --script_file ./script.sh, or provide an explicit --body",
-		)
-	}
-	if contentProvided {
-		if err := systemcmd.ValidateNonEmptyStringFlag("script_content", scriptContent); err != nil {
-			return "", err
-		}
-		return scriptContent, nil
-	}
-	if err := systemcmd.ValidateNonEmptyStringFlag("script_file", scriptFile); err != nil {
-		return "", err
-	}
-
-	scriptBytes, err := os.ReadFile(scriptFile)
-	if err != nil {
-		return "", output.UserError(
-			"invalid_argument",
-			fmt.Sprintf("failed to read script_file: %v", err),
-			"Use --script_file with a readable local file path",
-		)
-	}
-	if err := systemcmd.ValidateNonEmptyStringFlag("script_file content", string(scriptBytes)); err != nil {
-		return "", err
-	}
-	return string(scriptBytes), nil
 }

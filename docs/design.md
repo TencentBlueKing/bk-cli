@@ -14,7 +14,7 @@
 ```text
 
   ┌────────────────────────────────────────────┐
-  │ 快捷指令（未来）                              │  // L3:   bk-cli demo +create
+  │ 快捷指令                                     │  // L3:   bk-cli job +run-script
   ├────────────────────────────────────────────┤
   │ 系统子命令                                   │  // L2:   bk-cli {system} [{subsystem}] action [--args]
   │ （YAML 定义或 Go 编码）                       │  // L1.5: bk-cli devops pipeline get_build_list
@@ -64,8 +64,8 @@ main.go      -> 程序入口，负责执行与退出码
 从功能视角，系统可以理解为四层：
 
 ```text
-快捷层（未来）
-  例：bk-cli demo +create
+快捷层
+  例：bk-cli job +run-script
 
 系统命令层
   例：bk-cli apigateway list_gateways
@@ -127,7 +127,7 @@ flowchart TD
 - 基础层负责"所有命令共享的稳定能力"。
 - 原始 API 层只关心把一次 HTTP 请求可靠地构造、发送并封装输出。
 - 系统命令层把高层语义映射到原始 API 调用，避免每个业务命令重复处理参数拼装。
-- 快捷层是未来更高层的任务化入口，目前仅保留设计位置，不作为当前实现边界的一部分。
+- 快捷层是更高层的任务化入口，负责把用户常写的原子 action 组合固化为可复用 recipe。快捷层不得绕过 `internal/requestexec`，不得让 `cmd/system/*` 之间交叉引用，也不得削弱原子 system action 的独立可用性。
 
 这套分层的核心价值在于：新增命令时，开发者首先需要判断自己是在扩展共享能力、扩展原始 API、扩展 system action，还是新增更高层语义。判断正确，代码自然会落在正确目录里。
 
@@ -763,6 +763,12 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 - 不绕过 context、credential、output 这些基础层能力
 - 所属 system 在 `skills/` 下有自己的 `SKILL.md`
 
+### 11.6 什么时候用 shortcut
+
+当一个常见用户目标需要多个原子 system action 组合，或者需要非平凡的本地 payload 编排时，可以增加 shortcut。Shortcut 是组合层，不是新的底层请求层。原子 action 的可复用逻辑应先下沉到 `internal/<domain>`，workflow-only 编排放在 `internal/shortcut/<system>`，Cobra 入口只保留 flags、help、runtime 和 output。
+
+例如 `bk-cli job +run-script` 会先通过 CMDB 解析主机，再调用 Job 快速执行脚本；用户仍然可以分别使用 `bk-cli cmdb list_biz_hosts` 与 `bk-cli job fast_execute_script` 自行组合。
+
 ## 12. 测试与演进约束
 
 ### 12.1 测试约定
@@ -781,7 +787,6 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 根据现有设计与规格，以下能力仍处于未完成或保留状态：
 
 - OAuth2 Device Code flow 仍是 stub 或未完全实现
-- 快捷层仍是未来设计位
 - `--quiet` / `-q` 尚未完成
 
 这些状态应在设计说明里清晰标注，避免读者误以为已经具备完整能力。
