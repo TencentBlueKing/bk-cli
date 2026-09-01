@@ -1,0 +1,59 @@
+id: PAAS-014
+name: paas search_standard_log_with_post happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: search standard logs
+    command:
+      - paas
+      - search_standard_log_with_post
+      - --app_code
+      - bk-demo
+      - --time_range
+      - 1h
+      - --limit
+      - "100"
+      - --body
+      - '{"query":{"query_string":"error","terms":{"environment":["stag"],"process_id":["web"]}}}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.method
+          equals: POST
+        - path: data.path
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/log/standard_output/list/
+        - path: data.query.time_range
+          equals: 1h
+        - path: data.query.limit
+          equals: "100"
+        - path: data.body.query.query_string
+          equals: error
+        - path: data.body.query.terms.environment.0
+          equals: stag
+        - path: data.body.query.terms.process_id.0
+          equals: web

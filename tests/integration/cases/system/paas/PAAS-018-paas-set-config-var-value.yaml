@@ -1,5 +1,5 @@
-id: PAAS-003
-name: paas deploy_with_module happy path
+id: PAAS-018
+name: paas set_config_var_value happy path
 tags:
   - coverage-system_yaml
   - suite-integration
@@ -26,16 +26,16 @@ steps:
       checks:
         - path: ok
           equals: true
-  - name: deploy with module
+  - name: set config var value
     command:
       - paas
-      - deploy_with_module
+      - set_config_var_value
       - --app_code
       - bk-demo
-      - --env
-      - prod
+      - --config_var_key
+      - FOO
       - --body
-      - '{"revision":"commit-id","version_type":"branch","version_name":"master"}'
+      - '{"environment_name":"stag","value":"bar","description":"demo config","is_sensitive":false}'
     expect:
       exit_code: 0
       checks:
@@ -44,10 +44,12 @@ steps:
         - path: data.method
           equals: POST
         - path: data.path
-          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/envs/prod/deployments/
-        - path: data.body.version_type
-          equals: branch
-        - path: data.body.version_name
-          equals: master
-        - path: data.body.revision
-          equals: commit-id
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/config_vars/FOO/
+        - path: data.body.environment_name
+          equals: stag
+        - path: data.body.value
+          equals: bar
+        - path: data.body.description
+          equals: demo config
+        - path: data.body.is_sensitive
+          equals: false
