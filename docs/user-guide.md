@@ -15,6 +15,7 @@
 
 - `context` 用来保存“你连哪个环境或账号 (隔离)
 - `auth` 用来保存“你用什么凭据访问”
+- `doctor` 用来排查当前 context、凭据、URL 渲染和网关连通性
 - `api` 是最通用的兜底方式
 - system 子命令更省心，适合常见操作
 
@@ -43,12 +44,24 @@ make install
 
 ```
 bk-cli version
+bk-cli doctor --offline
 bk-cli --help
 ```
 
 ### 安装 SKILL (建议)
 
-建议给使用 `bk-cli` 的 agent 安装 skills
+`bk-cli` 二进制已经内置随当前版本发布的 skills，agent 可以直接读取：
+
+```
+bk-cli skills list
+bk-cli skills read bk-cli-shared
+bk-cli skills read bk-cli-shared/references/api-debug.md
+bk-cli skills read bk-cli-shared --raw
+```
+
+`skills list` 和 `skills read` 默认输出 JSON，适合 agent 先发现并结构化读取 skill；需要直接读取原始 `SKILL.md` 或 reference Markdown 文件时，对 `skills read` 显式加 `--raw`。
+
+如果 agent 运行环境需要把这些 skills 安装到独立的技能系统中，也可以从仓库安装。
 
 必装 skills:
 
@@ -181,9 +194,11 @@ bk-cli auth login --access_token="your_access_token"
 ```
 bk-cli auth status
 bk-cli auth check
+bk-cli doctor
 ```
 
 `auth status` 用来看当前 context 是否已有凭据，`auth check` 更适合脚本里做 fail-fast。
+`doctor` 适合排查当前机器上的 context 列表、选中的 context、凭据类型、脱敏票据、URL 模板渲染结果和网关连通性。
 
 ### 第三步：先发一个原始 API 请求
 
@@ -254,6 +269,10 @@ bk-cli auth status
 
 # 脚本里检查是否已登录
 bk-cli auth check
+
+# 排查 context、凭据、URL 渲染和网关连通性
+bk-cli doctor
+bk-cli doctor --offline
 
 # 删除当前环境凭据
 bk-cli auth logout

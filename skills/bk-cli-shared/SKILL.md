@@ -31,6 +31,10 @@ bk-cli auth login --bk_app_code="your_app" --bk_app_secret="your_secret" --bk_ti
 
 # 登录：access_token
 bk-cli auth login --access_token="your_token"
+
+# 环境自检
+bk-cli doctor
+bk-cli doctor --offline
 ```
 
 ## 通用 Flags
@@ -123,7 +127,8 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 
 ## 排障顺序建议
 
-1. 先确认 context 是否正确，凭据是否写在目标 context 里。
-2. 再确认 stage、tenant、timeout、header/body、TLS 证书输入是否符合共享规则。
-3. 然后用 `--dry-run` 看最终请求构造是否符合预期。
-4. 仍有问题时再看系统专属 skill 或 `--verbose` 输出，定位到具体命令或接口层面。
+1. 先运行 `bk-cli doctor --offline` 确认本地 context、当前选中项、凭据摘要和 URL 模板渲染结果。
+2. 如果需要确认网关连通性，再运行 `bk-cli doctor`。
+3. 再确认 stage、tenant、timeout、header/body、TLS 证书输入是否符合共享规则。
+4. 然后用 `--dry-run` 看最终请求构造是否符合预期。
+5. 仍有问题时再看系统专属 skill 或 `--verbose` 输出，定位到具体命令或接口层面。
