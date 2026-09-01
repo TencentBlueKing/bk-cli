@@ -286,7 +286,7 @@ bk-cli 针对 Agent 和自动化场景做了多项约束型优化，这些不是
 
 默认情况下，执行型命令成功时，stdout 必须输出带 `ok` 字段的结构化 JSON，而不是任意文本。这样 Agent 可以只依赖字段而不是依赖字符串文案。
 
-这里的"执行型命令"包括 `version`、`context`、`auth`、`api`、`skills` 以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的 `help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。
+这里的"执行型命令"包括 `version`、`doctor`、`context`、`auth`、`api`、`skills` 以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的 `help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。
 
 当前 CLI 默认输出为 `json`。
 
@@ -394,6 +394,7 @@ CLI 级错误输出到 stderr：
 
 - `bk-cli auth status` 是查询命令；无论是否已登录，都返回成功 envelope，状态差异放在 `data.has_credentials` 中。
 - `bk-cli auth check` 是 fail-fast 检查命令；当目标 context 没有可用凭据时，返回 CLI 错误并以非 0 退出。
+- `bk-cli doctor` 是诊断命令；它输出 context、凭据、URL 渲染和连通性检查结果，若出现 `fail` 检查则 stdout 仍保留诊断 envelope，同时以非 0 退出。
 
 ### 7.4 `dry_run` 输出
 
@@ -582,7 +583,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 
 判断规则：
 
-- 如果是 `auth`、`context`、`update`、`version`、`api` 这类 CLI 核心能力，落在 `cmd/`，底层逻辑进入 `internal/`。
+- 如果是 `auth`、`context`、`doctor`、`update`、`version`、`api` 这类 CLI 核心能力，落在 `cmd/`，底层逻辑进入 `internal/`。
 - 如果是某个系统的一项动作，优先考虑做成 `cmd/system` 驱动的 action，而不是手写新的顶层命令。
 
 ### 10.2 新增 Cobra 子命令的基本步骤

@@ -157,6 +157,7 @@ Examples:
 
 	// Add built-in root commands with an explicit help label.
 	cmd.AddCommand(markRootCommand(newVersionCmd()))
+	cmd.AddCommand(markRootCommand(newDoctorCmd(GetContext, IsInsecure)))
 	cmd.AddCommand(markRootCommand(authcmd.NewAuthCmd()))
 	cmd.AddCommand(markRootCommand(apicmd.NewAPICmd(GetContext, IsDryRun, IsVerbose, IsInsecure)))
 	cmd.AddCommand(markRootCommand(ctxcmd.NewContextCmd()))
