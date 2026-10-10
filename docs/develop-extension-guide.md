@@ -32,7 +32,7 @@
   - 一层 subsystem：`bk-cli devops pipeline get_build_list`
 - 如果不同模块背后对应不同 API Gateway，优先考虑一层 subsystem。每个 subsystem 可以独立声明自己的 `gateway_name`。
 - 当前只支持一层 subsystem，不支持 `bk-cli <system> <subsystem> <sub_subsystem> <action>`。
-- 如果是 BCS 这类 OpenAPI request body 很复杂的系统，默认不要把 body 字段拆成大量命令 flags；使用共享 `--body '<json>'`，把请求体示例放进 `examples`，并在 YAML action 里补 `body_schema`。如果上游 request body 是必填的，同时补 `body_required: true`，让 CLI 在发起请求前校验 `--body`。默认 help 按 `Usage`、`Examples`、schema 查看提示的顺序展示，完整 schema 通过 `bk-cli <system> [subsystem] <action> -h --body-schema` 查看。
+- 如果是 BCS 这类 OpenAPI request body 很复杂的系统，默认不要把 body 字段拆成大量命令 flags；使用共享 `--body '<json>'`、`--body @file` 或 `--body -`，把请求体示例放进 `examples`，并在 YAML action 里补 `body_schema`。如果上游 request body 是必填的，同时补 `body_required: true`，让 CLI 在发起请求前校验 `--body`。默认 help 按 `Usage`、`Examples`、schema 查看提示的顺序展示，完整 schema 通过 `bk-cli <system> [subsystem] <action> -h --body-schema` 查看。
 
 ```yaml
   /api/v2/open/gateways/:

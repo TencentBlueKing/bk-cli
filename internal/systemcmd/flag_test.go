@@ -39,7 +39,7 @@ var _ = Describe("systemcmd flag helpers", func() {
 		Expect(cmd.Flag("stage").DefValue).To(Equal("prod"))
 		Expect(cmd.Flag("body")).NotTo(BeNil())
 		Expect(cmd.Flag("body").Usage).To(Equal(
-			"[common] Optional; JSON request body; Overrides synthesized body inputs when provided",
+			"[common] Optional; JSON request body, @file, or - for stdin; Overrides synthesized body inputs when provided",
 		))
 		Expect(cmd.Flag("header")).NotTo(BeNil())
 		Expect(cmd.Flag("header").Usage).To(Equal(

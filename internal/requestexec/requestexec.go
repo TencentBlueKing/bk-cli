@@ -169,6 +169,16 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 		return nil, fmt.Errorf("runtime config is required")
 	}
 
+	bodyJSON, err := resolveBodyJSON(spec.BodyJSON)
+	if err != nil {
+		return nil, output.UserError(
+			"request_error",
+			err.Error(),
+			"Use --body '<json>' or --body @/path/to/body.json",
+		)
+	}
+	spec.BodyJSON = bodyJSON
+
 	headerMap, err := api.ParseHeaderFlags(spec.Headers)
 	if err != nil {
 		return nil, output.UserError(

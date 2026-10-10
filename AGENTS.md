@@ -230,7 +230,7 @@ YAML actions are good when the command mostly maps flags to a single remote requ
 - `in: body` is not allowed; request bodies come from the shared request layer instead
 - generated flags come only from `path` and `query` params
 - header params can enrich help text but must not create standalone flags
-- complex request bodies should stay on the shared `--body '<json>'` input and expose body examples through `examples`; default help shows `Usage`, `Examples`, then a `body_schema` hint; full schema is shown only by `-h --body-schema`
+- complex request bodies should stay on the shared `--body '<json>'` / `--body @file` / `--body -` input and expose body examples through `examples`; default help shows `Usage`, `Examples`, then a `body_schema` hint; full schema is shown only by `-h --body-schema`
 - if the upstream OpenAPI request body is required, set `body_required: true` so YAML actions fail locally when `--body` is missing
 - `--body-schema` is a help modifier, not an execution flag; `bk-cli ... --body-schema` without `-h` must fail before auth or request execution
 - param names must not collide with built-in or reserved flags such as `body`, `body-schema`, `header`, `stage`, `help`, `context`, `dry-run`, `format`, `verbose`, and `insecure`

@@ -295,7 +295,7 @@ bk-cli auth logout
 
 - `--query`：传查询参数，值是 JSON
 - `--path`：替换路径模板里的占位符，值是 JSON
-- `--body`：传 JSON 请求体
+- `--body`：传 JSON 请求体，或用 `--body @file` 从本地文件读取 JSON 请求体，也可以用 `--body -` 从 stdin 读取
 - `--stage`：指定网关 stage，默认是 `prod`
 - `--timeout`：覆盖本次请求超时
 

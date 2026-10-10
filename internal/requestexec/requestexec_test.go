@@ -688,6 +688,100 @@ var _ = Describe("requestexec", func() {
 			))
 		})
 
+		It("reads request body JSON from an @file reference", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
+			bodyPath := tmpDir + "/body.json"
+			Expect(
+				os.WriteFile(bodyPath, []byte(`{"name":"from-file","id":20004841045}`), 0o600),
+			).To(
+				Succeed(),
+			)
+
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := ExecuteRawAPIRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway",
+				Method:      http.MethodPost,
+				Path:        "/api/v1/demo/",
+				BodyJSON:    "@" + bodyPath,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			body, ok := result.DryRunRequest.Body.(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(body).To(HaveKeyWithValue("name", "from-file"))
+			id, ok := body["id"].(json.Number)
+			Expect(ok).To(BeTrue())
+			Expect(id.String()).To(Equal("20004841045"))
+		})
+
+		It("reads request body JSON from stdin when body is -", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
+			originalStdin := os.Stdin
+			r, w, err := os.Pipe()
+			Expect(err).NotTo(HaveOccurred())
+			os.Stdin = r
+			DeferCleanup(func() {
+				os.Stdin = originalStdin
+				_ = r.Close()
+			})
+			_, err = w.Write([]byte(`{"name":"from-stdin"}`))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(w.Close()).To(Succeed())
+
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := ExecuteRawAPIRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway",
+				Method:      http.MethodPost,
+				Path:        "/api/v1/demo/",
+				BodyJSON:    "-",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			body, ok := result.DryRunRequest.Body.(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(body).To(HaveKeyWithValue("name", "from-stdin"))
+		})
+
+		It("returns a request error when an @file body cannot be read", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
+
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = ExecuteRawAPIRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway",
+				Method:      http.MethodPost,
+				Path:        "/api/v1/demo/",
+				BodyJSON:    "@" + tmpDir + "/missing.json",
+			})
+
+			cliErr := expectCLIError(err, "request_error")
+			Expect(cliErr.Message).To(ContainSubstring("failed to read --body file"))
+		})
+
+		It("returns a request error when an @file body is empty", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
+			bodyPath := tmpDir + "/empty.json"
+			Expect(os.WriteFile(bodyPath, nil, 0o600)).To(Succeed())
+
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = ExecuteRawAPIRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway",
+				Method:      http.MethodPost,
+				Path:        "/api/v1/demo/",
+				BodyJSON:    "@" + bodyPath,
+			})
+
+			cliErr := expectCLIError(err, "request_error")
+			Expect(cliErr.Message).To(ContainSubstring("is empty"))
+		})
+
 		It("returns a request error for invalid JSON bodies", func() {
 			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
 

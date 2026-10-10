@@ -561,10 +561,10 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 
 - `--path` 用于替换 api_path 中的 `{placeholder}` 占位符，JSON 格式。
 - `--query` 用于 URL 查询参数，JSON 格式。
-- `POST/PUT/PATCH` 等请求可以通过 `--body` 传递 JSON 请求体。少数 Go-implemented action 可使用共享请求层的 raw body 能力发送非 JSON 载荷；该能力与 `--body` / `BodyJSON` 互斥，且由 action 负责提供安全的 dry-run body 摘要。
+- `POST/PUT/PATCH` 等请求可以通过 `--body` 传递 JSON 请求体，也可以通过 `--body @file` 从本地文件读取 JSON 请求体，或通过 `--body -` 从 stdin 读取。少数 Go-implemented action 可使用共享请求层的 raw body 能力发送非 JSON 载荷；该能力与 `--body` / `BodyJSON` 互斥，且由 action 负责提供安全的 dry-run body 摘要。
 - `bk-cli api --timeout <duration>` 可覆盖该次请求超时；共享 timeout 优先级遵循 action/YAML 显式 timeout > 单次请求 override > context timeout > config 默认值。
 - `--insecure` 跳过 HTTPS 证书校验，行为类似 `curl --insecure`；该选项只影响真实网络请求，不改变 `--dry-run` 输出。
-- `--path`、`--query` 和 `--body` 应在本地完成 JSON 有效性校验。
+- `--path`、`--query` 和 `--body` 应在本地完成 JSON 有效性校验；`--body @file` / `--body -` 会先读取输入内容再校验 JSON。
 - `--path` 的值会按单个 URL path segment 转义，不能借此注入额外路径层级或查询串结构。
 - 当占位符名是 `gateway_name` 时，其值还必须匹配 `^[a-z][a-z0-9-]{2,29}$`。
 - CLI 默认发送 `User-Agent: bk-cli/{version}`；如果调用者通过 `--header` 显式提供 `User-Agent`，则用户值优先。
@@ -675,10 +675,10 @@ actions:
 
 YAML action 参数不得使用 `in: body`。请求级输入通过命令 flags 统一暴露：
 
-- `--body '<json>'`
+- `--body '<json>'`、`--body @file` 或 `--body -`
 - `--header 'Key:Value'` (repeatable)
 
-当 OpenAPI request body 很复杂、需要调用方或 agent 自行构造完整 JSON 时，不应把嵌套 body 字段拆成大量 generated flags。此类 action 仍然通过共享 `--body '<json>'` 输入请求体，并在 YAML action 中提供 `body_schema`。如果上游 OpenAPI 将 request body 标记为 required，YAML action 应设置 `body_required: true`，让 CLI 在请求前校验 `--body`。默认 `--help` 先展示 `Usage` 和 `Examples`，再展示 schema 查看提示；完整 schema 通过 `bk-cli <system> [subsystem] <action> -h --body-schema` 查看，避免常规帮助输出过长。请求体示例应放在 `examples` 中，不再单独维护 `body_example`。单独使用 `--body-schema` 必须快速失败，不进入认证或请求执行路径。
+当 OpenAPI request body 很复杂、需要调用方或 agent 自行构造完整 JSON 时，不应把嵌套 body 字段拆成大量 generated flags。此类 action 仍然通过共享 `--body '<json>'`、`--body @file` 或 `--body -` 输入请求体，并在 YAML action 中提供 `body_schema`。如果上游 OpenAPI 将 request body 标记为 required，YAML action 应设置 `body_required: true`，让 CLI 在请求前校验 `--body`。默认 `--help` 先展示 `Usage` 和 `Examples`，再展示 schema 查看提示；完整 schema 通过 `bk-cli <system> [subsystem] <action> -h --body-schema` 查看，避免常规帮助输出过长。请求体示例应放在 `examples` 中，不再单独维护 `body_example`。单独使用 `--body-schema` 必须快速失败，不进入认证或请求执行路径。
 
 字段说明：
 

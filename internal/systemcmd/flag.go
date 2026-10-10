@@ -36,7 +36,7 @@ func AddCommonRequestFlags(cmd *cobra.Command, stage, body *string, headers *[]s
 		body,
 		syslib.ActionBodyFlagName,
 		"",
-		"[common] Optional; JSON request body; Overrides synthesized body inputs when provided",
+		"[common] Optional; JSON request body, @file, or - for stdin; Overrides synthesized body inputs when provided",
 	)
 	cmd.Flags().StringArrayVar(
 		headers,

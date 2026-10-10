@@ -288,9 +288,9 @@ func buildYAMLActionCmd(
 	body := ""
 	headers := []string{}
 	bodySchemaHelp := false
-	bodyUsage := "[Optional] JSON request body"
+	bodyUsage := "[Optional] JSON request body, @file, or - for stdin"
 	if action.BodyRequired {
-		bodyUsage = "[Required] JSON request body"
+		bodyUsage = "[Required] JSON request body, @file, or - for stdin"
 	}
 
 	cmd := &cobra.Command{

@@ -90,6 +90,12 @@ Examples:
   # POST with body
   bk-cli api bk-demo POST /api/v2/foo/ --body '{"name":"bar"}'
 
+  # POST with body loaded from a local file
+  bk-cli api bk-demo POST /api/v2/foo/ --body @body.json
+
+  # POST with body read from stdin
+  cat body.json | bk-cli api bk-demo POST /api/v2/foo/ --body -
+
   # Custom headers
   bk-cli api bk-demo GET /api/v2/foo/ --header "X-Custom:value"
 
@@ -133,7 +139,7 @@ Examples:
 
 	cmd.Flags().StringVar(&flagPath, "path", "", "JSON values for {placeholder} substitution in api_path")
 	cmd.Flags().StringVar(&flagQuery, "query", "", "JSON query parameters")
-	cmd.Flags().StringVar(&flagBody, "body", "", "JSON request body")
+	cmd.Flags().StringVar(&flagBody, "body", "", "JSON request body, @file, or - for stdin")
 	cmd.Flags().StringArrayVar(&flagHeaders, "header", nil, "Additional headers (key:value, repeatable)")
 	cmd.Flags().StringVar(&flagStage, "stage", "prod", "API gateway stage (default: prod)")
 	cmd.Flags().StringVar(&flagTimeout, "timeout", "", "Request timeout override (e.g. 180s)")

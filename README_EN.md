@@ -17,6 +17,7 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes
 - **Rich system commands**: built-in BlueKing system subcommands, including API Gateway, AIDev, BCS, PaaS, CMDB, JOB, SOPS, GSE, DevOps, and NodeMan, with raw `api` calls kept as a fallback
+- **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
