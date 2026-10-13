@@ -97,7 +97,7 @@ Examples:
   cat body.json | bk-cli api bk-demo POST /api/v2/foo/ --body -
 
   # Custom headers
-  bk-cli api bk-demo GET /api/v2/foo/ --header "X-Custom:value"
+  bk-cli api bk-demo GET /api/v2/foo/ --header 'X-Custom:value'
 
   # Intentionally override auth / tenant headers for this request
   bk-cli api bk-demo GET /api/v2/foo/ \

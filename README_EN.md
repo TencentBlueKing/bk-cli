@@ -28,6 +28,8 @@ For users:
 
 - [User Guide](docs/user-guide.md)
 
+Bash examples wrap URL templates and credentials in single quotes. Replace the values inside the quotes to preserve literal `$` characters and command substitutions.
+
 For developers:
 
 - [Development Environment Setup](docs/develop-environment-guide.md)

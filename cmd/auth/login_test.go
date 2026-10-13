@@ -180,9 +180,9 @@ var _ = Describe("Auth Commands", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("provide --bk_token or --bk_ticket"))
 			Expect(err.Error()).To(ContainSubstring("current context defaults to --bk_token"))
-			Expect(stderr).To(ContainSubstring(`--bk_app_code=APP_CODE`))
-			Expect(stderr).To(ContainSubstring(`--bk_app_secret=APP_SECRET`))
-			Expect(stderr).To(ContainSubstring(`--bk_token=VALUE`))
+			Expect(stderr).To(ContainSubstring(`--bk_app_code='APP_CODE'`))
+			Expect(stderr).To(ContainSubstring(`--bk_app_secret='APP_SECRET'`))
+			Expect(stderr).To(ContainSubstring(`--bk_token='VALUE'`))
 		})
 
 		It("explains that app credential mode needs a user credential when user_key is bk_ticket", func() {

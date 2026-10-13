@@ -28,6 +28,8 @@
 
 - [用户指南](docs/user-guide.md)
 
+Bash 示例中的 URL 模板和凭据使用单引号包裹；替换引号内的示例值，避免 `$` 和命令替换被 shell 展开。
+
 开发者：
 
 - [开发环境搭建](docs/develop-environment-guide.md)

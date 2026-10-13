@@ -46,8 +46,8 @@ This is the required first-run setup. It creates the "default" context,
 saves the provided URL template, and marks it as active.
 
 Examples:
-  bk-cli context init --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}/"
-  bk-cli context init --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}/" --tenant_id=mytenant`,
+  bk-cli context init --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/'
+  bk-cli context init --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/' --tenant_id=mytenant`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := runCreateContext(

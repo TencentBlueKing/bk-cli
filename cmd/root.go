@@ -118,10 +118,10 @@ multi-context support, and rich help with examples.
 
 Examples:
   # First-run setup
-  bk-cli context init --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}/"
+  bk-cli context init --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/'
 
   # Login to store credentials
-  bk-cli auth login --bk_app_code="app" --bk_app_secret="secret" --bk_token="tok"
+  bk-cli auth login --bk_app_code='app' --bk_app_secret='secret' --bk_token='tok'
 
   # Make a raw API call
   bk-cli api bk-apigateway GET /api/v2/open/gateways/
@@ -130,7 +130,7 @@ Examples:
   bk-cli apigateway list_gateways --name bk-iam
 
   # Manage contexts for different deployments
-  bk-cli context create clouds --bk_api_url_tmpl="https://bkapi.clouds.example.com/api/{gateway_name}/"
+  bk-cli context create clouds --bk_api_url_tmpl='https://bkapi.clouds.example.com/api/{gateway_name}/'
   bk-cli context use clouds
 
 403 guidance:

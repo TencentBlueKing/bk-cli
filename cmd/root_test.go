@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
@@ -164,6 +166,62 @@ var _ = Describe("version command", func() {
 			ContainSubstring("bk_error_code 9900403 (IAM permission error)"),
 		)
 	})
+
+	DescribeTable(
+		"help examples preserve literal values in Bash",
+		func(args []string, exampleValue string) {
+			cmd := newRootCmd()
+			out := &bytes.Buffer{}
+			cmd.SetOut(out)
+			cmd.SetErr(out)
+			Expect(executeRoot(cmd, append(args, "-h"))).To(Succeed())
+
+			// Replace a value inside the example's existing quotes, as a user would.
+			// Synthetic shell expressions must reach the CLI literally.
+			literal := exampleValue + `$BK_CLI_HELP_UNSET${BK_CLI_HELP_UNSET}$(printf expanded)` +
+				"`printf expanded`" + `!"\end`
+			checked := 0
+			for _, line := range strings.Split(strings.ReplaceAll(out.String(), "\\\n", ""), "\n") {
+				line = strings.TrimSpace(line)
+				if !strings.HasPrefix(line, "bk-cli ") ||
+					(!strings.Contains(line, "'"+exampleValue+"'") && !strings.Contains(line, `"`+exampleValue+`"`)) {
+					continue
+				}
+				for _, quote := range []string{"'", `"`} {
+					line = strings.ReplaceAll(line, quote+exampleValue+quote, quote+literal+quote)
+				}
+				// Capture arguments only; never execute requests from help examples.
+				shell := exec.Command("bash", "--noprofile", "--norc", "-c",
+					"unset BK_CLI_HELP_UNSET\nbk-cli() { printf '%s\\0' \"$@\"; }\n"+line)
+				stdout, err := shell.Output()
+				Expect(err).NotTo(HaveOccurred(), line)
+				Expect(string(stdout)).To(ContainSubstring(literal+"\x00"), line)
+				checked++
+			}
+			Expect(checked).To(BeNumerically(">", 0))
+		},
+		Entry("root URL template", []string{}, "https://bkapi.example.com/api/{gateway_name}/"),
+		Entry("root app secret", []string{}, "secret"),
+		Entry("context URL template", []string{"context"}, "https://bkapi.example.com/api/{gateway_name}/"),
+		Entry(
+			"context init URL template",
+			[]string{"context", "init"},
+			"https://bkapi.example.com/api/{gateway_name}/",
+		),
+		Entry(
+			"context create URL template",
+			[]string{"context", "create"},
+			"https://bkapi.clouds.example.com/api/{gateway_name}/",
+		),
+		Entry("auth URL template", []string{"auth"}, "https://bkapi.example.com/api/{gateway_name}/"),
+		Entry("auth app secret", []string{"auth"}, "secret"),
+		Entry("auth access token", []string{"auth"}, "my_token"),
+		Entry("auth login app secret", []string{"auth", "login"}, "secret"),
+		Entry("auth login user token", []string{"auth", "login"}, "tok"),
+		Entry("auth login access token", []string{"auth", "login"}, "my_token"),
+		Entry("api header", []string{"api"}, "X-Custom:value"),
+		Entry("job script content", []string{"job", "fast_execute_script"}, "echo hello"),
+	)
 
 	It("rejects unknown system action names before help handling", func() {
 		cmd := newRootCmd()

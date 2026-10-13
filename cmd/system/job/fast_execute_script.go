@@ -69,7 +69,7 @@ Use --body to pass the full JSON request body directly (content must already be 
 Do not mix partial --body fragments with synthesized flags.`,
 		Example: strings.Join([]string{
 			"  bk-cli job fast_execute_script \\",
-			`    --bk_biz_id 2 --script_content "echo hello" \`,
+			`    --bk_biz_id 2 --script_content 'echo hello' \`,
 			"    --script_language shell --account_alias root \\",
 			`    --target_server '{"host_id_list":[1]}'`,
 			"  bk-cli job fast_execute_script \\",

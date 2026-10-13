@@ -139,11 +139,15 @@ bk-cli cmdb --help
 
 ### 第一步：初始化默认 context
 
+Bash 示例使用单引号包裹 URL 模板、凭据和其他字面值，复制后替换引号内的示例值。
+`{gateway_name}` 本身不是 Bash 变量，由 CLI 在请求时渲染；`$name`、`${name}` 和命令替换会在双引号内展开。
+如果值包含单引号，需要先结束单引号、用反斜杠转义该字符，再重新开始单引号，例如 `'it'\''s'` 会传入 `it's`。
+
 ```
 # 注意，直接复制执行，不需要替换 `gateway_name`，这是个模板用于实际访问某个网关时渲染
 
 bk-cli context init \
-  --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}"
+  --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}'
 ```
 
 如果你希望这个环境默认带租户或自定义超时：
@@ -152,8 +156,8 @@ bk-cli context init \
 # 注意，不需要替换 `gateway_name`，这是个模板用于实际访问某个网关时渲染
 
 bk-cli context init \
-  --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}" \
-  --tenant_id="tenant-a" \
+  --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}' \
+  --tenant_id='tenant-a' \
   --timeout 90s
 ```
 
@@ -165,20 +169,20 @@ bk-cli context init \
 - bk_ticket(内部上云)/bk_token(其他环境): 使用 Chrome 浏览器，登录任意一个蓝鲸站点，F12-Application-Cookies，搜索 `bk_ticket` / `bk_token`  [auth login 如何获取 bk_ticket/bk_token?](faq.md#auth-login-如何获取-bk_ticketbk_token)
 
 ```
-# 注意，如果 your_secret/your_bk_ticket/your_bk_token 有特殊字符例如 $或 双引号 等，请把双引号换成单引号，避免被 shell 转义导致失败
+# 凭据使用单引号包裹，避免 $、命令替换、双引号和反斜杠被 shell 解释
 
-(内部上云版网关)
+# 内部上云版网关
 bk-cli auth login \
-  --bk_app_code="your_app" \
-  --bk_app_secret="your_secret" \
-  --bk_ticket="your_bk_ticket"
+  --bk_app_code='your_app' \
+  --bk_app_secret='your_secret' \
+  --bk_ticket='your_bk_ticket'
 
-（其他版本网关，例如bk-dev/bkop/sg/bk2game 等）
+# 其他版本网关，例如 bk-dev/bkop/sg/bk2game 等
 
 bk-cli auth login \
-  --bk_app_code="your_app" \
-  --bk_app_secret="your_secret" \
-  --bk_token="your_bk_token"
+  --bk_app_code='your_app' \
+  --bk_app_secret='your_secret' \
+  --bk_token='your_bk_token'
 ```
 
 如果你拿到的是 access token，也可以直接登录：
@@ -186,7 +190,7 @@ bk-cli auth login \
 - access_token: [auth login 需要的 access_token 如何获得？](faq.md#auth-login-需要的-access_token-如何获得)
 
 ```
-bk-cli auth login --access_token="your_access_token"
+bk-cli auth login --access_token='your_access_token'
 ```
 
 登录后可以检查状态：
@@ -243,7 +247,7 @@ bk-cli cmdb search_business --help
 ```
 # 新建一个 context
 bk-cli context create dev \
-  --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}"
+  --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}'
 
 # create 不会自动切换当前环境，按需显式切换
 bk-cli context use dev
@@ -353,7 +357,7 @@ bk-cli apigateway list_gateway_apis --gateway_name bk-iam
 
 bk-cli job fast_execute_script \
   --bk_biz_id 2 \
-  --script_content "echo hello" \
+  --script_content 'echo hello' \
   --target_server '{"host_id_list":[1]}'
 
 bk-cli bcs cluster_manager update_cluster --clusterID BCS-K8S-12345 \
@@ -462,13 +466,13 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/ | jq .
 
 ```
 bk-cli context create prod \
-  --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}"
+  --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}'
 
 bk-cli context create test \
-  --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}"
+  --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}'
 
-bk-cli auth login --context prod --access_token="prod-token"
-bk-cli auth login --context test --access_token="test-token"
+bk-cli auth login --context prod --access_token='prod-token'
+bk-cli auth login --context test --access_token='test-token'
 
 bk-cli api bk-iam GET /api/v2/systems/ --context prod
 bk-cli api bk-iam GET /api/v2/systems/ --context test
