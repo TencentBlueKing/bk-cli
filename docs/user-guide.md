@@ -68,6 +68,7 @@ bk-cli skills read bk-cli-shared --raw
 - bk-cli-shared 公共共享知识
 - bk-cli-api 通过 `bk-cli api` 对任意 BlueKing API Gateway 发起原始 HTTP 调用
 - bk-cli-apigateway 通过 `bk-cli apigateway` 发现 BlueKing API Gateway 中所有公开网关、浏览某个网关公开的 API/资源列表、获取 OpenAPI/Schema
+- bk-cli-aidev 通过 `bk-cli aidev` 操作 AIDev 空间、Skill、MCP、Prompt、智能体、知识库和凭证等资源
 - bk-cli-bcs 通过 `bk-cli bcs cluster_manager` 操作 BCS 集群、节点、节点组和节点模板
 - 其他子系统 skill 按需安装
 
@@ -117,6 +118,7 @@ npx skills add bk-cli/skills
 当前常见 system 包括：
 
 - `apigateway`
+- `aidev`
 - `bcs`
 - `paas`
 - `cmdb`
@@ -131,6 +133,7 @@ npx skills add bk-cli/skills
 ```
 bk-cli --help
 bk-cli apigateway --help
+bk-cli aidev --help
 bk-cli bcs cluster_manager --help
 bk-cli cmdb --help
 ```
@@ -229,6 +232,7 @@ bk-cli api bk-demo POST /api/v2/resources/ \
 
 ```
 bk-cli apigateway list_gateways --name bk-iam --fuzzy
+bk-cli aidev retrieve_private_spaces --keyword demo
 bk-cli cmdb search_business --bk_biz_id 2
 bk-cli paas create_cloud_native_app -h --body-schema
 ```
@@ -237,6 +241,7 @@ bk-cli paas create_cloud_native_app -h --body-schema
 
 ```
 bk-cli apigateway list_gateways --help
+bk-cli aidev create_private_skills_upsert -h --body-schema
 bk-cli cmdb search_business --help
 ```
 

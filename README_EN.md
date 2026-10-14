@@ -16,8 +16,8 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
 - **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes
+- **Rich system commands**: built-in BlueKing system subcommands, including API Gateway, AIDev, BCS, PaaS, CMDB, JOB, SOPS, GSE, DevOps, and NodeMan, with raw `api` calls kept as a fallback
 - **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
-- **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
@@ -51,6 +51,7 @@ For developers:
 - [BK-SOPS](https://github.com/TencentBlueKing/bk-sops): Standard Operations (SOPS) is a lightweight scheduling and orchestration SaaS product in the BlueKing ecosystem, with visual workflow design and execution.
 - [BK-CMDB](https://github.com/TencentBlueKing/bk-cmdb): BlueKing Configuration Management Database is an enterprise-grade platform for asset and application configuration.
 - [BK-JOB](https://github.com/TencentBlueKing/bk-job): BlueKing Job is an operations script management platform with high-concurrency task execution.
+- AIDev: BlueKing intelligent development resource APIs are available through `bk-cli aidev` for spaces, skills, MCPs, prompts, agents, knowledge bases, and credentials.
 
 ## Contributing
 

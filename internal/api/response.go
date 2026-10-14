@@ -53,6 +53,8 @@ func BuildDryRunEnvelope(req *Request) *output.Envelope {
 	headers["User-Agent"] = userAgent
 	if req.BodyJSON != "" {
 		headers["Content-Type"] = "application/json"
+	} else if req.BodyReader != nil && req.ContentType != "" {
+		headers["Content-Type"] = req.ContentType
 	}
 	if req.AuthHeader != "" {
 		headers["X-Bkapi-Authorization"] = "{...redacted...}"
@@ -84,6 +86,8 @@ func BuildDryRunEnvelope(req *Request) *output.Envelope {
 	// Body
 	if req.BodyJSON != "" {
 		dryReq.Body = parseDryRunJSON(req.BodyJSON)
+	} else if req.DryRunBody != nil {
+		dryReq.Body = req.DryRunBody
 	}
 
 	return output.DryRun(dryReq)

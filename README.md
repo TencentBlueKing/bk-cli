@@ -16,8 +16,8 @@
 - **多上下文支持**: 管理多个 BlueKing 部署的凭据
 - **环境自检**: 使用 `bk-cli doctor` 检查 context、凭据、URL 渲染和网关连通性
 - **自动化友好的输出**: 带 `ok` 字段的 JSON 信封、机器可读错误、可预测的退出码
+- **丰富的系统命令**: 内置多个 BlueKing system 子命令（含 API Gateway、AIDev、BCS、PaaS、CMDB、JOB、SOPS、GSE、DevOps、NodeMan），也保留原始 `api` 调用作为兜底能力
 - **灵活请求体输入**: `--body` 支持内联 JSON、`@file` 文件读取和 stdin 输入
-- **丰富的系统命令**: 内置多个 BlueKing system 子命令，也保留原始 `api` 调用作为兜底能力
 - **内置 Agent Skills**: 可通过 `bk-cli skills list` 和 `bk-cli skills read <name>` 查看随当前版本打包的使用指引，`skills read --raw` 可输出原始 Markdown
 - **加密凭据存储**: 每个上下文使用 AES-256-GCM 加密
 - **单一二进制文件**: 无运行时依赖
@@ -52,6 +52,7 @@ Bash 示例中的 URL 模板和凭据使用单引号包裹；替换引号内的�
   SaaS 产品。
 - [BK-CMDB](https://github.com/TencentBlueKing/bk-cmdb)：蓝鲸配置平台是一个面向资产及应用的企业级配置管理平台。
 - [BK-JOB](https://github.com/TencentBlueKing/bk-job)：蓝鲸作业平台（Job）是一套运维脚本管理系统，具备海量任务并发处理能力。
+- AIDev：蓝鲸智能研发相关资源能力，可通过 `bk-cli aidev` 访问空间、Skill、MCP、Prompt、智能体、知识库和凭证等接口。
 
 ## 贡献
 

@@ -20,6 +20,7 @@ package api_test
 
 import (
 	"io"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,6 +74,43 @@ var _ = Describe("Request.Build", func() {
 		Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
 		body, _ := io.ReadAll(req.Body)
 		Expect(string(body)).To(Equal(`{"key":"value"}`))
+	})
+
+	It("ignores raw-body Content-Type when the request body is JSON", func() {
+		r := &api.Request{
+			Method:      "POST",
+			URL:         "https://example.com/api/v1/test",
+			BodyJSON:    `{"key":"value"}`,
+			ContentType: "text/plain",
+		}
+		req, err := r.Build()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
+	})
+
+	It("POST with non-JSON body uses provided Content-Type", func() {
+		r := &api.Request{
+			Method:      "POST",
+			URL:         "https://example.com/api/v1/test",
+			BodyReader:  strings.NewReader("raw-body"),
+			ContentType: "multipart/form-data; boundary=test",
+		}
+		req, err := r.Build()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(req.Header.Get("Content-Type")).To(Equal("multipart/form-data; boundary=test"))
+		body, _ := io.ReadAll(req.Body)
+		Expect(string(body)).To(Equal("raw-body"))
+	})
+
+	It("rejects multiple body sources", func() {
+		r := &api.Request{
+			Method:     "POST",
+			URL:        "https://example.com/api/v1/test",
+			BodyJSON:   `{"key":"value"}`,
+			BodyReader: strings.NewReader("raw-body"),
+		}
+		_, err := r.Build()
+		Expect(err).To(MatchError("only one request body source can be provided"))
 	})
 
 	It("sets auth header correctly", func() {

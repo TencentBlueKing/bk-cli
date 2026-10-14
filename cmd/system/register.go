@@ -58,6 +58,7 @@ func RegisterAll(
 func systemCatalog() []systemcmd.SystemSpec {
 	return []systemcmd.SystemSpec{
 		newApigatewaySystemSpec(),
+		newAIDevSystemSpec(),
 		newBCSSystemSpec(),
 		newPaasSystemSpec(),
 		newCMDBSystemSpec(),

@@ -1,0 +1,4279 @@
+name: aidev
+gateway_name: bk-aidev
+description: "BlueKing AIDev resource commands"
+actions:
+  - name: retrieve_private_spaces
+    description: "返回当前用户在 IAM 中有 VIEW_SPACE 权限的所有空间；限定当前租户，无需传入 space_id，可按 keyword 搜索"
+    method: GET
+    path: "/openapi/aidev/private/v1/spaces/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: keyword
+        in: query
+        type: string
+        description: "搜索关键词，支持空间名称模糊搜索"
+    examples:
+      - "bk-cli aidev retrieve_private_spaces"
+
+  - name: list_private_skills
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: GET
+    path: "/openapi/aidev/private/v1/skills/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: fuzzy
+        in: query
+        type: string
+        description: "模糊搜索关键词"
+      - name: generate_type
+        in: query
+        type: string
+        description: "公开类型"
+      - name: group_type
+        in: query
+        type: string
+        description: "分组类型"
+      - name: order_by
+        in: query
+        type: string
+        description: "排序字段"
+      - name: order_method
+        in: query
+        type: string
+        description: "排序方式"
+      - name: page
+        in: query
+        type: int
+        description: "页码"
+      - name: page_size
+        in: query
+        type: int
+        description: "每页条数"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+      - name: tag_id
+        in: query
+        type: string
+        description: "标签 ID"
+      - name: tag_name
+        in: query
+        type: string
+        description: "标签名称"
+    examples:
+      - "bk-cli aidev list_private_skills"
+
+  - name: create_private_skills_upsert
+    description: "Upsert 逻辑：skill_code 不存在则创建，存在则更新；默认允许覆盖已存在的同版本，传 allow_version_overwrite=false 可禁止覆盖"
+    method: POST
+    path: "/openapi/aidev/private/v1/skills/upsert/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "SkillUpsertRequest",
+        "required": [
+          "space_id",
+          "skill_code",
+          "skill_name",
+          "description",
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Skill ZIP 的 bkrepo:// 地址或 skillfiles 存储路径"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "default": "",
+            "nullable": true,
+            "description": "图标"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "nullable": true,
+            "description": "版本号，不传则自动递增"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name",
+            "nullable": true,
+            "description": "原始文件名，不传则从 url 路径中解析"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false,
+            "nullable": true,
+            "description": "是否公开"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "Tag Names",
+            "nullable": true,
+            "description": "标签"
+          },
+          "skill_code": {
+            "type": "string",
+            "title": "Skill Code",
+            "description": "Skill 唯一标识"
+          },
+          "skill_name": {
+            "type": "string",
+            "title": "Skill Name",
+            "description": "Skill 名称"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Skill 描述"
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "Generate Type",
+            "default": "space",
+            "nullable": true,
+            "description": "公开类型"
+          },
+          "allow_version_overwrite": {
+            "type": "boolean",
+            "title": "Allow Version Overwrite",
+            "default": true,
+            "description": "是否允许覆盖已存在的同版本"
+          }
+        },
+        "description": "Skill 创建/更新请求（私有/应用侧共用，space_id 必填）"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_skills_upsert --body '{\"space_id\":\"demo-space\",\"skill_code\":\"demo-skill\",\"skill_name\":\"Demo Skill\",\"description\":\"demo description\",\"url\":\"bkrepo://demo.zip\"}'"
+
+  - name: retrieve_private_skills
+    description: "获取指定 Skill 的详细信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/skills/{skill_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: skill_id
+        in: path
+        type: int
+        description: "Skill ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+      - name: version
+        in: query
+        type: string
+        description: "版本号，不传则返回最新版本"
+    examples:
+      - "bk-cli aidev retrieve_private_skills --skill_id 1 --space_id demo-space"
+
+  - name: delete_private_skills
+    description: "归档指定 Skill"
+    method: DELETE
+    path: "/openapi/aidev/private/v1/skills/{skill_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: skill_id
+        in: path
+        type: int
+        description: "Skill ID"
+        required: true
+    examples:
+      - "bk-cli aidev delete_private_skills --skill_id 1"
+
+  - name: retrieve_private_skills_download
+    description: "获取指定 Skill 文件的临时下载链接"
+    method: GET
+    path: "/openapi/aidev/private/v1/skills/{skill_id}/download/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: skill_id
+        in: path
+        type: int
+        description: "Skill ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_skills_download --skill_id 1 --space_id demo-space"
+
+  - name: retrieve_private_skills_versions
+    description: "获取指定 Skill 的历史版本列表"
+    method: GET
+    path: "/openapi/aidev/private/v1/skills/{skill_id}/versions/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: skill_id
+        in: path
+        type: int
+        description: "Skill ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_skills_versions --skill_id 1 --space_id demo-space"
+
+  - name: list_private_mcps
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: GET
+    path: "/openapi/aidev/private/v1/mcps/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_code
+        in: query
+        type: string
+        description: "查询该编码已获授权的 APIGW MCP；智能体已创建时校验空间归属，未创建时仍校验请求空间权限"
+      - name: created_by
+        in: query
+        type: string
+        description: "创建人"
+      - name: description
+        in: query
+        type: string
+        description: "描述"
+      - name: fuzzy
+        in: query
+        type: string
+        description: "模糊搜索关键词"
+      - name: mcp_code
+        in: query
+        type: string
+        description: "MCP 英文标识"
+      - name: mcp_name
+        in: query
+        type: string
+        description: "MCP 名称"
+      - name: mcp_type
+        in: query
+        type: string
+        description: "按 MCP 类型过滤：apigw / resource；未传则同时返回 resource 与 APIGW MCP"
+      - name: order_by
+        in: query
+        type: string
+        description: "排序字段"
+      - name: order_method
+        in: query
+        type: string
+        description: "排序方式"
+      - name: page
+        in: query
+        type: int
+        description: "页码"
+      - name: page_size
+        in: query
+        type: int
+        description: "每页条数"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+      - name: tag_id
+        in: query
+        type: string
+        description: "标签 ID"
+      - name: tag_name
+        in: query
+        type: string
+        description: "标签名称"
+      - name: tag_names
+        in: query
+        type: string
+        description: "标签完整路径"
+      - name: updated_by
+        in: query
+        type: string
+        description: "更新人"
+    examples:
+      - "bk-cli aidev list_private_mcps"
+
+  - name: create_private_mcps
+    description: "在当前用户有创建权限的空间中创建 MCP"
+    method: POST
+    path: "/openapi/aidev/private/v1/mcps/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "MCPCreateRequest",
+        "required": [
+          "space_id",
+          "mcp_name",
+          "mcp_code",
+          "url",
+          "protocol",
+          "credential_type",
+          "description"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "MCP 服务地址"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "nullable": true,
+            "description": "MCP 图标"
+          },
+          "mcp_code": {
+            "type": "string",
+            "title": "Mcp Code",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "maxLength": 64,
+            "description": "MCP 英文标识"
+          },
+          "mcp_name": {
+            "type": "string",
+            "title": "Mcp Name",
+            "description": "MCP 名称"
+          },
+          "protocol": {
+            "allOf": [
+              {
+                "enum": [
+                  "stdio",
+                  "streamable_http",
+                  "sse"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Protocol",
+            "description": "通信协议"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false,
+            "description": "是否公开"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "Tag Names",
+            "description": "标签完整路径列表"
+          },
+          "user_guide": {
+            "type": "string",
+            "title": "User Guide",
+            "default": "",
+            "maxLength": 1024,
+            "description": "使用文档"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "MCP 描述"
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "Credential Id",
+            "nullable": true,
+            "description": "自定义凭证 ID"
+          },
+          "generate_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "space",
+                  "user",
+                  "public"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Generate Type",
+            "default": "space",
+            "description": "公开类型"
+          },
+          "credential_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "null",
+                  "blueapps",
+                  "custom"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Credential Type",
+            "description": "凭证类型"
+          }
+        },
+        "description": "MCP 创建请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_mcps --body '{\"space_id\":\"demo-space\",\"mcp_name\":\"Demo MCP\",\"mcp_code\":\"demo-mcp\",\"url\":\"bkrepo://demo.zip\",\"protocol\":\"stdio\",\"credential_type\":\"api_key\",\"description\":\"demo description\"}'"
+
+  - name: retrieve_private_mcps
+    description: "获取指定 MCP 的详细信息，当前 APIGW MCP 会基于列表结果组装详情，后续接入专用详情接口后可无缝切换"
+    method: GET
+    path: "/openapi/aidev/private/v1/mcps/{mcp_type}/{mcp_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_code
+        in: query
+        type: string
+        description: "按编码查询 APIGW 授权；智能体已创建时校验空间归属"
+      - name: mcp_id
+        in: path
+        type: int
+        description: "MCP ID"
+        required: true
+      - name: mcp_type
+        in: path
+        type: string
+        description: "MCP 类型，resource 表示资源型 MCP，apigw 表示 APIGW MCP"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_mcps --mcp_id 1 --mcp_type apigw --space_id demo-space"
+
+  - name: retrieve_private_mcps_register_json
+    description: "获取指定 MCP 的注册 JSON 结构，可直接用于注册 MCP 工具；当前 APIGW MCP 会基于列表结果组装返回"
+    method: GET
+    path: "/openapi/aidev/private/v1/mcps/{mcp_type}/{mcp_id}/register_json/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_code
+        in: query
+        type: string
+        description: "按编码查询 APIGW 授权；智能体已创建时校验空间归属"
+      - name: mcp_id
+        in: path
+        type: int
+        description: "MCP ID"
+        required: true
+      - name: mcp_type
+        in: path
+        type: string
+        description: "MCP 类型，resource 表示资源型 MCP，apigw 表示 APIGW MCP"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_mcps_register_json --mcp_id 1 --mcp_type apigw --space_id demo-space"
+
+  - name: query_private_knowledgebase
+    description: "基于当前用户身份和指定空间发起知识库查询，查询能力与应用态 knowledgebase query 保持一致。"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledgebase/query/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "ScopedKnowledgeBaseQueryRequest",
+        "required": [
+          "space_id",
+          "query"
+        ],
+        "properties": {
+          "raw": {
+            "type": "boolean",
+            "title": "是否返回未精排结果",
+            "default": false,
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "标签"
+          },
+          "topk": {
+            "type": "integer",
+            "title": "前多少个",
+            "default": 5,
+            "nullable": true
+          },
+          "type": {
+            "allOf": [
+              {
+                "enum": [
+                  "nature",
+                  "index_specific"
+                ],
+                "type": "string",
+                "title": "KnowledgeBaseQueryType",
+                "description": "检索类型"
+              }
+            ],
+            "title": "检索类型",
+            "default": "nature",
+            "nullable": true
+          },
+          "debug": {
+            "type": "boolean",
+            "title": "是否调试",
+            "default": false,
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "title": "检索使用的大模型",
+            "nullable": true
+          },
+          "query": {
+            "type": "string",
+            "title": "匹配内容"
+          },
+          "thres": {
+            "type": "number",
+            "title": "最低相关度",
+            "default": 0,
+            "nullable": true
+          },
+          "filter": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "Filter",
+                "properties": {
+                  "scalar": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "ScalarFilter",
+                      "required": [
+                        "expression"
+                      ],
+                      "properties": {
+                        "expression": {
+                          "type": "string",
+                          "title": "表达式"
+                        }
+                      }
+                    },
+                    "title": "标量过滤",
+                    "nullable": true
+                  },
+                  "vector": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "VectorFilter",
+                      "required": [
+                        "index_name",
+                        "index_value"
+                      ],
+                      "properties": {
+                        "topk": {
+                          "type": "integer",
+                          "title": "前多少个",
+                          "nullable": true
+                        },
+                        "scalar": {
+                          "allOf": [
+                            {
+                              "type": "object",
+                              "title": "ScalarFilter",
+                              "required": [
+                                "expression"
+                              ],
+                              "properties": {
+                                "expression": {
+                                  "type": "string",
+                                  "title": "表达式"
+                                }
+                              }
+                            }
+                          ],
+                          "title": "标量过滤",
+                          "nullable": true
+                        },
+                        "index_name": {
+                          "type": "string",
+                          "title": "索引名称"
+                        },
+                        "index_type": {
+                          "type": "string",
+                          "title": "索引类型",
+                          "default": "vector-full_text",
+                          "nullable": true
+                        },
+                        "index_value": {
+                          "type": "string",
+                          "title": "索引值"
+                        },
+                        "knowledge_id": {
+                          "type": "integer",
+                          "title": "知识ID",
+                          "nullable": true
+                        },
+                        "knowledge_base_id": {
+                          "type": "integer",
+                          "title": "知识库ID",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "title": "向量过滤",
+                    "nullable": true
+                  }
+                }
+              }
+            ],
+            "title": "通用搜索条件",
+            "default": {},
+            "nullable": true
+          },
+          "origin": {
+            "type": "boolean",
+            "title": "是否返回检索原始文档内容",
+            "default": false,
+            "nullable": true
+          },
+          "polish": {
+            "type": "boolean",
+            "title": "是否需要润色",
+            "default": false,
+            "nullable": true
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "是否需要流式返回",
+            "default": false,
+            "nullable": true
+          },
+          "llm_code": {
+            "type": "string",
+            "title": "LLM",
+            "default": "",
+            "nullable": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "use_rerank": {
+            "type": "boolean",
+            "title": "是否使用rerank模型",
+            "default": true
+          },
+          "rrf_weights": {
+            "type": "object",
+            "title": "RRF融合权重",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "anchor_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "游标路径",
+            "default": [],
+            "nullable": true
+          },
+          "chat_history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "KnowledgeQueryChatMessage",
+              "required": [
+                "role",
+                "content"
+              ],
+              "properties": {
+                "role": {
+                  "allOf": [
+                    {
+                      "enum": [
+                        "user",
+                        "assistant"
+                      ],
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Role"
+                },
+                "content": {
+                  "type": "string",
+                  "title": "Content",
+                  "minLength": 1
+                }
+              },
+              "description": "知识查询使用的会话历史消息。"
+            },
+            "title": "会话历史，仅用于自然语言非 raw 查询的查询预处理"
+          },
+          "knowledge_id": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "知识ID",
+            "default": [],
+            "nullable": true
+          },
+          "query_function": {
+            "allOf": [
+              {
+                "enum": [
+                  "semantic",
+                  "mixed",
+                  "sql"
+                ],
+                "type": "string",
+                "title": "KnowledgeBaseQueryFunction",
+                "description": "检索方式"
+              }
+            ],
+            "title": "检索方式（兼容字段）",
+            "nullable": true
+          },
+          "retriever_code": {
+            "type": "string",
+            "title": "检索器编码（兼容字段）",
+            "nullable": true
+          },
+          "retriever_name": {
+            "type": "string",
+            "title": "检索器名称",
+            "nullable": true
+          },
+          "recall_channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "向量召回通道（dense/sparse）；为空时兼容 query_function，两者为空且 filter.scalar 非空时为纯标量",
+            "nullable": true
+          },
+          "with_scalar_data": {
+            "type": "boolean",
+            "title": "是否启用标量检索（兼容字段）",
+            "default": true,
+            "nullable": true
+          },
+          "knowledge_base_id": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "知识库ID",
+            "default": [],
+            "nullable": true
+          },
+          "rejection_message": {
+            "type": "string",
+            "title": "拒答文案",
+            "default": "",
+            "nullable": true
+          },
+          "index_query_kwargs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "IndexQueryKwargsItem",
+              "required": [
+                "index_name",
+                "index_value"
+              ],
+              "properties": {
+                "topk": {
+                  "type": "integer",
+                  "title": "前多少个",
+                  "default": 10,
+                  "nullable": true
+                },
+                "index_name": {
+                  "type": "string",
+                  "title": "索引名称"
+                },
+                "index_type": {
+                  "type": "string",
+                  "title": "索引类型",
+                  "default": "vector-full_text",
+                  "nullable": true
+                },
+                "index_value": {
+                  "type": "string",
+                  "title": "索引值"
+                },
+                "knowledge_id": {
+                  "type": "integer",
+                  "title": "知识ID",
+                  "nullable": true
+                },
+                "knowledge_base_id": {
+                  "type": "integer",
+                  "title": "知识库ID",
+                  "nullable": true
+                }
+              }
+            },
+            "title": "索引查询参数（兼容 filter.vector）",
+            "default": [],
+            "nullable": true
+          },
+          "knowledge_template_id": {
+            "type": "integer",
+            "title": "检索模版ID",
+            "nullable": true
+          },
+          "retriever_search_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "similarity",
+                  "similarity_score_threshold",
+                  "mmr"
+                ],
+                "type": "string",
+                "title": "KnowledgeBaseQueryRetrieverSearchType",
+                "description": "子检索器检索方式"
+              }
+            ],
+            "title": "子检索器检索方式",
+            "default": "similarity_score_threshold",
+            "nullable": true
+          },
+          "independent_query_mode": {
+            "allOf": [
+              {
+                "enum": [
+                  "INIT",
+                  "REWRITE",
+                  "SUM_AND_CONCATE"
+                ],
+                "type": "string",
+                "title": "IndependentQueryMode",
+                "description": "预处理逻辑"
+              }
+            ],
+            "title": "查询预处理模式",
+            "default": "INIT"
+          },
+          "document_fragment_count": {
+            "type": "integer",
+            "title": "前多少个(兼容检索测试)",
+            "default": 0,
+            "nullable": true
+          },
+          "knowledge_resource_reject_threshold": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "title": "相关性阈值",
+            "default": [
+              0.001,
+              0.1
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          },
+          "is_response_when_no_knowledgebase_match": {
+            "type": "boolean",
+            "title": "未命中知识库时根据通识回答",
+            "default": false,
+            "nullable": true
+          },
+          "knowledge_resource_fine_grained_score_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "LLM",
+                  "EXCLUSIVE_SIMILARITY_MODEL",
+                  "EMBEDDING"
+                ],
+                "type": "string",
+                "title": "KnowledgeResourceFineGrainedScoreType",
+                "description": "相关性判断模型"
+              }
+            ],
+            "default": "LLM"
+          }
+        },
+        "description": "App/private 使用显式空间参数；Agent 上下文接口沿用原协议。"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev query_private_knowledgebase --body '{\"space_id\":\"demo-space\",\"query\":\"hello\"}'"
+
+  - name: list_private_prompts
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: GET
+    path: "/openapi/aidev/private/v1/prompts/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: created_by
+        in: query
+        type: string
+        description: "创建人"
+      - name: fuzzy
+        in: query
+        type: string
+        description: "模糊搜索关键词"
+      - name: generate_type
+        in: query
+        type: string
+        description: "公开类型"
+      - name: group_type
+        in: query
+        type: string
+        description: "分组类型"
+      - name: order_by
+        in: query
+        type: string
+        description: "排序字段"
+      - name: order_method
+        in: query
+        type: string
+        description: "排序方式"
+      - name: page
+        in: query
+        type: int
+        description: "页码"
+      - name: page_size
+        in: query
+        type: int
+        description: "每页条数"
+      - name: prompt_code
+        in: query
+        type: string
+        description: "按 prompt 标识模糊过滤"
+      - name: prompt_name
+        in: query
+        type: string
+        description: "按 prompt 名称模糊过滤"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+      - name: tag_id
+        in: query
+        type: string
+        description: "标签 ID"
+      - name: tag_name
+        in: query
+        type: string
+        description: "标签名称"
+    examples:
+      - "bk-cli aidev list_private_prompts"
+
+  - name: upsert_private_prompts
+    description: "Upsert 逻辑：prompt_code 在当前租户+空间不存在则创建，存在则更新"
+    method: POST
+    path: "/openapi/aidev/private/v1/prompts/upsert/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "PromptUpsertRequest",
+        "required": [
+          "space_id",
+          "prompt_code",
+          "prompt_name",
+          "content"
+        ],
+        "properties": {
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "nullable": true,
+            "maxLength": 1024,
+            "description": "图标 URL"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Prompt 内容"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false,
+            "description": "是否公开"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "Tag Names",
+            "nullable": true,
+            "description": "标签"
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "title": "Variables",
+            "description": "模板变量列表"
+          },
+          "prompt_code": {
+            "type": "string",
+            "title": "Prompt Code",
+            "description": "Prompt 唯一标识"
+          },
+          "prompt_name": {
+            "type": "string",
+            "title": "Prompt Name",
+            "description": "Prompt 名称"
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "Generate Type",
+            "default": "user",
+            "description": "公开类型"
+          }
+        },
+        "description": "Prompt 创建/更新请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev upsert_private_prompts --body '{\"space_id\":\"demo-space\",\"prompt_code\":\"demo-prompt\",\"prompt_name\":\"Demo Prompt\",\"content\":\"demo content\"}'"
+
+  - name: retrieve_private_prompts
+    description: "获取指定 Prompt 的详细信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/prompts/{prompt_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: prompt_id
+        in: path
+        type: int
+        description: "Prompt ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_prompts --prompt_id 1 --space_id demo-space"
+
+  - name: list_private_agents
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: GET
+    path: "/openapi/aidev/private/v1/agents/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_code
+        in: query
+        type: string
+        description: "按智能体标识模糊过滤"
+      - name: agent_name
+        in: query
+        type: string
+        description: "按智能体名称模糊过滤"
+      - name: created_by
+        in: query
+        type: string
+        description: "创建人"
+      - name: fuzzy
+        in: query
+        type: string
+        description: "模糊搜索关键词"
+      - name: generate_type
+        in: query
+        type: string
+        description: "公开类型"
+      - name: order_by
+        in: query
+        type: string
+        description: "排序字段"
+      - name: order_method
+        in: query
+        type: string
+        description: "排序方式"
+      - name: page
+        in: query
+        type: int
+        description: "页码"
+      - name: page_size
+        in: query
+        type: int
+        description: "每页条数"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+      - name: tag_id
+        in: query
+        type: string
+        description: "标签 ID"
+      - name: tag_name
+        in: query
+        type: string
+        description: "标签名称"
+    examples:
+      - "bk-cli aidev list_private_agents"
+
+  - name: create_private_agents
+    description: "在当前用户有创建权限的空间中创建智能体"
+    method: POST
+    path: "/openapi/aidev/private/v1/agents/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "AgentCreateRequest",
+        "required": [
+          "space_id",
+          "agent_name",
+          "agent_code"
+        ],
+        "properties": {
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "default": "",
+            "description": "智能体图标"
+          },
+          "app_code": {
+            "type": "string",
+            "title": "App Code",
+            "nullable": true,
+            "description": "绑定的蓝鲸应用 app_code"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false,
+            "description": "是否公开"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tag Names",
+            "description": "标签名称列表"
+          },
+          "agent_code": {
+            "type": "string",
+            "title": "Agent Code",
+            "description": "智能体标识"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "description": "智能体名称"
+          },
+          "agent_type": {
+            "type": "string",
+            "title": "Agent Type",
+            "default": "single",
+            "description": "智能体类型"
+          },
+          "user_scope": {
+            "enum": [
+              "public",
+              "custom"
+            ],
+            "type": "string",
+            "title": "User Scope",
+            "nullable": true,
+            "description": "创建时的人员使用范围；省略沿用平台默认值，public 对所有人开放"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": "",
+            "description": "智能体描述"
+          },
+          "business_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Business Ids",
+            "nullable": true,
+            "description": "业务标签 ID 列表"
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "Generate Type",
+            "default": "space",
+            "description": "公开类型"
+          },
+          "is_bind_bk_saas": {
+            "type": "boolean",
+            "title": "Is Bind Bk Saas",
+            "default": false,
+            "description": "是否绑定已有蓝鲸应用"
+          },
+          "service_catalogue": {
+            "type": "array",
+            "items": {},
+            "title": "Service Catalogue",
+            "nullable": true,
+            "description": "服务目录"
+          },
+          "expected_efficiency_minutes": {
+            "type": "integer",
+            "title": "Expected Efficiency Minutes",
+            "default": 0,
+            "minimum": 0,
+            "description": "单次会话预计提效时长（分钟）"
+          }
+        },
+        "description": "Agent 创建请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_agents --body '{\"space_id\":\"demo-space\",\"agent_name\":\"Demo Agent\",\"agent_code\":\"demo-agent\"}'"
+
+  - name: retrieve_private_agents
+    description: "获取指定智能体的详细信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/agents/{agent_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_id
+        in: path
+        type: int
+        description: "Agent ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+      - name: version
+        in: query
+        type: string
+        description: "已发布版本号；不传返回当前草稿配置"
+    examples:
+      - "bk-cli aidev retrieve_private_agents --agent_id 1 --space_id demo-space"
+
+  - name: delete_private_agents
+    description: "归档指定智能体；已发布的插件应用将异步从开发者中心下架"
+    method: DELETE
+    path: "/openapi/aidev/private/v1/agents/{agent_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_id
+        in: path
+        type: int
+        description: "Agent ID"
+        required: true
+    examples:
+      - "bk-cli aidev delete_private_agents --agent_id 1"
+
+  - name: publish_private_agents
+    description: "发布智能体配置，不传版本号时自动递增"
+    method: POST
+    path: "/openapi/aidev/private/v1/agents/{agent_id}/publish/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "AgentPublishRequest",
+        "required": [
+          "space_id",
+          "agent_id"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "nullable": true,
+            "description": "发布版本号；不传时首次为 1.0.0，后续自动递增末位"
+          },
+          "agent_id": {
+            "type": "integer",
+            "title": "Agent Id",
+            "description": "Agent ID"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "agent_url": {
+            "type": "string",
+            "title": "Agent Url",
+            "default": "",
+            "description": "智能体地址，发布到开发者中心时由系统自动填充"
+          },
+          "release_log": {
+            "type": "string",
+            "title": "Release Log",
+            "default": "",
+            "description": "版本发布说明"
+          },
+          "agent_api_url": {
+            "type": "string",
+            "title": "Agent Api Url",
+            "default": "",
+            "description": "智能体 API 地址，发布到开发者中心时由系统自动填充"
+          },
+          "publish_config_only": {
+            "type": "boolean",
+            "title": "Publish Config Only",
+            "default": false,
+            "description": "是否只发布配置，不发布到开发者中心"
+          },
+          "is_publish_to_paas_v3": {
+            "type": "boolean",
+            "title": "Is Publish To Paas V3",
+            "default": false,
+            "description": "是否发布到蓝鲸开发者中心"
+          }
+        },
+        "description": "Agent 发布请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_id
+        in: path
+        type: int
+        description: "Agent ID"
+        required: true
+    examples:
+      - "bk-cli aidev publish_private_agents --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+
+  - name: update_private_agents
+    description: "更新智能体（名称、描述、模型配置、提示词、知识库、工具、MCP 等）"
+    method: PUT
+    path: "/openapi/aidev/private/v1/agents/{agent_id}/update/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "AgentUpdateRequest",
+        "required": [
+          "space_id",
+          "agent_id"
+        ],
+        "properties": {
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "nullable": true,
+            "description": "智能体图标"
+          },
+          "model": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "_ModelSetting",
+                "properties": {
+                  "llm_code": {
+                    "type": "string",
+                    "title": "Llm Code",
+                    "nullable": true,
+                    "description": "LLM 编码"
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "title": "Max Tokens",
+                    "nullable": true,
+                    "description": "最大 token 数"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "title": "Temperature",
+                    "nullable": true,
+                    "description": "温度"
+                  },
+                  "context_window": {
+                    "type": "integer",
+                    "title": "Context Window",
+                    "nullable": true,
+                    "description": "上下文窗口"
+                  },
+                  "fallback_model": {
+                    "type": "string",
+                    "title": "Fallback Model",
+                    "nullable": true,
+                    "description": "备用 LLM 编码"
+                  },
+                  "llm_token_limit": {
+                    "type": "integer",
+                    "title": "Llm Token Limit",
+                    "nullable": true,
+                    "description": "LLM token 限制"
+                  },
+                  "tool_output_compress_thrd": {
+                    "type": "integer",
+                    "title": "Tool Output Compress Thrd",
+                    "nullable": true,
+                    "description": "工具输出压缩阈值"
+                  }
+                },
+                "description": "模型配置"
+              }
+            ],
+            "nullable": true,
+            "description": "模型配置"
+          },
+          "prompt": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "_PromptSetting",
+                "properties": {
+                  "prompt_type": {
+                    "type": "string",
+                    "title": "Prompt Type",
+                    "nullable": true,
+                    "description": "提示词类型 (user_define/collection)"
+                  },
+                  "collection_id": {
+                    "type": "integer",
+                    "title": "Collection Id",
+                    "nullable": true,
+                    "description": "角色 ID"
+                  },
+                  "prompt_content": {
+                    "type": "string",
+                    "title": "Prompt Content",
+                    "nullable": true,
+                    "description": "自定义提示词内容"
+                  },
+                  "collection_name": {
+                    "type": "string",
+                    "title": "Collection Name",
+                    "nullable": true,
+                    "description": "角色名称"
+                  },
+                  "collection_content": {
+                    "title": "Collection Content",
+                    "description": "角色内容"
+                  },
+                  "collection_variables": {
+                    "type": "array",
+                    "items": {},
+                    "title": "Collection Variables",
+                    "nullable": true,
+                    "description": "角色变量"
+                  }
+                },
+                "description": "提示词配置"
+              }
+            ],
+            "nullable": true,
+            "description": "提示词配置"
+          },
+          "agent_id": {
+            "type": "integer",
+            "title": "Agent Id",
+            "description": "Agent ID"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "nullable": true,
+            "description": "是否公开"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "Tag Names",
+            "nullable": true,
+            "description": "标签"
+          },
+          "agent_code": {
+            "type": "string",
+            "title": "Agent Code",
+            "nullable": true,
+            "description": "智能体标识"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "nullable": true,
+            "description": "智能体名称"
+          },
+          "user_guide": {
+            "type": "string",
+            "title": "User Guide",
+            "nullable": true,
+            "description": "使用文档"
+          },
+          "user_scope": {
+            "enum": [
+              "public",
+              "custom"
+            ],
+            "type": "string",
+            "title": "User Scope",
+            "nullable": true,
+            "description": "人员使用范围；省略保留当前值，public 对所有人开放，custom 使用已有人员授权"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "nullable": true,
+            "description": "智能体描述"
+          },
+          "related_mcps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "_RelatedMCP",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "title": "Id",
+                  "minimum": 0,
+                  "nullable": true,
+                  "description": "MCP ID；与 code 至少提供一个",
+                  "exclusiveMinimum": true
+                },
+                "code": {
+                  "type": "string",
+                  "title": "Code",
+                  "nullable": true,
+                  "minLength": 1,
+                  "description": "MCP 编码，按当前智能体空间和授权解析"
+                },
+                "type": {
+                  "enum": [
+                    "resource",
+                    "apigw"
+                  ],
+                  "type": "string",
+                  "title": "Type",
+                  "nullable": true,
+                  "description": "MCP 类型，可替代 mcp_type"
+                },
+                "mcp_type": {
+                  "enum": [
+                    "resource",
+                    "apigw"
+                  ],
+                  "type": "string",
+                  "title": "Mcp Type",
+                  "nullable": true,
+                  "description": "MCP 类型，兼容 type"
+                },
+                "selected_tools": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "title": "_MCPTool",
+                    "properties": {
+                      "tool_name": {
+                        "type": "string",
+                        "title": "Tool Name",
+                        "nullable": true,
+                        "description": "工具名称"
+                      }
+                    },
+                    "description": "MCP 选中工具"
+                  },
+                  "title": "Selected Tools",
+                  "nullable": true,
+                  "description": "选中的工具列表"
+                },
+                "is_selected_all": {
+                  "type": "boolean",
+                  "title": "Is Selected All",
+                  "default": false,
+                  "description": "按 code 引用且省略工具配置时默认全选；ID 引用保留原默认值"
+                }
+              },
+              "description": "关联 MCP"
+            },
+            "title": "Related Mcps",
+            "nullable": true,
+            "description": "关联 MCP 列表"
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "Generate Type",
+            "nullable": true,
+            "description": "公开类型 (SPACE/PUBLIC)"
+          },
+          "related_tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "_RelatedTool",
+              "properties": {
+                "tool_id": {
+                  "type": "integer",
+                  "title": "Tool Id",
+                  "nullable": true,
+                  "description": "工具 ID"
+                }
+              },
+              "description": "关联工具"
+            },
+            "title": "Related Tools",
+            "nullable": true,
+            "description": "关联工具列表"
+          },
+          "related_agents": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "RelatedAgentsRequest",
+                "properties": {
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "RelatedAgentRequest",
+                      "required": [
+                        "agent_code"
+                      ],
+                      "properties": {
+                        "agent_code": {
+                          "type": "string",
+                          "title": "Agent Code",
+                          "minLength": 1,
+                          "description": "同租户可访问的子智能体编码"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "title": "Agents"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ],
+            "nullable": true,
+            "description": "关联子智能体"
+          },
+          "related_skills": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "_SkillsSetting",
+                "properties": {
+                  "skills": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "title": "Skills",
+                    "nullable": true,
+                    "description": "技能列表"
+                  }
+                },
+                "description": "技能配置"
+              }
+            ],
+            "nullable": true,
+            "description": "技能配置"
+          },
+          "service_catalogue": {
+            "type": "array",
+            "items": {},
+            "title": "Service Catalogue",
+            "nullable": true,
+            "description": "服务目录"
+          },
+          "conversation_settings": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "AgentConversationRequest",
+                "properties": {
+                  "commands": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "AgentCommandRequest",
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "title": "Id",
+                          "description": "指令ID"
+                        },
+                        "icon": {
+                          "type": "string",
+                          "title": "Icon",
+                          "nullable": true
+                        },
+                        "name": {
+                          "type": "string",
+                          "title": "Name",
+                          "description": "指令名称"
+                        },
+                        "alias": {
+                          "type": "string",
+                          "title": "Alias",
+                          "nullable": true,
+                          "description": "智能体别名"
+                        },
+                        "status": {
+                          "allOf": [
+                            {
+                              "enum": [
+                                "deleted",
+                                "ready"
+                              ],
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Status",
+                          "default": "ready"
+                        },
+                        "content": {
+                          "type": "string",
+                          "title": "Content",
+                          "nullable": true,
+                          "description": "指令内容"
+                        },
+                        "agent_id": {
+                          "type": "integer",
+                          "title": "Agent Id",
+                          "nullable": true
+                        },
+                        "space_id": {
+                          "type": "string",
+                          "title": "Space Id",
+                          "nullable": true,
+                          "description": "空间ID"
+                        },
+                        "fill_regx": {
+                          "type": "string",
+                          "title": "Fill Regx",
+                          "nullable": true,
+                          "description": "引用文本匹配正则"
+                        },
+                        "agent_code": {
+                          "type": "string",
+                          "title": "Agent Code",
+                          "nullable": true
+                        },
+                        "agent_name": {
+                          "type": "string",
+                          "title": "Agent Name",
+                          "nullable": true
+                        },
+                        "components": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "title": "AgentCommandComponentRequest",
+                            "required": [
+                              "type",
+                              "key"
+                            ],
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "title": "Key",
+                                "description": "控件ID"
+                              },
+                              "max": {
+                                "type": "integer",
+                                "title": "Max",
+                                "nullable": true
+                              },
+                              "min": {
+                                "type": "integer",
+                                "title": "Min",
+                                "nullable": true
+                              },
+                              "hide": {
+                                "type": "boolean",
+                                "title": "Hide",
+                                "default": false,
+                                "description": "是否隐藏"
+                              },
+                              "name": {
+                                "type": "string",
+                                "title": "Name",
+                                "nullable": true,
+                                "description": "控件名称"
+                              },
+                              "rows": {
+                                "type": "integer",
+                                "title": "Rows",
+                                "nullable": true
+                              },
+                              "type": {
+                                "type": "string",
+                                "title": "Type"
+                              },
+                              "default": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {}
+                                  }
+                                ],
+                                "title": "Default",
+                                "nullable": true,
+                                "description": "默认值"
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                },
+                                "title": "Options",
+                                "nullable": true
+                              },
+                              "required": {
+                                "type": "boolean",
+                                "title": "Required",
+                                "default": false,
+                                "nullable": true
+                              },
+                              "fill_back": {
+                                "type": "boolean",
+                                "title": "Fill Back",
+                                "default": false,
+                                "nullable": true
+                              },
+                              "fill_regx": {
+                                "type": "string",
+                                "title": "Fill Regx",
+                                "nullable": true
+                              },
+                              "placeholder": {
+                                "type": "string",
+                                "title": "Placeholder",
+                                "nullable": true
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "title": "Components"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "title": "Updated At",
+                          "nullable": true,
+                          "description": "更新时间"
+                        },
+                        "updated_by": {
+                          "type": "string",
+                          "title": "Updated By",
+                          "nullable": true,
+                          "description": "更新者"
+                        },
+                        "support_upload": {
+                          "type": "object",
+                          "title": "Support Upload",
+                          "description": "支持上传类型",
+                          "additionalProperties": {
+                            "type": "boolean"
+                          }
+                        },
+                        "enable_fill_back": {
+                          "type": "boolean",
+                          "title": "Enable Fill Back",
+                          "default": false,
+                          "description": "是否启用引用文本回填"
+                        },
+                        "fill_back_component_key": {
+                          "type": "string",
+                          "title": "Fill Back Component Key",
+                          "nullable": true,
+                          "description": "回填控件key"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "title": "Commands"
+                  },
+                  "opening_remark": {
+                    "type": "string",
+                    "title": "Opening Remark",
+                    "default": "",
+                    "maxLength": 1024,
+                    "description": "对话开场白"
+                  },
+                  "enable_chat_session": {
+                    "type": "boolean",
+                    "title": "Enable Chat Session",
+                    "default": true,
+                    "description": "是否启用多会话"
+                  },
+                  "predefined_questions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Predefined Questions",
+                    "description": "预设提问"
+                  },
+                  "enable_word_selection_popup": {
+                    "type": "boolean",
+                    "title": "Enable Word Selection Popup",
+                    "default": false,
+                    "description": "是否启用划词弹出菜单"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ],
+            "nullable": true,
+            "description": "完整对话设置"
+          },
+          "related_knowledgebase": {
+            "allOf": [
+              {
+                "type": "object",
+                "title": "_KnowledgebaseSetting",
+                "properties": {
+                  "origin": {
+                    "type": "boolean",
+                    "title": "Origin",
+                    "nullable": true,
+                    "description": "是否原始"
+                  },
+                  "polish": {
+                    "type": "boolean",
+                    "title": "Polish",
+                    "nullable": true,
+                    "description": "是否润色"
+                  },
+                  "scalar": {
+                    "type": "object",
+                    "title": "Scalar",
+                    "nullable": true,
+                    "description": "标量过滤配置",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "rrf_weights": {
+                    "type": "object",
+                    "title": "Rrf Weights",
+                    "nullable": true,
+                    "description": "RRF 融合权重",
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  },
+                  "knowledgebases": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "_KnowledgebaseReference",
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "title": "Id",
+                          "minimum": 0,
+                          "description": "知识库 ID",
+                          "exclusiveMinimum": true
+                        }
+                      }
+                    },
+                    "title": "Knowledgebases",
+                    "nullable": true,
+                    "description": "知识库列表"
+                  },
+                  "query_function": {
+                    "type": "string",
+                    "title": "Query Function",
+                    "nullable": true,
+                    "description": "查询方式"
+                  },
+                  "retriever_code": {
+                    "type": "string",
+                    "title": "Retriever Code",
+                    "nullable": true,
+                    "description": "检索器编码"
+                  },
+                  "recall_channels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Recall Channels",
+                    "nullable": true,
+                    "description": "召回通道"
+                  },
+                  "rejection_message": {
+                    "type": "string",
+                    "title": "Rejection Message",
+                    "nullable": true,
+                    "description": "拒绝回复消息"
+                  },
+                  "knowledge_template_id": {
+                    "type": "integer",
+                    "title": "Knowledge Template Id",
+                    "nullable": true,
+                    "description": "知识模板 ID"
+                  },
+                  "independent_query_mode": {
+                    "type": "string",
+                    "title": "Independent Query Mode",
+                    "nullable": true,
+                    "description": "独立查询模式"
+                  },
+                  "document_fragment_count": {
+                    "type": "integer",
+                    "title": "Document Fragment Count",
+                    "nullable": true,
+                    "description": "文档片段数"
+                  },
+                  "knowledge_resource_reject_threshold": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "title": "Knowledge Resource Reject Threshold",
+                    "nullable": true,
+                    "description": "拒绝阈值"
+                  },
+                  "is_response_when_no_knowledgebase_match": {
+                    "type": "boolean",
+                    "title": "Is Response When No Knowledgebase Match",
+                    "nullable": true,
+                    "description": "无匹配时是否响应"
+                  },
+                  "knowledge_resource_fine_grained_score_type": {
+                    "type": "string",
+                    "title": "Knowledge Resource Fine Grained Score Type",
+                    "nullable": true,
+                    "description": "细粒度评分类型"
+                  }
+                },
+                "description": "知识库配置"
+              }
+            ],
+            "nullable": true,
+            "description": "知识库配置"
+          },
+          "expected_efficiency_minutes": {
+            "type": "integer",
+            "title": "Expected Efficiency Minutes",
+            "nullable": true,
+            "description": "单次会话预计提效时长(分钟)"
+          }
+        },
+        "description": "Agent 完整更新请求 — 按 API 友好格式定义",
+        "additionalProperties": false
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_id
+        in: path
+        type: int
+        description: "Agent ID"
+        required: true
+    examples:
+      - "bk-cli aidev update_private_agents --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+
+  - name: create_private_knowledgebase
+    description: "创建新的知识库"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledgebase/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBaseCreateRequest",
+        "required": [
+          "space_id",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "知识库名称"
+          },
+          "config": {
+            "type": "object",
+            "title": "知识库配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "是否公开",
+            "default": false,
+            "nullable": true
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "标签名称列表",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "title": "描述",
+            "default": "",
+            "nullable": true
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "公开类型",
+            "default": "space",
+            "nullable": true
+          },
+          "knowledgebase_code": {
+            "type": "string",
+            "title": "知识库代码",
+            "nullable": true
+          }
+        },
+        "description": "创建知识库请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_knowledgebase --body '{\"space_id\":\"demo-space\",\"name\":\"demo\"}'"
+
+  - name: info_private_knowledgebase
+    description: "获取知识库的知识统计信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/knowledgebase/info/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev info_private_knowledgebase --space_id demo-space"
+
+  - name: list_private_knowledgebase
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledgebase/list/"
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBaseListRequest",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识库ID",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "title": "知识库名",
+            "default": ""
+          },
+          "page": {
+            "type": "integer",
+            "title": "页码",
+            "default": 1
+          },
+          "fuzzy": {
+            "type": "string",
+            "title": "模糊搜索",
+            "default": ""
+          },
+          "tag_id": {
+            "type": "integer",
+            "title": "标签ID",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "string",
+            "title": "用户 ID",
+            "nullable": true,
+            "description": "已申请绑定的用户，默认当前用户"
+          },
+          "app_code": {
+            "type": "string",
+            "title": "应用 code",
+            "nullable": true,
+            "description": "按申请记录绑定的 app_code 过滤"
+          },
+          "order_by": {
+            "type": "string",
+            "title": "排序字段",
+            "default": "name"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "default": "all",
+            "minLength": 1,
+            "description": "空间 ID；省略或 all 表示所有有权限的空间"
+          },
+          "tag_name": {
+            "type": "string",
+            "title": "标签名称",
+            "default": ""
+          },
+          "can_apply": {
+            "type": "boolean",
+            "title": "是否可以申请",
+            "default": false
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "每页数量",
+            "default": 10
+          },
+          "created_by": {
+            "type": "string",
+            "title": "创建人",
+            "default": ""
+          },
+          "group_type": {
+            "type": "string",
+            "title": "分组类型",
+            "default": "space"
+          },
+          "space_name": {
+            "type": "string",
+            "title": "空间名称",
+            "default": ""
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "游标路径",
+            "default": "",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "title": "知识库描述",
+            "default": ""
+          },
+          "filter_link": {
+            "type": "boolean",
+            "title": "过滤链接",
+            "default": false
+          },
+          "anchor_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "游标路径",
+            "nullable": true
+          },
+          "hidden_files": {
+            "type": "boolean",
+            "title": "隐藏文件",
+            "default": true,
+            "nullable": true
+          },
+          "with_private": {
+            "type": "boolean",
+            "title": "是否返回私有资源",
+            "default": true
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "公开类型",
+            "default": "space",
+            "description": "对应 KnowledgeBaseService.list 的 generate_type 形参：space / user / public / all(不过滤)"
+          },
+          "space_keyword": {
+            "type": "string",
+            "title": "空间关键字",
+            "default": ""
+          },
+          "permission_type": {
+            "type": "string",
+            "title": "权限类型过滤",
+            "default": "accessible",
+            "description": "accessible=有使用权限(默认)，applied=已申请绑定，all=两者并集"
+          },
+          "without_children": {
+            "type": "boolean",
+            "title": "是否返回子目录",
+            "default": false
+          },
+          "knowledgebase_code": {
+            "type": "string",
+            "title": "知识库代码",
+            "default": ""
+          }
+        },
+        "description": "知识库列表请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev list_private_knowledgebase"
+
+  - name: delete_private_knowledgebase
+    description: "删除指定的知识库"
+    method: DELETE
+    path: "/openapi/aidev/private/v1/knowledgebase/{id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+    examples:
+      - "bk-cli aidev delete_private_knowledgebase --id 1"
+
+  - name: update_private_knowledgebase
+    description: "更新指定知识库的内容"
+    method: PATCH
+    path: "/openapi/aidev/private/v1/knowledgebase/{id}/update/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBaseUpdateRequest",
+        "required": [
+          "space_id",
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识库ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "知识库名称",
+            "nullable": true
+          },
+          "config": {
+            "type": "object",
+            "title": "知识库配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "是否公开",
+            "nullable": true
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "标签名称列表",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "title": "描述",
+            "nullable": true
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "公开类型",
+            "nullable": true
+          }
+        },
+        "description": "更新知识库请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+    examples:
+      - "bk-cli aidev update_private_knowledgebase --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
+
+  - name: create_private_knowledges
+    description: "创建新的知识文档"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeCreateRequest",
+        "required": [
+          "space_id",
+          "knowledge_base_id",
+          "knowledge_name",
+          "file_name",
+          "file_path"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "远程链接URL",
+            "default": "",
+            "nullable": true
+          },
+          "path": {
+            "type": "string",
+            "title": "知识的路径地址",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "标签ID列表",
+            "nullable": true
+          },
+          "config": {
+            "type": "object",
+            "title": "知识配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "content": {
+            "type": "string",
+            "title": "内容",
+            "nullable": true
+          },
+          "metadata": {
+            "type": "object",
+            "title": "元数据",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "文件名"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "文件路径"
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "文件大小",
+            "default": 0,
+            "nullable": true
+          },
+          "file_type": {
+            "type": "string",
+            "title": "文件类型",
+            "default": "",
+            "nullable": true
+          },
+          "path_type": {
+            "type": "string",
+            "title": "路径类型",
+            "default": "file",
+            "nullable": true
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "标签名称列表",
+            "nullable": true
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "锚点路径",
+            "default": "",
+            "nullable": true
+          },
+          "created_type": {
+            "type": "string",
+            "title": "创建类型",
+            "default": "file",
+            "nullable": true
+          },
+          "index_config": {
+            "type": "object",
+            "title": "索引配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "凭证ID",
+            "nullable": true
+          },
+          "knowledge_name": {
+            "type": "string",
+            "title": "知识名称"
+          },
+          "knowledge_base_id": {
+            "type": "integer",
+            "title": "知识库ID"
+          }
+        },
+        "description": "创建知识请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_knowledges --body '{\"space_id\":\"demo-space\",\"knowledge_base_id\":1,\"knowledge_name\":\"Demo Knowledge\",\"file_name\":\"demo.md\",\"file_path\":\"bkrepo://demo.md\"}'"
+
+  - name: batch_create_private_knowledges
+    description: "批量创建多个知识文档"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/batch/create/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBatchCreateRequest",
+        "required": [
+          "space_id",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "title": "知识列表"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          }
+        },
+        "description": "批量创建知识请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev batch_create_private_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
+
+  - name: batch_delete_private_knowledges
+    description: "批量删除多个知识文档"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/batch/delete/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBatchDeleteRequest",
+        "required": [
+          "space_id",
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "知识ID列表"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          }
+        },
+        "description": "批量删除知识请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev batch_delete_private_knowledges --body '{\"space_id\":\"demo-space\",\"ids\":[]}'"
+
+  - name: batch_update_private_knowledges
+    description: "批量更新多个知识文档"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/batch/update/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeBatchUpdateRequest",
+        "required": [
+          "space_id",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "title": "知识列表"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          }
+        },
+        "description": "批量更新知识请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev batch_update_private_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
+
+  - name: list_private_knowledges
+    description: "获取指定知识库下的知识列表"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/list/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeListRequest",
+        "required": [
+          "space_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识ID",
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "title": "页码",
+            "default": 1
+          },
+          "fuzzy": {
+            "type": "string",
+            "title": "模糊搜索",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "状态",
+            "default": "",
+            "description": "init / uploading / uploaded / deleting / deleted / failed / normal / uploaded_outdated"
+          },
+          "order_by": {
+            "type": "string",
+            "title": "排序字段",
+            "default": "-updated_at"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "tag_name": {
+            "type": "string",
+            "title": "标签名称",
+            "default": ""
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "每页数量",
+            "default": 10
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "游标路径",
+            "default": ""
+          },
+          "created_type": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "创建类型",
+            "nullable": true
+          },
+          "generate_type": {
+            "type": "string",
+            "title": "公开类型",
+            "default": "space"
+          },
+          "hidden_folders": {
+            "type": "boolean",
+            "title": "隐藏文件夹",
+            "default": false
+          },
+          "knowledge_base_id": {
+            "type": "integer",
+            "title": "知识库ID",
+            "nullable": true
+          }
+        },
+        "description": "知识列表请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev list_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+
+  - name: preview_link_private_knowledges
+    description: "预览远程链接内容"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/preview_link/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgePreviewLinkRequest",
+        "required": [
+          "space_id",
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "链接地址"
+          },
+          "headers": {
+            "type": "object",
+            "title": "请求头",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "recursive": {
+            "type": "boolean",
+            "title": "是否递归",
+            "default": false
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "凭证ID",
+            "nullable": true
+          }
+        },
+        "description": "预览链接请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev preview_link_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+
+  - name: status_info_private_knowledges
+    description: "获取知识的状态统计信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/knowledges/status_info/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: anchor_path
+        in: query
+        type: string
+      - name: group_type
+        in: query
+        type: string
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev status_info_private_knowledges --space_id demo-space"
+
+  - name: structure_header_private_knowledges
+    description: "获取远程文件的结构头信息"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/structure_header/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeStructureHeaderRequest",
+        "required": [
+          "space_id",
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "链接地址"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "delimiter": {
+            "type": "string",
+            "title": "分隔符",
+            "nullable": true
+          },
+          "file_type": {
+            "type": "string",
+            "title": "文件类型",
+            "nullable": true
+          }
+        },
+        "description": "获取结构头请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev structure_header_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+
+  - name: trigger_private_knowledges
+    description: "触发知识更新操作"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/trigger/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeTriggerRequest",
+        "required": [
+          "space_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识ID",
+            "nullable": true
+          },
+          "force": {
+            "type": "boolean",
+            "title": "是否强制更新",
+            "default": false
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "游标路径",
+            "default": ""
+          }
+        },
+        "description": "一键更新请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev trigger_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+
+  - name: update_frequency_type_private_knowledges
+    description: "获取知识更新频率类型列表"
+    method: GET
+    path: "/openapi/aidev/private/v1/knowledges/update_frequency_type/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev update_frequency_type_private_knowledges"
+
+  - name: verify_private_knowledges
+    description: "校验知识链接是否有效"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/verify/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeVerifyRequest",
+        "required": [
+          "space_id",
+          "url",
+          "knowledgebase_type"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "链接地址"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "delimiter": {
+            "type": "string",
+            "title": "分隔符",
+            "nullable": true
+          },
+          "knowledgebase_type": {
+            "type": "string",
+            "title": "知识库类型"
+          }
+        },
+        "description": "知识校验请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev verify_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"knowledgebase_type\":\"document\"}'"
+
+  - name: delete_private_knowledges
+    description: "删除指定的知识"
+    method: DELETE
+    path: "/openapi/aidev/private/v1/knowledges/{id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+    examples:
+      - "bk-cli aidev delete_private_knowledges --id 1"
+
+  - name: index_info_private_knowledges
+    description: "获取指定知识的索引配置信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/knowledges/{id}/index_info/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev index_info_private_knowledges --id 1 --space_id demo-space"
+
+  - name: preview_private_knowledges
+    description: "预览指定知识的内容"
+    method: GET
+    path: "/openapi/aidev/private/v1/knowledges/{id}/preview/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev preview_private_knowledges --id 1 --space_id demo-space"
+
+  - name: update_private_knowledges
+    description: "更新指定知识的内容"
+    method: PATCH
+    path: "/openapi/aidev/private/v1/knowledges/{id}/update/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeUpdateRequest",
+        "required": [
+          "space_id",
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识ID"
+          },
+          "url": {
+            "type": "string",
+            "title": "远程链接URL",
+            "default": "",
+            "nullable": true
+          },
+          "path": {
+            "type": "string",
+            "title": "知识的路径地址",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "标签ID列表",
+            "nullable": true
+          },
+          "config": {
+            "type": "object",
+            "title": "知识配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "content": {
+            "type": "string",
+            "title": "内容",
+            "nullable": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "文件名",
+            "nullable": true
+          },
+          "file_path": {
+            "type": "string",
+            "title": "文件路径",
+            "nullable": true
+          },
+          "file_type": {
+            "type": "string",
+            "title": "文件类型",
+            "nullable": true
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "标签名称列表",
+            "nullable": true
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "锚点路径",
+            "nullable": true
+          },
+          "index_config": {
+            "type": "object",
+            "title": "索引配置",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "凭证ID",
+            "nullable": true
+          },
+          "knowledge_name": {
+            "type": "string",
+            "title": "知识名称",
+            "nullable": true
+          },
+          "knowledge_base_id": {
+            "type": "integer",
+            "title": "知识库ID",
+            "nullable": true
+          }
+        },
+        "description": "更新知识请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: id
+        in: path
+        type: int
+        required: true
+    examples:
+      - "bk-cli aidev update_private_knowledges --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
+
+  - name: list_credentiale_types
+    description: "获取所有可用的凭证类型及其配置参数"
+    method: GET
+    path: "/openapi/aidev/private/v1/credential_types/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev list_credentiale_types"
+
+  - name: list_credentials
+    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    method: GET
+    path: "/openapi/aidev/private/v1/credentials/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: credential_name
+        in: query
+        type: string
+        description: "凭证名称模糊搜索"
+      - name: credential_types
+        in: query
+        type: string
+        description: "凭证类型过滤"
+      - name: order_by
+        in: query
+        type: string
+        description: "排序字段"
+      - name: order_method
+        in: query
+        type: string
+        description: "排序方式"
+      - name: page
+        in: query
+        type: int
+        description: "页码"
+      - name: page_size
+        in: query
+        type: int
+        description: "每页条数"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+    examples:
+      - "bk-cli aidev list_credentials"
+
+  - name: create_credentials
+    description: "创建新的凭证配置"
+    method: POST
+    path: "/openapi/aidev/private/v1/credentials/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CredentialCreateRequest",
+        "required": [
+          "credential_name",
+          "credential_type",
+          "credential_detail",
+          "space_id"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": "",
+            "maxLength": 1024,
+            "description": "凭证描述"
+          },
+          "credential_code": {
+            "type": "string",
+            "title": "Credential Code",
+            "default": "",
+            "maxLength": 64,
+            "description": "凭证英文标识"
+          },
+          "credential_name": {
+            "type": "string",
+            "title": "Credential Name",
+            "description": "凭证名称"
+          },
+          "credential_type": {
+            "enum": [
+              "apigw",
+              "apigw_access_token",
+              "basic_auth",
+              "github_token",
+              "gongfeng_token",
+              "gitlab_token",
+              "custom"
+            ],
+            "type": "string",
+            "title": "CredentialType",
+            "description": "凭证类型"
+          },
+          "credential_detail": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ],
+            "title": "Credential Detail",
+            "description": "凭证配置详情"
+          }
+        },
+        "description": "B 端创建凭证请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_credentials --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\"}'"
+
+  - name: batch_delete_credentials
+    description: "批量删除指定凭证"
+    method: POST
+    path: "/openapi/aidev/private/v1/credentials/batch_delete/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CredentialBatchDeleteRequest",
+        "required": [
+          "space_id",
+          "credential_ids"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Credential Ids",
+            "minItems": 1,
+            "description": "凭证 ID 列表"
+          }
+        },
+        "description": "批量删除凭证请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev batch_delete_credentials --body '{\"space_id\":\"demo-space\",\"credential_ids\":[]}'"
+
+  - name: bind_credentials
+    description: "将凭证绑定到指定资源"
+    method: POST
+    path: "/openapi/aidev/private/v1/credentials/bind/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CredentialBindRequest",
+        "required": [
+          "space_id",
+          "credential_id",
+          "resource_type",
+          "resource_id"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "resource_id": {
+            "type": "integer",
+            "title": "Resource Id",
+            "description": "资源 ID"
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "Credential Id",
+            "description": "凭证 ID"
+          },
+          "resource_type": {
+            "enum": [
+              "tool",
+              "knowledge",
+              "cr",
+              "mcp",
+              "agent"
+            ],
+            "type": "string",
+            "title": "CredentialReferenceType",
+            "description": "凭证引用类型"
+          }
+        },
+        "description": "绑定凭证请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev bind_credentials --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+
+  - name: unbind_credentials
+    description: "解绑凭证与资源的关联"
+    method: POST
+    path: "/openapi/aidev/private/v1/credentials/unbind/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CredentialUnbindRequest",
+        "required": [
+          "space_id",
+          "credential_id",
+          "resource_type",
+          "resource_id"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "resource_id": {
+            "type": "integer",
+            "title": "Resource Id",
+            "description": "资源 ID"
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "Credential Id",
+            "description": "凭证 ID"
+          },
+          "resource_type": {
+            "enum": [
+              "tool",
+              "knowledge",
+              "cr",
+              "mcp",
+              "agent"
+            ],
+            "type": "string",
+            "title": "CredentialReferenceType",
+            "description": "凭证引用类型"
+          }
+        },
+        "description": "解绑凭证请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev unbind_credentials --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+
+  - name: delete_credentials
+    description: "删除指定凭证"
+    method: DELETE
+    path: "/openapi/aidev/private/v1/credentials/{credential_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: credential_id
+        in: path
+        type: int
+        description: "凭证 ID"
+        required: true
+    examples:
+      - "bk-cli aidev delete_credentials --credential_id 1"
+
+  - name: list_references_credentials
+    description: "获取凭证被哪些资源引用"
+    method: GET
+    path: "/openapi/aidev/private/v1/credentials/{credential_id}/references/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: credential_id
+        in: path
+        type: int
+        description: "凭证 ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev list_references_credentials --credential_id 1 --space_id demo-space"
+
+  - name: update_credentials
+    description: "更新指定凭证的配置"
+    method: PATCH
+    path: "/openapi/aidev/private/v1/credentials/{credential_id}/update/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CredentialUpdateRequest",
+        "required": [
+          "credential_name",
+          "credential_type",
+          "credential_detail",
+          "space_id",
+          "credential_id"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": "",
+            "maxLength": 1024,
+            "description": "凭证描述"
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "Credential Id",
+            "description": "凭证 ID"
+          },
+          "credential_code": {
+            "type": "string",
+            "title": "Credential Code",
+            "default": "",
+            "maxLength": 64,
+            "description": "凭证英文标识"
+          },
+          "credential_name": {
+            "type": "string",
+            "title": "Credential Name",
+            "description": "凭证名称"
+          },
+          "credential_type": {
+            "enum": [
+              "apigw",
+              "apigw_access_token",
+              "basic_auth",
+              "github_token",
+              "gongfeng_token",
+              "gitlab_token",
+              "custom"
+            ],
+            "type": "string",
+            "title": "CredentialType",
+            "description": "凭证类型"
+          },
+          "credential_detail": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ],
+            "title": "Credential Detail",
+            "description": "凭证配置详情"
+          }
+        },
+        "description": "B 端更新凭证请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: credential_id
+        in: path
+        type: int
+        description: "凭证 ID"
+        required: true
+    examples:
+      - "bk-cli aidev update_credentials --credential_id 1 --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\",\"credential_id\":1}'"
+
+  - name: reclean_private_knowledges
+    description: "按当前或指定导入链路重建知识产物，与管理端一键重建口径一致"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/reclean/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeRecleanRequest",
+        "required": [
+          "space_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "知识ID",
+            "nullable": true
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "知识ID列表",
+            "nullable": true
+          },
+          "force": {
+            "type": "boolean",
+            "title": "是否跳过版本差异判定强制重建",
+            "default": false
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "pipeline_code": {
+            "type": "string",
+            "title": "指定重新清洗的导入链路",
+            "default": "",
+            "nullable": true
+          },
+          "include_failed": {
+            "type": "boolean",
+            "title": "是否包含历史失败知识",
+            "default": false
+          }
+        },
+        "description": "重新清洗请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev reclean_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+
+  - name: list_private_resource_references
+    description: "按资源类型和实例 ID 查询引用该资源的 Agent；调用者必须拥有资源所属空间的使用权限。"
+    method: GET
+    path: "/openapi/aidev/private/v1/resources/{resource_type}/{instance_id}/references/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: instance_id
+        in: path
+        type: int
+        description: "资源实例 ID"
+        required: true
+      - name: resource_type
+        in: path
+        type: string
+        description: "资源类型：agent、collection、knowledgebase、llm、mcp、skill、tool"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev list_private_resource_references --instance_id 1 --resource_type skill --space_id demo-space"
+
+  - name: list_private_collections
+    description: "处理 GET 请求：合并 query 与 path params。"
+    method: GET
+    path: "/openapi/aidev/private/v1/collections/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: collection_code
+        in: query
+        type: string
+        description: "按编码精确查询"
+      - name: collection_name
+        in: query
+        type: string
+        description: "按名称模糊查询"
+      - name: page
+        in: query
+        type: int
+      - name: page_size
+        in: query
+        type: int
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+    examples:
+      - "bk-cli aidev list_private_collections"
+
+  - name: upsert_private_collections
+    description: "带请求体的 method 通用处理：合并 body 与 path params。"
+    method: POST
+    path: "/openapi/aidev/private/v1/collections/upsert/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "CollectionUpsertRequest",
+        "required": [
+          "space_id",
+          "collection_code",
+          "collection_name",
+          "content"
+        ],
+        "properties": {
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "nullable": true,
+            "maxLength": 1024
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "CollectionMessage",
+              "required": [
+                "role",
+                "content"
+              ],
+              "properties": {
+                "role": {
+                  "allOf": [
+                    {
+                      "enum": [
+                        "system",
+                        "user",
+                        "assistant"
+                      ],
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Role"
+                },
+                "content": {
+                  "type": "string",
+                  "title": "Content",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "title": "Content",
+            "minItems": 1
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "is_public": {
+            "type": "boolean",
+            "title": "Is Public",
+            "default": false
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "Tag Names"
+          },
+          "generate_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "space",
+                  "public"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Generate Type",
+            "default": "space"
+          },
+          "collection_code": {
+            "type": "string",
+            "title": "Collection Code",
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "collection_name": {
+            "type": "string",
+            "title": "Collection Name",
+            "maxLength": 255,
+            "minLength": 1
+          }
+        },
+        "description": "固定消息角色；不接收模板变量和默认模型配置。",
+        "additionalProperties": false
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev upsert_private_collections --body '{\"space_id\":\"demo-space\",\"collection_code\":\"demo-collection\",\"collection_name\":\"Demo Collection\",\"content\":[]}'"
+
+  - name: detail_private_collections
+    description: "处理 GET 请求：合并 query 与 path params。"
+    method: GET
+    path: "/openapi/aidev/private/v1/collections/{collection_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: collection_id
+        in: path
+        type: int
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev detail_private_collections --collection_id 1 --space_id demo-space"
+
+  - name: archive_import_private_knowledges
+    description: "异步导入上传或远程ZIP，覆盖目标目录内容；通过相同anchor_path的status_info查询进度"
+    method: POST
+    path: "/openapi/aidev/private/v1/knowledges/archive/import/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "KnowledgeArchiveImportRequest",
+        "required": [
+          "space_id",
+          "url",
+          "file_name",
+          "file_type",
+          "anchor_path"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "上传结果URL或远程ZIP链接"
+          },
+          "config": {
+            "type": "object",
+            "title": "知识配置",
+            "additionalProperties": true
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "不含.zip扩展名的名称"
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "上传文件字节数",
+            "default": 0
+          },
+          "file_type": {
+            "type": "string",
+            "title": "文件类型",
+            "description": "必须为 zip"
+          },
+          "tag_names": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": "标签路径列表"
+          },
+          "anchor_path": {
+            "type": "string",
+            "title": "解包目标目录",
+            "description": "目标知识库及目录，导入将覆盖目录内容"
+          },
+          "created_type": {
+            "type": "string",
+            "title": "来源类型",
+            "default": "file",
+            "description": "file 或 link"
+          },
+          "index_config": {
+            "type": "object",
+            "title": "索引配置",
+            "additionalProperties": true
+          },
+          "credential_id": {
+            "type": "integer",
+            "title": "凭证ID",
+            "nullable": true
+          }
+        },
+        "description": "ZIP 导入请求；复用管理端校验和目标目录语义。"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev archive_import_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"file_name\":\"demo.md\",\"file_type\":\"demo-file_type\",\"anchor_path\":\"/\"}'"
+
+  - name: retrieve_private_mcps_by_code
+    description: "space_id 可选；传入 agent_code 时先校验调用方对智能体所属空间的权限，再查询 MCP。"
+    method: GET
+    path: "/openapi/aidev/private/v1/mcps/by-code/{mcp_code}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_code
+        in: query
+        type: string
+        description: "智能体编码；允许尚未创建，已创建时仍校验空间归属和调用方授权"
+      - name: mcp_code
+        in: path
+        type: string
+        description: "MCP 编码，精确匹配且必须唯一"
+        required: true
+      - name: mcp_type
+        in: query
+        type: string
+        description: "MCP 类型，默认 apigw"
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID；省略或 all 表示所有有权限的空间"
+    examples:
+      - "bk-cli aidev retrieve_private_mcps_by_code --mcp_code demo-mcp"
+
+  - name: retrieve_private_resource_mcps
+    description: "获取指定资源型 MCP 的详细信息"
+    method: GET
+    path: "/openapi/aidev/private/v1/mcps/{mcp_id}/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: mcp_id
+        in: path
+        type: int
+        description: "MCP ID"
+        required: true
+      - name: space_id
+        in: query
+        type: string
+        description: "空间 ID，必填"
+        required: true
+    examples:
+      - "bk-cli aidev retrieve_private_resource_mcps --mcp_id 1 --space_id demo-space"
+
+  - name: create_private_space_manage_apply_resources
+    description: "用户态跨空间资源申请"
+    method: POST
+    path: "/openapi/aidev/private/v1/space_manage/apply_resources/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "SpaceResourceApplyRequest",
+        "required": [
+          "space_id",
+          "resource_type",
+          "resource_ids"
+        ],
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "申请请求ID",
+            "nullable": true
+          },
+          "callback_url": {
+            "type": "string",
+            "title": "回调URL",
+            "nullable": true
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "资源ID列表"
+          },
+          "resource_type": {
+            "allOf": [
+              {
+                "enum": [
+                  "tool",
+                  "agent",
+                  "knowledgebase",
+                  "knowledge",
+                  "mcp",
+                  "collection",
+                  "prompt",
+                  "llm",
+                  "skill"
+                ],
+                "type": "string",
+                "title": "ApplyResourceType",
+                "description": "资源类型枚举"
+              }
+            ],
+            "title": "资源类型"
+          }
+        },
+        "description": "跨空间资源申请请求"
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_space_manage_apply_resources --body '{\"space_id\":\"demo-space\",\"resource_type\":\"skill\",\"resource_ids\":[]}'"
+
+  - name: create_private_upload_status
+    description: "knowledge / skill 共用；上传失败或超时后可查询；文件不完整时返回错误，不自动重新上传"
+    method: POST
+    path: "/openapi/aidev/private/v1/upload/status/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "UploadStatusRequest",
+        "required": [
+          "space_id",
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_upload_status --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+
+  - name: create_private_upload_url
+    description: "knowledge / skill 共用；有效期默认 15 分钟、仅可上传一次；文件直传 BKRepo 后分别调用知识 ZIP 导入或 Skill upsert"
+    method: POST
+    path: "/openapi/aidev/private/v1/upload/url/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "UploadURLRequest",
+        "required": [
+          "space_id",
+          "file_name"
+        ],
+        "properties": {
+          "module": {
+            "allOf": [
+              {
+                "enum": [
+                  "knowledge",
+                  "skill"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Module",
+            "default": "knowledge"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name",
+            "maxLength": 255,
+            "minLength": 1
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    examples:
+      - "bk-cli aidev create_private_upload_url --body '{\"space_id\":\"demo-space\",\"file_name\":\"demo.md\"}'"
+
+  - name: append_private_agent_admins
+    description: "需空间访问和智能体管理权限；仅追加 PaaS 插件管理员，保留原成员，不修改使用者或空间 IAM 权限"
+    method: POST
+    path: "/openapi/aidev/private/v1/agents/{agent_id}/admins/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "title": "AgentAdminsRequest",
+        "required": [
+          "space_id",
+          "agent_id"
+        ],
+        "properties": {
+          "admins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "Admins",
+            "nullable": true,
+            "description": "追加的 bk_username 清单；省略、null、[] 不处理"
+          },
+          "agent_id": {
+            "type": "integer",
+            "title": "Agent Id",
+            "description": "智能体 ID"
+          },
+          "space_id": {
+            "type": "string",
+            "title": "Space Id",
+            "minLength": 1,
+            "description": "空间 ID，必填"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: agent_id
+        in: path
+        type: int
+        description: "智能体 ID"
+        required: true
+    examples:
+      - "bk-cli aidev append_private_agent_admins --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"

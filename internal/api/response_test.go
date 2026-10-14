@@ -21,6 +21,7 @@ package api_test
 import (
 	"bytes"
 	"net/http"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
@@ -154,6 +155,33 @@ var _ = Describe("BuildDryRunEnvelope", func() {
 		body, ok := env.Request.Body.(map[string]any)
 		Expect(ok).To(BeTrue())
 		Expect(body).To(HaveKeyWithValue("key", "value"))
+	})
+
+	It("includes non-JSON body metadata in dry-run envelopes", func() {
+		env := api.BuildDryRunEnvelope(&api.Request{
+			Method:      "POST",
+			URL:         "https://example.com/upload",
+			BodyReader:  strings.NewReader("raw-body"),
+			ContentType: "multipart/form-data; boundary=test",
+			DryRunBody: map[string]any{
+				"file": "demo.txt",
+			},
+		})
+
+		Expect(env.Request.Headers).To(HaveKeyWithValue("Content-Type", "multipart/form-data; boundary=test"))
+		Expect(env.Request.Body).To(Equal(map[string]any{"file": "demo.txt"}))
+	})
+
+	It("omits raw non-JSON body bytes from dry-run envelopes without safe metadata", func() {
+		env := api.BuildDryRunEnvelope(&api.Request{
+			Method:      "POST",
+			URL:         "https://example.com/upload",
+			BodyReader:  strings.NewReader("raw-body"),
+			ContentType: "application/octet-stream",
+		})
+
+		Expect(env.Request.Headers).To(HaveKeyWithValue("Content-Type", "application/octet-stream"))
+		Expect(env.Request.Body).To(BeNil())
 	})
 
 	It("redacts auth header", func() {

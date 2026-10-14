@@ -159,6 +159,7 @@ var _ = Describe("version command", func() {
 				"apigateway  [system] BlueKing API Gateway management - discover gateways and APIs",
 			),
 		)
+		Expect(out.String()).To(ContainSubstring("aidev       [system] BlueKing AIDev resource commands"))
 		Expect(out.String()).To(
 			ContainSubstring("API gateway 403: if X-Bkapi-Error-Code is 1640301"),
 		)

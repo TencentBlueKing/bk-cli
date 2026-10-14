@@ -1,0 +1,45 @@
+id: AIDEV-057
+name: aidev archive_import_private_knowledges happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - --bk_api_url_tmpl
+  - ${MOCK_API_BASE_URL}/{gateway_name}
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - --access_token
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: archive import private knowledges
+  command:
+  - aidev
+  - archive_import_private_knowledges
+  - --body
+  - '{"space_id":"demo-space","url":"bkrepo://demo.zip","file_name":"demo.md","file_type":"demo-file_type","anchor_path":"/"}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: data.method
+      equals: POST
+    - path: data.path
+      contains: /bk-aidev/prod/openapi/aidev/private/v1/knowledges/archive/import/
+    - path: data.body.space_id
+      equals: demo-space

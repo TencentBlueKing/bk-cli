@@ -851,6 +851,7 @@ actions:
 		for _, path := range [][]string{
 			{"apigateway", "list_gateways"},
 			{"apigateway", "demo_action"},
+			{"aidev", "retrieve_private_spaces"},
 			{"bcs", "cluster_manager", "update_auto_scaling_option"},
 			{"bcs", "cluster_manager", "create_cluster"},
 			{"bcs", "cluster_manager", "delete_nodes_from_cluster"},
@@ -1149,6 +1150,43 @@ actions:
 		Expect(unbindService.Flag("service_id")).NotTo(BeNil())
 	})
 
+	It("registers AIDev YAML actions with generated flags and body schema help", func() {
+		root := &cobra.Command{Use: "bk-cli"}
+
+		err := registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)
+		Expect(err).NotTo(HaveOccurred())
+
+		upload, _, err := root.Find([]string{"aidev", "create_private_upload"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(upload.Flag("file")).NotTo(BeNil())
+		Expect(upload.Flag("space_id")).NotTo(BeNil())
+		Expect(upload.Flag("module")).NotTo(BeNil())
+		Expect(upload.Flag(syslib.ActionBodyFlagName)).To(BeNil())
+
+		listSkills, _, err := root.Find([]string{"aidev", "list_private_skills"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(listSkills.Flag("space_id")).NotTo(BeNil())
+		Expect(listSkills.Flag("page")).NotTo(BeNil())
+		Expect(listSkills.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(listSkills.Flag(syslib.ActionStageFlagName)).NotTo(BeNil())
+		Expect(listSkills.Flag(syslib.ActionHeaderFlagName)).NotTo(BeNil())
+
+		retrieveSkill, _, err := root.Find([]string{"aidev", "retrieve_private_skills"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(retrieveSkill.Flag("skill_id")).NotTo(BeNil())
+		Expect(retrieveSkill.Flag("space_id")).NotTo(BeNil())
+
+		upsertSkill, _, err := root.Find([]string{"aidev", "create_private_skills_upsert"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(upsertSkill.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
+		Expect(upsertSkill.Flag(syslib.ActionBodyFlagName).Usage).To(ContainSubstring("[Required]"))
+		Expect(upsertSkill.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
+
+		aidevCmd, _, err := root.Find([]string{"aidev"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(aidevCmd.Commands()).To(HaveLen(63))
+	})
+
 	It("does not register empty systems", func() {
 		root := &cobra.Command{Use: "bk-cli"}
 
@@ -1347,6 +1385,10 @@ actions:
 		actionCmd, _, err := root.Find([]string{"apigateway", "list_gateways"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(actionCmd.Name()).To(Equal("list_gateways"))
+
+		aidevCmd, _, err := root.Find([]string{"aidev", "retrieve_private_spaces"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(aidevCmd.Name()).To(Equal("retrieve_private_spaces"))
 
 		cmdbCmd, _, err := root.Find([]string{"cmdb", "search_business"})
 		Expect(err).NotTo(HaveOccurred())

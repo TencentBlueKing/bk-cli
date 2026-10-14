@@ -1,0 +1,46 @@
+id: AIDEV-004
+name: aidev create_private_skills_upsert happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - --bk_api_url_tmpl
+  - ${MOCK_API_BASE_URL}/{gateway_name}
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - --access_token
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: create private skills upsert
+  command:
+  - aidev
+  - create_private_skills_upsert
+  - --body
+  - '{"space_id":"demo-space","skill_code":"demo-skill","skill_name":"Demo Skill","description":"demo
+    description","url":"bkrepo://demo.zip"}'
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: data.method
+      equals: POST
+    - path: data.path
+      contains: /bk-aidev/prod/openapi/aidev/private/v1/skills/upsert/
+    - path: data.body.space_id
+      equals: demo-space
