@@ -17,6 +17,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - `get_job_instance_ip_log`
 - `fast_transfer_file`
 - `push_config_file`
+- `+run-script`
 - `fast_execute_script`
 
 ## Commands
@@ -43,6 +44,19 @@ bk-cli job get_job_instance_ip_log --bk_biz_id 2 --job_instance_id 100 --step_in
 - 调用路径：`GET /api/v3/get_job_instance_ip_log`
 
 ### 执行类
+
+#### `+run-script`
+
+```bash
+bk-cli job +run-script --biz 2 --hosts 10.0.0.1 --script_content "echo hello" --script_language shell --account_alias root
+bk-cli job +run-script --biz 2 --hosts 10.0.0.1,27:10.0.0.2 --script_file ./script.sh
+```
+
+- 快捷执行脚本：先通过 CMDB 按 IP 解析主机，再调用 Job `fast_execute_script`
+- `--hosts` 支持 `ip` 和 `bk_cloud_id:ip`，多个主机用逗号、空格或换行分隔
+- 如果任一主机解析不到，命令会在派发 Job 前失败，避免只对部分主机执行
+- MVP 只派发任务，不等待执行结束，不拉取执行日志
+- 需要直接传完整 Job body 时，继续使用 `fast_execute_script --body`
 
 #### `fast_execute_script`
 
