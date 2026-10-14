@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/bk-cli/cmd"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
+	"github.com/TencentBlueKing/bk-cli/internal/plugin"
 )
 
 // Build metadata is set at build time via -ldflags.
@@ -45,17 +46,28 @@ func main() {
 		BuildTime: buildTime,
 	})
 	cmd.SetSkillsFS(skillsFS)
-	if err := cmd.Execute(); err != nil {
-		var cliErr *output.CLIError
-		if errors.As(err, &cliErr) {
-			os.Exit(cliErr.ExitCode)
-		}
-		// Non-CLIError (e.g. cobra flag parsing errors) — emit JSON envelope
-		// so the agent-first contract is never violated (silent exit = broken).
-		reportedErr := output.UserError("command_error", err.Error(), "Run with --help for usage")
-		if errors.As(reportedErr, &cliErr) {
-			os.Exit(cliErr.ExitCode)
-		}
-		os.Exit(1)
+	if code := exitCode(cmd.Execute()); code != 0 {
+		os.Exit(code)
 	}
+}
+
+// exitCode maps an execution result to the process exit code, printing an envelope only for
+// errors that have not been reported yet. Plugin exit statuses were already reported by the child.
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var child *plugin.ExitStatus
+	if errors.As(err, &child) {
+		return child.Code
+	}
+	var cliErr *output.CLIError
+	if errors.As(err, &cliErr) {
+		return cliErr.ExitCode
+	}
+	reported := output.UserError("command_error", err.Error(), "Run with --help for usage")
+	if errors.As(reported, &cliErr) {
+		return cliErr.ExitCode
+	}
+	return 1
 }

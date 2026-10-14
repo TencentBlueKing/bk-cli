@@ -265,6 +265,8 @@ bk-cli context status
 bk-cli api bk-iam GET /api/v2/systems/ --context dev
 ```
 
+没有 active context 时，bk-cli 使用 `default` context。如果从未执行过 `context init`，只用 `context create` 建过其他 context，命令会报错，不会自动挑选其中一个；先执行 `bk-cli context use <name>`，或在命令上传 `--context <name>`。
+
 ### 管理认证信息
 
 ```
@@ -387,6 +389,83 @@ bk-cli job --help
 bk-cli job fast_execute_script --help
 bk-cli paas create_cloud_native_app -h --body-schema
 ```
+
+### 第三方 CLI 插件
+
+bk-cli 的内置官方目录列出当前宿主版本审核过的第三方 CLI。先查看目录与本地安装状态：
+
+```bash
+bk-cli plugin list
+```
+
+`plugin list` 是查询命令，即使带全局 `--dry-run` 也会直接列出状态，不输出 dry-run 预览。
+安装推荐版本后，可以从 bk-cli 的统一入口调用插件：
+
+```bash
+bk-cli plugin install bkms
+bk-cli bkms --help
+bk-cli --context clouds bkms <bkms 自己的参数>
+```
+
+其他版本必须已经被当前 bk-cli 的目录收录。再次安装不同版本就是切换版本：
+
+```bash
+bk-cli plugin install bkms --version v1.0.4
+```
+
+离线环境可以导入对应版本和平台的官方发布归档；摘要校验规则与在线安装相同：
+
+```bash
+bk-cli plugin install bkms \
+  --version v1.0.4 \
+  --from-file ./bkms-cli_1.0.4_linux_amd64.tar.gz
+```
+
+更新会切换到当前 bk-cli 目录中的推荐版本，删除则清理受管理的插件文件和安装记录：
+
+```bash
+bk-cli plugin update bkms
+bk-cli plugin remove bkms
+```
+
+受管理插件只能通过 `bk-cli plugin update <名称>` 更新，不要运行插件自己的自更新命令
+（例如 `bk-cli bkms update`）。插件自更新会替换 bk-cli 管理的可执行文件，之后的调用将
+因 `plugin_digest_mismatch` 失败。此时按原安装版本恢复：
+
+```bash
+bk-cli plugin install <名称> --version <已安装版本>
+```
+
+`install`、`update` 和 `remove` 支持 `--dry-run` 预览。`bk-cli help bkms` 显示
+宿主目录中的插件描述、安装状态，以及查看第三方帮助的提示；`bk-cli bkms --help` 只有在
+插件已安装时才会交给第三方。`bk-cli --help bkms` 和 `bk-cli -h bkms` 仍显示根帮助，
+不属于插件帮助入口。
+
+插件名前只能使用宿主的 `--context`。插件名之后的 argv、stdin、stdout、stderr 和退出码
+属于第三方，不能假定输出是 bk-cli JSON envelope。bk-cli 在启动第三方进程前失败时会以
+125 退出，并在 stderr 输出带 `plugin_*` 错误码的 JSON；Unix 下第三方被信号终止时返回
+`128 + 信号编号`。
+
+常见错误：
+
+- `plugin_not_installed`：先运行 `bk-cli plugin install <名称>`。
+- `plugin_version_not_allowed`：升级 bk-cli 以取得更新的审核目录；如果本地装的是已撤销
+  或已移除的旧版本，也可以运行 `bk-cli plugin update <名称>` 切换到推荐版本。
+- `plugin_digest_mismatch`：受管理的归档或可执行文件与目录摘要不一致，重新运行
+  `bk-cli plugin install <名称> --version <已安装版本>`；离线安装时重新取得对应版本和
+  平台的官方归档。
+- `plugin_state_invalid`：安装记录损坏。删除错误 hint 中给出的完整
+  `<配置目录>/plugins/installed.yaml` 路径，然后用
+  `bk-cli plugin install <名称> --version <原安装版本>` 重新安装所需插件。
+- `plugin_unsupported_host_flag`：把第三方 flag 移到插件名之后；插件名前只保留
+  `--context`。
+- 退出码 125：失败发生在 bk-cli 启动插件之前，读取 stderr 中的 `plugin_*` 错误；
+  其他退出码由第三方决定。
+
+当前收录的 bkms-cli v1.0.4 使用 `auth: none`。bk-cli 会向它传递 context 信息但不读取或
+传递凭据；该版本也尚未实现协议 v1，业务认证仍按 bkms-cli 自己的方式完成。免去第三方
+独立登录或配置，需要未来的 bkms-cli 版本实现协议 v1，并通过审核后以新的
+`auth: shared` 目录条目收录。
 
 ## 6. 这些参数很常用
 

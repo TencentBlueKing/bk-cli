@@ -94,6 +94,7 @@ Rules that should stay true:
 | `docs/user-guide.md` | Extended user guide and examples |
 | `docs/develop-extension-guide.md` | Developer-facing extension guide |
 | `skills/` | System-specific and shared repo-local usage skills |
+| `tools/` | Maintainer-only helpers that are not part of the public CLI |
 | `.agents/skills/` | Agent workflow skills for repository-specific development guidance |
 | `.agents/skills/create-bk-cli-system/` | Guided workflow for adding or extending a public system |
 | `tests/` | Additional higher-level test assets when needed |
@@ -107,6 +108,7 @@ Rules that should stay true:
 | `internal/api` | HTTP client, URL construction, auth header generation, request/response helpers |
 | `internal/requestexec` | Shared request execution and precedence rules for timeout, tenant, and headers |
 | `internal/output` | JSON envelope output and user-facing error helpers |
+| `internal/plugin` | Embedded plugin catalog, managed installation, protocol v1 projection, and child-process execution |
 | `internal/system` | YAML-backed system/action models, action input spec building, runtime bridging, action execution |
 | `internal/systemcmd` | Shared helpers for Go-implemented system commands: runtime resolution, request execution, flag helpers, validators, payload helpers |
 | `internal/validate` | Shared validation helpers for names and header values |
@@ -123,6 +125,7 @@ Rules that should stay true:
 | `cmd/api` | Raw API command |
 | `cmd/context` | Context lifecycle commands |
 | `cmd/doctor.go` | Root-level environment diagnostics command |
+| `cmd/plugin` | `plugin list/install/update/remove` management commands |
 | `cmd/update` | Self-update command |
 | `cmd/system` | Public system commands plus YAML/Go action registration |
 | `cmd/system/testutil` | Shared helpers for system command tests |
@@ -137,9 +140,11 @@ Rules that should stay true:
 - `context`
 - `doctor`
 - `help`
+- `plugin`
 - `update`
 - `version`
 - registered public systems via `cmd/system/register.go`
+- approved catalog plugins (currently `bkms`)
 
 ### Public systems
 
@@ -156,6 +161,19 @@ These are the current registered systems in `cmd/system/register.go`:
 | `gse` | `cmd/system/gse` | Go-implemented |
 | `devops` | `cmd/system/devops` | subsystem-based mixed YAML + Go |
 | `nodeman` | `cmd/system/nodeman` | Go-implemented |
+
+## Plugin catalog
+
+Third-party CLI plugins are independent executables, not systems. They do not use the
+`cmd/system` registration flow or per-action YAML generation.
+
+- `internal/plugin/catalog.yaml` is the only authorization source. Add a plugin or version by
+  changing that catalog; runtime state cannot add an authorized entry.
+- Generate release entries with `go run ./tools/plugin-catalog-entry ...`, then review the
+  generated URLs, archive digests, executable digests, platform coverage, and auth mode.
+- An `auth: shared` version must first pass the checklist in `docs/plugin-protocol.md`.
+  Versions that do not implement protocol v1 must remain `auth: none`.
+- Catalog names that collide with built-in commands are skipped and never dispatched as plugins.
 
 ## Command registration model
 

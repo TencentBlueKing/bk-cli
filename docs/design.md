@@ -37,7 +37,8 @@ bk-cli 是一个用于与 BlueKing 平台 API 交互的 Go CLI。它不是面向
 设计原则如下：
 
 1. **Agent-First Design**
-   所有命令都优先保证结构化输出、稳定错误模型、明确退出码、可 dry-run、可被脚本安全消费。
+   bk-cli 内置命令优先保证结构化输出、稳定错误模型、明确退出码、可 dry-run、可被脚本安全消费。
+   外部 CLI 插件保留第三方自己的参数、输出和退出码契约。
 
 2. **Bottom-Up Architecture**
    底层能力先于命令层实现，所有高层命令都建立在统一的配置、凭据、HTTP、输出契约之上，避免横向复制逻辑。
@@ -90,6 +91,7 @@ flowchart TD
     ROOT --> SYS["bk-cli {system} [{subsystem}] {action}"]
     ROOT --> CTX["bk-cli context ..."]
     ROOT --> AUTH["bk-cli auth ..."]
+    ROOT --> PLUGIN["bk-cli plugin ... / bk-cli <plugin> ..."]
 
     API --> RUNTIME["ResolveRuntime<br/>internal/config + internal/credential"]
     SYS --> SYSMAP["internal/system<br/>YAML / Go action 编排"]
@@ -111,6 +113,9 @@ flowchart TD
     DEVICE -. optional .-> AUTHSRV["BlueKing Auth Server"]
     STORE --> OUT
     DEVICE --> OUT
+
+    PLUGIN --> PLUGINCATALOG["internal/plugin<br/>embedded catalog / managed install / digest verification"]
+    PLUGINCATALOG --> PLUGINPROC["reviewed third-party CLI<br/>raw argv / stdio / exit status"]
 
     OUT --> STDOUT["stdout<br/>JSON envelope"]
     OUT -. verbose / fallback .-> STDERR["stderr<br/>verbose detail / error output"]
@@ -255,7 +260,12 @@ flowchart TD
 
 它的目标是让 Go-implemented action 不需要各自重建命令管道，而是复用一致的运行时解析、请求发送和输出约定。
 
-### 5.8 `cmd/*`
+### 5.8 `internal/plugin`
+
+负责外部 CLI 插件的内置授权目录、受管理安装、执行前摘要校验、协议 v1 环境投影和子进程
+运行。授权只来自编译期嵌入的目录，本地安装记录不能新增插件、版本、摘要或凭据共享权限。
+
+### 5.9 `cmd/*`
 
 负责 Cobra 命令定义和交互层。
 
@@ -268,7 +278,7 @@ flowchart TD
 
 命令层不应承载底层存储、加密、URL 拼装或响应解析等共享逻辑，否则会破坏分层并带来重复实现。
 
-### 5.9 `main.go`
+### 5.10 `main.go`
 
 入口层只做三件事：
 
@@ -286,7 +296,10 @@ bk-cli 针对 Agent 和自动化场景做了多项约束型优化，这些不是
 
 默认情况下，执行型命令成功时，stdout 必须输出带 `ok` 字段的结构化 JSON，而不是任意文本。这样 Agent 可以只依赖字段而不是依赖字符串文案。
 
-这里的"执行型命令"包括 `version`、`doctor`、`context`、`auth`、`api`、`skills` 以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的 `help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。
+这里的"执行型命令"包括 `version`、`doctor`、`context`、`auth`、`api`、`skills`、
+`plugin` 管理命令以及 `bk-cli {system} [{subsystem}] {action}`。Cobra 内建的
+`help` / `completion` 仍属于文本帮助面，不在统一 JSON envelope 契约内。外部 CLI
+插件的输出原样透传，不属于 bk-cli envelope 契约。
 
 当前 CLI 默认输出为 `json`。
 
@@ -488,9 +501,9 @@ timeout: 60s
 
 1. 显式 `--context`
 2. 当前 active context
-3. 如果没有 active 标记但本地已有 context，则回退到第一个现有 context，并把它写回为 active
+3. 如果没有 active 标记，则使用名为 `default` 的 context（`context init` 创建的就是它）；会修改状态的命令会把它写回为 active，只读命令（`context status`、`doctor`、插件执行）不写回
 
-如果本地还没有任何 context，命令应报错并提示先执行 `bk-cli context init --bk_api_url_tmpl=...`。对于显式指定但不存在的 context，CLI 也应返回错误，而不是静默降级。
+如果没有 active 标记，本地也没有 `default`，但存在其他 context，命令应报错并提示 `bk-cli context use NAME` 或 `--context NAME`，而不是按名称挑选其中一个。如果本地还没有任何 context，命令应报错并提示先执行 `bk-cli context init --bk_api_url_tmpl=...`；只读命令此时视为"没有 context"。对于显式指定但不存在的 context，CLI 也应返回错误，而不是静默降级。
 
 ## 9. 请求构造与认证头
 
@@ -570,11 +583,70 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 - `X-Bkapi-Authorization` 与 `X-Bk-Tenant-Id` 可通过 `--header` 显式覆盖；如果提供了 `--body`，`Content-Type` 仍由 CLI 管理，不能手动覆盖。
 - `--header` 使用 `key:value` 形式，并在本地校验分隔符、header name 与 header value 是否有效。
 
-## 10. 如何新增一个子命令
+## 10. 外部 CLI 插件
+
+外部 CLI 插件是独立发布的可执行文件，不是 system action，也不复用 `cmd/system` 的
+YAML 或 Go action 注册流程。内置目录 `internal/plugin/catalog.yaml` 是唯一授权来源；
+目录随 bk-cli 发版，运行时不从远端同步，也不允许用户注册自定义插件。目录名称如果与
+内置命令冲突，会被跳过且不会进入插件分派。
+
+### 10.1 安装与执行
+
+`bk-cli plugin list/install/update/remove` 管理目录插件。`list` 只查询目录与安装状态，
+忽略全局 `--dry-run`；`install`、`update` 和 `remove` 支持 dry-run 预览。离线安装通过
+`install --from-file` 导入官方归档，仍按目录中的归档摘要和可执行文件摘要校验。
+
+执行 `bk-cli [--context NAME] <插件名> ...` 时，顺序固定为：
+
+1. 从内置目录和安装记录定位精确版本与平台。
+2. 完整计算受管理可执行文件的 SHA-256，并与目录摘要比对。
+3. 摘要通过后才解析 context；仅当目录条目为 `auth: shared` 时读取凭据。
+4. 构造协议环境并启动子进程，原样透传插件名之后的参数、stdio 和工作目录。
+
+摘要校验必须早于凭据读取。插件从受管理绝对路径启动，绝不执行 PATH 中的同名程序。
+
+### 10.2 分派、帮助与协议
+
+插件名前的宿主参数只允许 `--context NAME` 或 `--context=NAME`；`--dry-run`、
+`--verbose`、`--insecure` 等其他宿主 flag 会以 `plugin_unsupported_host_flag`
+拒绝。插件名后的所有参数由第三方解析。
+
+`bk-cli help <插件名>` 是宿主帮助，显示目录描述、安装状态和第三方帮助提示；
+`bk-cli <插件名> --help` 只有在已安装后才交给第三方。`--help` 或 `-h` 写在插件名
+之前仍是 Cobra 根帮助，不作为插件帮助入口。安装状态无法读取时，帮助 stub 显示
+`install state unreadable`。
+
+协议 v1 总是向子进程设置以下三个变量：
+
+- `BK_CLI_PLUGIN_PROTOCOL=1`
+- `BK_CLI_PLUGIN_CONTEXT=<JSON 或 null>`
+- `BK_CLI_PLUGIN_AUTH=<JSON 或 null>`
+
+构造子进程环境时，宿主先移除继承环境中的全部 `BK_CLI_PLUGIN_*` 变量，再写入本次调用
+的三个协议变量；Windows 上前缀匹配不区分大小写。
+
+`auth: none` 仍传递 context 环境信息，但 `AUTH` 为 `null` 且宿主不读取凭据；
+`auth: shared` 才投影当前 context 的完整凭据。当前 bkms-cli v1.0.4 登记为
+`auth: none`，尚未实现协议 v1，仍按自己的方式认证。凭据共享需要未来的 bkms-cli
+版本实现协议并以新的 `auth: shared` 目录条目通过审核。
+
+### 10.3 输出与退出码
+
+第三方 stdout/stderr 原样透传，不封装为 JSON。bk-cli 在启动第三方进程前失败时把
+`plugin_*` JSON envelope 写到 stderr 并固定返回 125；第三方正常退出时透传它的退出码，
+Unix 下因信号终止时返回 `128 + 信号编号`，Windows 下返回子进程状态中的退出码。Unix
+宿主不会重复转发终端已送达前台进程组的 `SIGINT` 和 `SIGQUIT`，但会把 `SIGTERM` 和
+`SIGHUP` 转发给第三方并继续等待；Windows 控制台直接向第三方发送 Ctrl-C/Ctrl-Break，
+宿主不再转发。第三方不得使用 125。
+
+协议 JSON、第三方约束和 `auth: shared` 审核清单见
+[插件协议 v1](plugin-protocol.md)。
+
+## 11. 如何新增一个子命令
 
 这里的"新增子命令"指新增一个手写 Cobra 命令，而不是新增 YAML action。
 
-### 10.1 先判断命令应该落在哪一层
+### 11.1 先判断命令应该落在哪一层
 
 新增前先回答两个问题：
 
@@ -586,7 +658,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 - 如果是 `auth`、`context`、`doctor`、`update`、`version`、`api` 这类 CLI 核心能力，落在 `cmd/`，底层逻辑进入 `internal/`。
 - 如果是某个系统的一项动作，优先考虑做成 `cmd/system` 驱动的 action，而不是手写新的顶层命令。
 
-### 10.2 新增 Cobra 子命令的基本步骤
+### 11.2 新增 Cobra 子命令的基本步骤
 
 以新增 `cmd/foo` 为例：
 
@@ -597,7 +669,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 5. 保证输出与错误都遵循统一 envelope。
 6. 添加对应 Ginkgo 测试。
 
-### 10.3 命令实现的责任边界
+### 11.3 命令实现的责任边界
 
 命令层应只处理：
 
@@ -613,7 +685,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 - 响应解析细节
 - 注册表或配置存储细节
 
-### 10.4 新命令必须满足的约束
+### 11.4 新命令必须满足的约束
 
 新增命令至少要满足以下要求：
 
@@ -624,11 +696,11 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 5. 若涉及远端请求，支持 `--dry-run`。
 6. 若涉及共享行为，优先复用已有 `internal/*` 能力。
 
-## 11. 如何新增一个子命令的 action
+## 12. 如何新增一个子命令的 action
 
 这里的 action 是指 `bk-cli {system} {action}` 或 `bk-cli {system} {subsystem} {action}` 中的最终 `{action}`。当前只支持一层 subsystem，不允许 `bk-cli {system} {subsystem} {sub_subsystem} {action}`。
 
-### 11.1 什么时候用 YAML action
+### 12.1 什么时候用 YAML action
 
 如果一个动作本质上是"把命名参数映射到一次 API 调用"，优先使用 YAML。这样做的好处是：
 
@@ -697,7 +769,7 @@ YAML action 参数不得使用 `in: body`。请求级输入通过命令 flags �
 - 如果同一个 action 在 `path` 与 `query` 中复用了同名 param，或与保留 flag 名冲突，命令注册阶段会跳过该 action 并输出 warning。
 - 为避免与内建 flags 冲突，YAML 里的 `path`/`query` param 名不能使用 `body`、`body-schema`、`header`、`stage`、`help`、`context`、`dry-run`、`format`、`verbose`、`insecure`。
 
-### 11.2 YAML action 如何变成命令
+### 12.2 YAML action 如何变成命令
 
 在启动过程中，系统注册器会：
 
@@ -729,7 +801,7 @@ bk-cli devops stream trigger
 
 同一个 parent 下的直接子命令名必须唯一。也就是说，父 system 的 YAML action、Go action 和 subsystem 名称不能相互冲突。例如 `devops` 下不能同时存在 action `pipeline` 和 subsystem `pipeline`。不同 subsystem 下可以拥有同名 action，例如 `devops pipeline list` 和 `devops codecc list` 可以同时存在。
 
-### 11.3 参数类型与 flag 映射
+### 12.3 参数类型与 flag 映射
 
 `Param.type` 当前设计包含：
 
@@ -739,7 +811,7 @@ bk-cli devops stream trigger
 
 runner 必须按类型读取 flag 值，避免把数字错误地序列化为字符串。对 action 扩展者来说，`params` 是命令层与 API 层之间的关键接口，不应随意改变语义。
 
-### 11.4 什么时候用 Go-implemented action
+### 12.4 什么时候用 Go-implemented action
 
 以下情况应使用 Go-implemented action：
 
@@ -752,7 +824,7 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 
 例如当前 `cmdb search_business`、`search_set`、`search_module` 都属于 Go-implemented action：它们暴露了本地专属 flags，并在未显式传入 `--body` 时由 CLI 合成 CMDB 搜索请求体。再例如 `cmdb list_biz_hosts_all` 属于典型的本地编排 action：CLI 会先合成第一页请求，再按 `count` 和 `page_limit` 循环请求并聚合所有分页结果，dry-run 只预览第一页请求并补充分页元数据。
 
-### 11.5 action 扩展的统一要求
+### 12.5 action 扩展的统一要求
 
 无论是 YAML action 还是 Go-implemented action，都必须满足：
 
@@ -764,9 +836,9 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 - 不绕过 context、credential、output 这些基础层能力
 - 所属 system 在 `skills/` 下有自己的 `SKILL.md`
 
-## 12. 测试与演进约束
+## 13. 测试与演进约束
 
-### 12.1 测试约定
+### 13.1 测试约定
 
 项目测试使用 Ginkgo v2 + Gomega，强调 BDD 风格：
 
@@ -777,7 +849,7 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 
 文档性变更通常不需要 Go 测试，但如果文档描述了命令契约，就应与当前实现保持一致。
 
-### 12.2 当前已知未完成项
+### 13.2 当前已知未完成项
 
 根据现有设计与规格，以下能力仍处于未完成或保留状态：
 
@@ -787,7 +859,7 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 
 这些状态应在设计说明里清晰标注，避免读者误以为已经具备完整能力。
 
-### 12.3 演进时应避免的破坏
+### 13.3 演进时应避免的破坏
 
 以下变更属于高风险兼容性变更，除非有明确迁移策略，否则不应轻易修改：
 
@@ -798,7 +870,7 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 - YAML action schema 的关键字段含义
 - stdout/stderr 的职责边界
 
-## 13. 文档关系
+## 14. 文档关系
 
 三个主要文档的定位如下：
 
@@ -810,7 +882,7 @@ runner 必须按类型读取 flag 值，避免把数字错误地序列化为字�
 
 - 当 `README.md`、`AGENTS.md`、测试与实现之间发生差异时，应优先确认当前公共行为，再决定修正文档或修正代码。
 
-## 14. 给开发者与 Agent 的实践建议
+## 15. 给开发者与 Agent 的实践建议
 
 对于开发者，新增功能前先判断应落在哪一层，再决定修改 `internal/*`、`cmd/*` 或 YAML action。对于 Agent，执行任务前应先确认目标是"改公共契约"还是"加一条命令"，避免把一次局部扩展做成跨层耦合修改。
 
