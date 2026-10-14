@@ -115,6 +115,29 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
         return jsonify(data), status
 
+    @app.post("/bk-unify-query/<stage>/query/ts/raw")
+    @app.post("/bk-unify-query/<stage>/query/ts")
+    @app.post("/bk-unify-query/<stage>/query/promql")
+    def monitor_query(stage: str):
+        body = request_body()
+        echo = {
+            "body": body,
+            "space_uid": request.headers.get("X-Bk-Scope-Space-Uid"),
+            "stage": stage,
+        }
+        if request.path.endswith("/raw"):
+            data = {"list": [{"message": "synthetic log", "id": 9007199254740993, "nested": [18446744073709551615, -9223372036854775809]}], "trace_id": "query-trace", "echo": echo}
+        else:
+            data = {
+                "series": [{"columns": ["_value"], "values": [[1]]}],
+                "trace_id": "query-trace",
+                "echo": echo,
+            }
+        if active_scenario() == "MONITOR-NEG-001":
+            data["is_partial"] = True
+            data["status"] = {"code": "timeout"}
+        return jsonify({"result": True, "data": data})
+
     @app.get("/healthz")
     def healthz():
         return jsonify({"ok": True, "service": "mock_api"})

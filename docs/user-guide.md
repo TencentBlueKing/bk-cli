@@ -539,3 +539,7 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/{gateway_name}/resources/ \
 - 项目简介与快速入口：[README.md](https://github.com/TencentBlueKing/bk-cli/blob/master/README.md)
 - 常见问题：[docs/faq.md](faq.md)
 - 开发者视角的扩展指南：[docs/develop-extension-guide.md](https://github.com/TencentBlueKing/bk-cli/blob/master/docs/develop-extension-guide.md)
+
+## 可观测查询
+
+`bk-cli monitor` 提供只读日志、Trace、指标、PromQL 查询及按环境的资源检查。部署和凭证仍由 `context`、`auth` 管理，项目环境仅描述查询空间、表和 namespace。配置与查询说明见 [monitor 使用指南](monitor.md)。

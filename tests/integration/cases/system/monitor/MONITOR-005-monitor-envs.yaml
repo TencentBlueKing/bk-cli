@@ -1,0 +1,29 @@
+id: MONITOR-005
+name: monitor envs
+tags: [coverage-system_go, suite-integration, uses-mock]
+steps:
+  - name: init mock context
+    command: ["context", "init", "--bk_api_url_tmpl", "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: ["auth", "login", "--access_token", "integration-token"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: envs
+    command: ["monitor", "envs", "--config", "${FIXTURES_DIR}/monitor.json"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.default_env
+          equals: "dev"
+        - path: data.environments.dev.log_table_id
+          equals: "logs"

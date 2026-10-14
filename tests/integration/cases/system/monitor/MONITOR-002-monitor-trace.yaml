@@ -1,0 +1,29 @@
+id: MONITOR-002
+name: monitor trace
+tags: [coverage-system_go, suite-integration, uses-mock]
+steps:
+  - name: init mock context
+    command: ["context", "init", "--bk_api_url_tmpl", "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: ["auth", "login", "--access_token", "integration-token"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: trace
+    command: ["monitor", "trace", "--id", "trace-abc", "--config", "${FIXTURES_DIR}/monitor.json"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.echo.space_uid
+          equals: "trace-space"
+        - path: data.echo.body.query_list.0.conditions.field_list.0.value.0
+          equals: "trace-abc"

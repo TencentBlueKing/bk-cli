@@ -1,0 +1,14 @@
+{
+  "default_env": "dev",
+  "environments": {
+    "dev": {
+      "space_uid": "trace-space",
+      "trace_table_id": "traces",
+      "log_space_uid": "log-space",
+      "log_table_id": "logs",
+      "log_tables": {"stdout": "logs"},
+      "metrics_space_uid": "metric-space",
+      "metrics_namespace": "dev-ns"
+    }
+  }
+}

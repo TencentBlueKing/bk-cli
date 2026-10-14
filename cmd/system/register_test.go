@@ -891,6 +891,12 @@ actions:
 			{"devops", "stream", "trigger"},
 			{"nodeman", "install_job"},
 			{"nodeman", "get_job_details"},
+			{"monitor", "logs"},
+			{"monitor", "trace"},
+			{"monitor", "metrics"},
+			{"monitor", "query"},
+			{"monitor", "envs"},
+			{"monitor", "status"},
 		} {
 			actionCmd, _, findErr := root.Find(path)
 			Expect(findErr).NotTo(HaveOccurred(), strings.Join(path, " "))

@@ -66,6 +66,7 @@ func systemCatalog() []systemcmd.SystemSpec {
 		newGSESystemSpec(),
 		newDevopsSystemSpec(),
 		newNodemanSystemSpec(),
+		newMonitorSystemSpec(),
 	}
 }
 
