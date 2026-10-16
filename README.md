@@ -30,6 +30,8 @@
 
 Bash 示例中的 URL 模板和凭据使用单引号包裹；替换引号内的示例值，避免 `$` 和命令替换被 shell 展开。
 
+`auth login` 支持由 CLI 直接读取 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET` 或 `BK_CLI_ACCESS_TOKEN`。由秘密管理工具或 CI 注入完整的一种凭据后，执行 `bk-cli auth login`（可加 `--context <name>`），避免将票据展开进命令行参数。显式凭据参数优先；模式选择、冲突和安全边界见[用户指南](docs/user-guide.md#通过环境变量登录)。
+
 开发者：
 
 - [开发环境搭建](docs/develop-environment-guide.md)

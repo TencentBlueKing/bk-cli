@@ -193,6 +193,33 @@ bk-cli auth login \
 bk-cli auth login --access_token='your_access_token'
 ```
 
+#### 通过环境变量登录
+
+为了避免票据出现在 `ps` 等进程命令行信息中，可以让秘密管理工具或 CI 注入环境变量，由 CLI 直接读取，不要再将变量展开到凭据 flags。
+
+| 凭据字段 | 环境变量 |
+| --- | --- |
+| `bk_app_code` | `BK_CLI_BK_APP_CODE` |
+| `bk_app_secret` | `BK_CLI_BK_APP_SECRET` |
+| `bk_token` | `BK_CLI_BK_TOKEN` |
+| `bk_ticket` | `BK_CLI_BK_TICKET` |
+| `access_token` | `BK_CLI_ACCESS_TOKEN` |
+
+只注入完整的一种模式：应用 code + secret + token、应用 code + secret + ticket，或独立 access token。注入后执行：
+
+```bash
+bk-cli auth login
+bk-cli auth login --context dev
+```
+
+显式凭据 flags 先确定模式，并优先于同名环境字段。环境只补齐选中模式内未显式传入的字段。例如 `--bk_token` 选择应用 + token，即使环境中还有 ticket 或 access token，也不会切换身份；只传应用 code 或 secret 时，从环境选择唯一的 token 或 ticket，不能改用 access token。多个非空凭据 flags 仍沿用原顺序：access token 优先，其次 ticket，再其次 token。
+
+显式空值（如 `--bk_token=''`）报 `invalid_credentials`，不会回退到环境。无凭据 flags 时，access token 与任一应用模式字段共存、或 token 与 ticket 同时非空，都会报 `invalid_credentials`；只传应用 code / secret 时，环境 token 与 ticket 同时非空也会报错。缺少模式必填字段同样失败，需补齐或清理环境后重试。
+
+没有凭据参数、环境也没有值时，仍返回 `not_implemented`（退出码 1）：设备码登录尚未实现，不等待 stdin、不使用或覆盖已有凭据。成功后仍加密保存到选中的 context；失败不覆盖旧凭据。
+
+环境输入避免的是 argv 暴露；有权限的进程仍可能读取环境，shell 调试输出和 CI 日志也可能暴露值。单引号只防止 shell 展开，不隐藏已经传入 flags 的票据。本次登录仅支持 flags 和环境变量；`--body -` 的 stdin 输入用于 API 请求体，不能导入登录凭据。
+
 登录后可以检查状态：
 
 ```
