@@ -29,14 +29,6 @@ import (
 )
 
 func newLoginCmd() *cobra.Command {
-	var (
-		bkAppCode   string
-		bkAppSecret string
-		bkToken     string
-		bkTicket    string
-		accessToken string
-	)
-
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Store authentication credentials",
@@ -50,6 +42,20 @@ Three credential modes are supported:
   2. App + ticket:  --bk_app_code + --bk_app_secret + --bk_ticket
   3. Access token:  --access_token
 
+Environment fallbacks (read directly by the CLI):
+  --bk_app_code   -> BK_CLI_BK_APP_CODE
+  --bk_app_secret -> BK_CLI_BK_APP_SECRET
+  --bk_token      -> BK_CLI_BK_TOKEN
+  --bk_ticket     -> BK_CLI_BK_TICKET
+  --access_token  -> BK_CLI_ACCESS_TOKEN
+
+Explicit credential flags select the mode and take precedence; environment values
+only fill missing fields in that mode. Explicit empty values are rejected.
+Without credential flags, the environment must contain only one credential mode.
+With no credentials in either source, device flow remains unimplemented.
+Inject credentials through your secret manager or CI environment, then run auth login
+without credential flags to keep credential values out of the process argument list.
+
 Use single quotes around literal credentials to prevent shell expansion of $ and command substitutions.
 If a value contains a single quote, close the quotes, escape it, and reopen the quotes (e.g. 'it'\''s').
 
@@ -57,6 +63,9 @@ Tenant configuration belongs to the context, not the credential.
 Use context init/create --tenant_id or a one-off request header override.
 
 Examples:
+  # After injecting one credential mode into the environment:
+  bk-cli auth login
+  bk-cli auth login --context dev
   bk-cli auth login --bk_app_code='app' --bk_app_secret='secret' --bk_token='tok'
   bk-cli auth login --access_token='my_token'
   bk-cli context create dev --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/' --tenant_id='t1'
@@ -64,12 +73,21 @@ Examples:
   bk-cli auth login --access_token='my_token'
   bk-cli auth login --context dev --access_token='my_token'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// No flags at all → placeholder for device flow
+			input, err := resolveLoginInput(cmd)
+			if err != nil {
+				return err
+			}
+			bkAppCode, bkAppSecret := input.BkAppCode, input.BkAppSecret
+			bkToken, bkTicket, accessToken := input.BkToken, input.BkTicket, input.AccessToken
+
+			// No credential input → placeholder for device flow
 			if bkAppCode == "" && bkAppSecret == "" && bkToken == "" && bkTicket == "" &&
 				accessToken == "" {
-				return output.UserError("not_implemented",
+				return output.UserError(
+					"not_implemented",
 					"OAuth2 device flow not yet implemented",
-					"Provide credentials via flags. See: bk-cli auth login --help")
+					"Provide credentials via flags or environment variables. See: bk-cli auth login --help",
+				)
 			}
 
 			// Resolve context
@@ -161,11 +179,15 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&bkAppCode, "bk_app_code", "", "BlueKing app code")
-	cmd.Flags().StringVar(&bkAppSecret, "bk_app_secret", "", "BlueKing app secret")
-	cmd.Flags().StringVar(&bkToken, "bk_token", "", "User token")
-	cmd.Flags().StringVar(&bkTicket, "bk_ticket", "", "User ticket")
-	cmd.Flags().StringVar(&accessToken, "access_token", "", "Access token (standalone mode)")
+	cmd.Flags().String("bk_app_code", "", "BlueKing app code (env: BK_CLI_BK_APP_CODE)")
+	cmd.Flags().String("bk_app_secret", "", "BlueKing app secret (env: BK_CLI_BK_APP_SECRET)")
+	cmd.Flags().String("bk_token", "", "User token (env: BK_CLI_BK_TOKEN)")
+	cmd.Flags().String("bk_ticket", "", "User ticket (env: BK_CLI_BK_TICKET)")
+	cmd.Flags().String(
+		"access_token",
+		"",
+		"Access token (standalone mode; env: BK_CLI_ACCESS_TOKEN)",
+	)
 
 	return cmd
 }

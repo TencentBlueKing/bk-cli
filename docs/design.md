@@ -482,7 +482,18 @@ timeout: 60s
 {"type":"access_token","access_token":"z"}
 ```
 
-### 8.4 context 解析规则
+### 8.4 登录输入规则
+
+`auth login` 的五个凭据 flags 默认值始终为空，帮助不得包含环境中的凭据值。环境回退在命令执行时读取：`bk_app_code`、`bk_app_secret`、`bk_token`、`bk_ticket`、`access_token` 分别对应 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET`、`BK_CLI_ACCESS_TOKEN`。
+
+- 使用 `Flags().Changed` 区分未传入与显式空值；任一显式空凭据值返回 `invalid_credentials`。
+- 显式非空 access token 选独立模式；否则显式 ticket / token 选应用模式并沿用 ticket 优先的现有顺序。环境仅补齐所选模式的缺失字段，不引入其他模式的用户票据或 access token。
+- 只显式传应用 code / secret 时，从环境寻找唯一的 token 或 ticket；二者共存报冲突，只有 access token 不能切换模式。
+- 没有显式凭据 flags 时由环境选择模式。access token 与任一应用模式字段共存，或 token 与 ticket 同时非空，返回 `invalid_credentials`。
+- 部分输入缺少必填字段返回 `invalid_credentials`；两种来源均无输入时保留设备码占位错误 `not_implemented`，退出码 1。
+- 输入解析后复用 context 解析、`Credential.Validate` 和加密保存；错误不回显凭据值，失败不覆盖已有凭据。登录不自动读取 stdin 或从已有凭据补齐。
+
+### 8.5 context 解析规则
 
 命令执行时的 context 来源优先级通常为：
 
