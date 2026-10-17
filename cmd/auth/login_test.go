@@ -232,6 +232,92 @@ var _ = Describe("Auth Commands", func() {
 		})
 	})
 
+	Describe("personal token", func() {
+		It("stores encrypted credentials and supports status, check, logout and context isolation", func() {
+			Expect(
+				config.CreateContext(
+					"dev",
+					&config.Config{BkAPIURLTmpl: "https://example.com/{gateway_name}/"},
+				),
+			).To(
+				Succeed(),
+			)
+			_, err := executeCmd(newTestRoot(), "auth", "login", "--access_token=legacy")
+			Expect(err).NotTo(HaveOccurred())
+			out, err := executeCmd(
+				newTestRoot(),
+				"auth",
+				"login",
+				"--context=dev",
+				"--personal_token=bkp_test-personal",
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).NotTo(ContainSubstring("bkp_test-personal"))
+			key, err := credential.DeriveKey()
+			Expect(err).NotTo(HaveOccurred())
+			stored, err := os.ReadFile(config.CredentialsPath("dev"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(stored)).NotTo(ContainSubstring("bkp_test-personal"))
+			cred, err := credential.LoadFromFile(config.CredentialsPath("dev"), key)
+			Expect(err).NotTo(HaveOccurred())
+			raw, err := cred.Marshal()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).To(ContainSubstring(`"personal_token":"bkp_test-personal"`))
+			for _, action := range []string{"status", "check"} {
+				out, err = executeCmd(newTestRoot(), "auth", action, "--context=dev")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(out).To(ContainSubstring(`"credential_type": "personal_token"`))
+				Expect(out).NotTo(ContainSubstring("bkp_test-personal"))
+			}
+			_, err = executeCmd(newTestRoot(), "auth", "logout", "--context=dev")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(credential.Exists(config.CredentialsPath("dev"))).To(BeFalse())
+			out, err = executeCmd(newTestRoot(), "auth", "check")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(ContainSubstring(`"credential_type": "access_token"`))
+		})
+
+		It(
+			"rejects malformed inputs and mixed flags without replacing stored credentials or leaking values",
+			func() {
+				_, err := executeCmd(newTestRoot(), "auth", "login", "--access_token=legacy")
+				Expect(err).NotTo(HaveOccurred())
+				before, err := os.ReadFile(config.CredentialsPath("default"))
+				Expect(err).NotTo(HaveOccurred())
+				inputs := [][]string{
+					{"--personal_token="},
+					{"--personal_token= "},
+					{"--personal_token=secret\r\nvalue"},
+					{"--personal_token=secret value"},
+					{"--personal_token=Bearer secret"},
+					{"--personal_token=secret:bad"},
+					{"--personal_token=secret=bad"},
+					{"--personal_token=secret\x7f"},
+					{"--personal_token=秘密"},
+				}
+				for _, flag := range []string{"bk_app_code", "bk_app_secret", "bk_token", "bk_ticket", "access_token"} {
+					inputs = append(inputs, []string{"--personal_token=secret", "--" + flag + "="})
+					inputs = append(
+						inputs,
+						[]string{"--personal_token=secret", "--" + flag + "=legacy"},
+					)
+				}
+				for _, input := range inputs {
+					_, stderr, err := executeCmdWithStderr(
+						newTestRoot(),
+						append([]string{"auth", "login"}, input...)...)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("invalid_credentials"))
+					Expect(err.Error()).NotTo(ContainSubstring("secret value"))
+					Expect(stderr).NotTo(ContainSubstring("secret value"))
+					after, err := os.ReadFile(config.CredentialsPath("default"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(after).To(Equal(before))
+				}
+			},
+		)
+	})
+
 	Describe("status", func() {
 		It("shows credential info after login", func() {
 			// First login

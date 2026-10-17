@@ -248,6 +248,14 @@ For detailed shared input, override, and preview semantics, prefer checking `doc
 - when both are `true`, the generated auth header must contain both app and user identity
 - when both are `false`, the CLI must not auto-generate `X-Bkapi-Authorization` and must not require local credentials for that request
 
+Personal-token credentials use `Authorization: Bearer <personal-token>` for raw API
+calls and actions requiring authentication. They do not need app/user credential
+fields. Explicitly anonymous actions do not load or generate authentication even
+when the runtime has a cached personal credential. Same-name header overrides are
+case-insensitive; generating personal authentication alongside an explicit
+`X-Bkapi-Authorization` is rejected. Redact both authentication header names in
+preview, request/response logs, and response envelope headers.
+
 Exact header payload shapes, validation, and redaction behavior remain defined in `docs/design.md` and the shared request/runtime packages.
 
 ### Go-implemented action contract

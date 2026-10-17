@@ -213,19 +213,31 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 		return nil, output.UserError("url_error", err.Error(), "Check bk_api_url_tmpl in config")
 	}
 
-	authHeader, err := api.BuildAuthHeader(runtime.Credential, spec.AuthConfig)
+	authHeaders, err := api.BuildAuthHeaders(runtime.Credential, spec.AuthConfig)
 	if err != nil {
 		return nil, output.SystemError("auth_header_error", err.Error(), "")
 	}
 
+	if _, personalAuth := authHeaders["Authorization"]; personalAuth {
+		for name := range headerMap {
+			if strings.EqualFold(name, "X-Bkapi-Authorization") {
+				return nil, output.UserError(
+					"request_error",
+					"personal_token cannot be combined with X-Bkapi-Authorization",
+					"Use a same-name Authorization override or select a different credential context",
+				)
+			}
+		}
+	}
+
 	reqSpec := &api.Request{
-		Method:     spec.Method,
-		URL:        fullURL,
-		ParamsJSON: spec.ParamsJSON,
-		BodyJSON:   spec.BodyJSON,
-		Headers:    headerMap,
-		AuthHeader: authHeader,
-		TenantID:   resolveTenantID(runtime.Config),
+		Method:      spec.Method,
+		URL:         fullURL,
+		ParamsJSON:  spec.ParamsJSON,
+		BodyJSON:    spec.BodyJSON,
+		Headers:     headerMap,
+		AuthHeaders: authHeaders,
+		TenantID:    resolveTenantID(runtime.Config),
 	}
 
 	httpReq, err := reqSpec.Build()
@@ -314,7 +326,7 @@ func resolveTimeout(defaultTimeout time.Duration, override, timeoutErrorLabel st
 func logVerboseRequest(httpReq *http.Request) {
 	fmt.Fprintf(os.Stderr, "> %s %s\n", httpReq.Method, httpReq.URL.String())
 	for key, values := range httpReq.Header {
-		if strings.EqualFold(key, "X-Bkapi-Authorization") {
+		if api.IsAuthHeader(key) {
 			fmt.Fprintf(os.Stderr, "> %s: {redacted}\n", key)
 			continue
 		}
@@ -326,6 +338,10 @@ func logVerboseRequest(httpReq *http.Request) {
 func logVerboseResponse(resp *http.Response) {
 	fmt.Fprintf(os.Stderr, "< %d %s\n", resp.StatusCode, resp.Status)
 	for key, values := range resp.Header {
+		if api.IsAuthHeader(key) {
+			fmt.Fprintf(os.Stderr, "< %s: {redacted}\n", key)
+			continue
+		}
 		fmt.Fprintf(os.Stderr, "< %s: %s\n", key, strings.Join(values, ", "))
 	}
 	fmt.Fprintln(os.Stderr)

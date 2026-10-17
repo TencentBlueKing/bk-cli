@@ -166,13 +166,13 @@ func stringifyPathValue(raw json.RawMessage) (string, error) {
 
 // Request represents an API request to be built and executed.
 type Request struct {
-	Method     string
-	URL        string
-	ParamsJSON string            // JSON string for query params
-	BodyJSON   string            // JSON string for request body
-	Headers    map[string]string // Additional headers
-	AuthHeader string            // X-Bkapi-Authorization value
-	TenantID   string            // X-Bk-Tenant-Id value
+	Method      string
+	URL         string
+	ParamsJSON  string            // JSON string for query params
+	BodyJSON    string            // JSON string for request body
+	Headers     map[string]string // Additional headers
+	AuthHeaders map[string]string // Generated authentication headers
+	TenantID    string            // X-Bk-Tenant-Id value
 }
 
 // Build creates an http.Request from the API request spec.
@@ -203,8 +203,8 @@ func (r *Request) Build() (*http.Request, error) {
 	}
 
 	// Set auth header
-	if r.AuthHeader != "" {
-		req.Header.Set("X-Bkapi-Authorization", r.AuthHeader)
+	for key, value := range r.AuthHeaders {
+		req.Header.Set(key, value)
 	}
 
 	// Set tenant header
@@ -255,22 +255,31 @@ func ParseHeaderFlags(headerFlags []string) (map[string]string, error) {
 	for _, h := range headerFlags {
 		parts := strings.SplitN(h, ":", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid --header value %q: expected key:value", h)
+			return nil, fmt.Errorf("invalid --header value: expected key:value")
 		}
 
 		key := strings.TrimSpace(parts[0])
 		if key == "" {
-			return nil, fmt.Errorf("invalid --header value %q: header name cannot be empty", h)
+			return nil, fmt.Errorf("invalid --header value: header name cannot be empty")
 		}
 		if err := validate.ValidateHeaderName(key); err != nil {
-			return nil, fmt.Errorf("invalid --header value %q: %w", h, err)
+			return nil, fmt.Errorf(
+				"invalid --header value: invalid header name: must use HTTP token characters",
+			)
 		}
 
+		if err := validate.ValidateHeaderValue(parts[1]); err != nil {
+			return nil, fmt.Errorf(
+				"invalid --header value: invalid header value: contains a line break or control character",
+			)
+		}
 		value := strings.TrimSpace(parts[1])
-		if err := validate.ValidateHeaderValue(value); err != nil {
-			return nil, fmt.Errorf("invalid --header value %q: %w", h, err)
-		}
 
+		for existingKey := range headers {
+			if strings.EqualFold(existingKey, key) {
+				delete(headers, existingKey)
+			}
+		}
 		headers[key] = value
 	}
 	return headers, nil
