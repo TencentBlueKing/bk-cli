@@ -47,6 +47,28 @@ var _ = Describe("apigateway demo_action", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
+	It("redacts received explicit auth inputs in preview and response while sending the actual override", func() {
+		var captured http.Header
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			captured = r.Header.Clone()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"items":[]}`))
+		}))
+		DeferCleanup(server.Close)
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		for _, dryRun := range []bool{true, false} {
+			cmd := newDemoActionCmd(systemtest.BuildDeps(dryRun))
+			Expect(cmd.Flags().Set("header", "aUtHoRiZaTiOn:Bearer private-bearer")).To(Succeed())
+			Expect(cmd.Flags().Set("header", "x-bkapi-authorization:private-legacy")).To(Succeed())
+			stdout, err := systemtest.CaptureCommandStdout(func() error { return cmd.RunE(cmd, nil) })
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stdout).NotTo(ContainSubstring("private-"))
+			Expect(stdout).To(ContainSubstring("redacted"))
+		}
+		Expect(captured.Get("Authorization")).To(Equal("Bearer private-bearer"))
+		Expect(captured.Get("X-Bkapi-Authorization")).To(Equal("private-legacy"))
+	})
+
 	It("registers the expected flags", func() {
 		cmd := newDemoActionCmd(systemtest.BuildDeps(true))
 

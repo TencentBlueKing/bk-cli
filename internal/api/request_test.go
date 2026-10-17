@@ -77,9 +77,9 @@ var _ = Describe("Request.Build", func() {
 
 	It("sets auth header correctly", func() {
 		r := &api.Request{
-			Method:     "GET",
-			URL:        "https://example.com/api",
-			AuthHeader: `{"bk_app_code":"code"}`,
+			Method:      "GET",
+			URL:         "https://example.com/api",
+			AuthHeaders: map[string]string{"X-Bkapi-Authorization": `{"bk_app_code":"code"}`},
 		}
 		req, err := r.Build()
 		Expect(err).NotTo(HaveOccurred())
@@ -112,10 +112,10 @@ var _ = Describe("Request.Build", func() {
 
 	It("lets custom auth and tenant headers override generated values", func() {
 		r := &api.Request{
-			Method:     "GET",
-			URL:        "https://example.com/api",
-			AuthHeader: `{"access_token":"generated"}`,
-			TenantID:   "generated-tenant",
+			Method:      "GET",
+			URL:         "https://example.com/api",
+			AuthHeaders: map[string]string{"X-Bkapi-Authorization": `{"access_token":"generated"}`},
+			TenantID:    "generated-tenant",
 			Headers: map[string]string{
 				"X-Bkapi-Authorization": "custom-auth",
 				"X-Bk-Tenant-Id":        "custom-tenant",
@@ -290,5 +290,16 @@ var _ = Describe("SubstitutePath", func() {
 		_, err := api.SubstitutePath("/api/{id}/", `{bad json}`)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("invalid --path JSON"))
+	})
+})
+
+var _ = Describe("case insensitive repeated headers", func() {
+	It("keeps the last flag value when header spelling changes case", func() {
+		headers, err := api.ParseHeaderFlags(
+			[]string{"authorization:Bearer first", "Authorization:Bearer second"},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(headers).To(HaveLen(1))
+		Expect(headers).To(HaveKeyWithValue("Authorization", "Bearer second"))
 	})
 })

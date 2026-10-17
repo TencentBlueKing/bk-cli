@@ -188,3 +188,19 @@ var _ = Describe("Credential", func() {
 		})
 	})
 })
+
+var _ = Describe("personal credential validation", func() {
+	It("accepts one token and rejects mixed persisted credential fields", func() {
+		cred := &credential.Credential{Type: credential.TypePersonalToken, PersonalToken: "bkp_valid._~+/-=="}
+		Expect(cred.Validate()).To(Succeed())
+		for _, field := range []*string{&cred.AccessToken, &cred.BkAppCode, &cred.BkAppSecret, &cred.BkToken, &cred.BkTicket} {
+			*field = "private"
+			Expect(
+				cred.Validate(),
+			).To(
+				MatchError("personal_token cannot be combined with other credential fields"),
+			)
+			*field = ""
+		}
+	})
+})

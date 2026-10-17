@@ -1,0 +1,68 @@
+id: AUTH-003
+name: personal token login status check logout
+tags:
+  - suite-integration
+  - personal-token
+steps:
+  - name: init context
+    command:
+      - "context"
+      - "init"
+      - "--bk_api_url_tmpl"
+      - "${MOCK_API_BASE_URL}/{gateway_name}"
+      - "--tenant_id"
+      - "personal-tenant"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login personal token
+    command:
+      - "auth"
+      - "login"
+      - "--personal_token"
+      - "integration-personal"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: status
+    command:
+      - "auth"
+      - "status"
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.credential_type
+          equals: "personal_token"
+        - path: data.has_credentials
+          equals: true
+  - name: check
+    command:
+      - "auth"
+      - "check"
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.credential_type
+          equals: "personal_token"
+  - name: logout
+    command:
+      - "auth"
+      - "logout"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: status after logout
+    command:
+      - "auth"
+      - "status"
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.has_credentials
+          equals: false

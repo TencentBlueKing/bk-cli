@@ -183,6 +183,7 @@ flowchart TD
 1. `app_user + bk_token`
 2. `app_user + bk_ticket`
 3. `access_token`
+4. `personal_token`
 
 加密设计目标不是"替代操作系统钥匙串"，而是在单二进制、零运行时依赖的约束下，避免凭据明文落盘。
 
@@ -193,7 +194,7 @@ flowchart TD
 职责包括：
 
 - 根据 `bk_api_url_tmpl`、`gateway_name`、`stage` 和 `path` 构造最终 URL。
-- 构造 `X-Bkapi-Authorization` 认证头。
+- 按凭据模式构造 `X-Bkapi-Authorization` 或 `Authorization` 认证头。
 - 注入 `X-Bk-Tenant-Id` 等上下文相关请求头。
 - 处理 `--path`（路径占位符替换）、`--query`（查询参数）、`--body`（请求体）、额外 header。
 - 解析 HTTP 响应并转为统一 envelope。
@@ -421,7 +422,8 @@ CLI 级错误输出到 stderr：
 
 - `params` 和 `body` 应保持解析后的 JSON 值，而不是再嵌套一层 JSON 字符串。
 - 如果请求体存在，dry-run 的 `headers` 应体现实际会发送的 `Content-Type: application/json`。
-- dry-run 中的 `X-Bkapi-Authorization` 无论来自 CLI 自动生成还是用户显式 `--header`，都必须脱敏展示。
+- dry-run 中的 `Authorization` 和 `X-Bkapi-Authorization` 无论来自 CLI 自动生成还是用户显式 `--header`，都按头名忽略大小写脱敏展示。
+- verbose 请求/响应日志以及默认响应 envelope 中的认证头均脱敏；非法 header 的错误只说明格式原因，不回显输入。响应正文仍原样返回。
 - dry-run 中展示的 `request.params` 与 `request.body` 必须尽量保留输入 JSON number 的原始字面量，禁止经 `float64` 中转后再输出，以避免大整数被显示为科学计数法或发生精度失真。
 - Go-implemented action 可以在同一个 envelope 里额外放入本地编排产生的 `data`，但 `dry_run` 与 `request` 字段的含义必须保持稳定。
 - 如果 Go-implemented action 会做多次上游调用编排，例如分页聚合，则 dry-run 至少要稳定展示第一跳请求，并可在 `data` 中补充分页或编排元数据。
@@ -474,12 +476,13 @@ timeout: 60s
 
 凭据按 context 独立保存在 `credentials.enc` 中，明文 JSON 在写入前会被 AES-256-GCM 加密。
 
-三种典型凭据形态：
+四种典型凭据形态：
 
 ```json
 {"type":"app_user","bk_app_code":"x","bk_app_secret":"y","bk_token":"z"}
 {"type":"app_user","bk_app_code":"x","bk_app_secret":"y","bk_ticket":"z"}
 {"type":"access_token","access_token":"z"}
+{"type":"personal_token","personal_token":"<personal-token>"}
 ```
 
 ### 8.4 context 解析规则
@@ -533,15 +536,20 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
 - 当目标 `gateway_name` 是 `bkpaas3`，且 `bk_api_url_tmpl` 命中同样的
   兼容模板时，实际网关名会从 `bkpaas3` 兼容映射为 `paasv3`
 
-### 9.2 `X-Bkapi-Authorization` 构造
+### 9.2 认证头构造
 
-认证头本质上是一个 JSON 字符串，取决于凭据类型：
+应用/用户及 access token 模式使用 `X-Bkapi-Authorization` JSON；个人 token 模式使用 `Authorization`，共享 `BuildAuthHeaders` 一次只生成一种协议：
 
-| 凭据类型 | Header JSON |
+| 凭据类型 | 认证值 |
 |---------|-------------|
 | `app_user + bk_token` | `{"bk_app_code":"x","bk_app_secret":"y","bk_token":"z"}` |
 | `app_user + bk_ticket` | `{"bk_app_code":"x","bk_app_secret":"y","bk_ticket":"z"}` |
-| `access_token` | `{"access_token":"z"}` |
+| `access_token` | `X-Bkapi-Authorization: {"access_token":"z"}` |
+| `personal_token` | `Authorization: Bearer <personal-token>` |
+
+`personal_token` 使用独立的 `--personal_token` 登录 flag，与其他五个凭据 flags 按显式出现互斥（包括显式空值）。输入必须符合 RFC 6750 §2.1 的单个 Bearer token 字符语法，不添加前缀、不裁剪原值。非法输入返回 `invalid_credentials` 且不回显原值，也不替换已有凭据。复用 AES-GCM 存储和 context 隔离，不改变旧凭据格式；存储读取后，在生成个人认证头前再次校验。
+
+个人模式不套用应用/用户字段拼装；要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
 
 YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪些认证维度：
 
@@ -553,7 +561,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 
 如果 context 设置了 `tenant_id`，则注入该值；如果 context 未设置 tenant，则 CLI 默认不再生成 `X-Bk-Tenant-Id`。
 
-如果调用者通过 `--header` 显式提供 `X-Bkapi-Authorization` 或 `X-Bk-Tenant-Id`，则用户值优先，覆盖 CLI 基于 credential/context 生成的对应 header。该能力是刻意保留的，便于 Agent 在特殊场景下直接传入自定义认证头或租户头。
+如果调用者通过 `--header` 显式提供 `Authorization`、`X-Bkapi-Authorization` 或 `X-Bk-Tenant-Id`，则用户值优先，覆盖 CLI 基于 credential/context 生成的对应 header。头名忽略大小写，同名重复 flags 按最后一个值生效。个人模式生成 Bearer 头时，如同时显式提供 `X-Bkapi-Authorization`，返回本地 `request_error`，避免混用两种身份。该能力是刻意保留的，便于 Agent 在特殊场景下直接传入自定义认证头或租户头。
 
 ### 9.3 请求参数处理原则
 
