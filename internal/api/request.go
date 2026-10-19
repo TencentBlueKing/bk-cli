@@ -252,25 +252,30 @@ func validateRequestURL(parsedURL *url.URL) error {
 // ParseHeaderFlags parses --header "key:value" flag values into a map.
 func ParseHeaderFlags(headerFlags []string) (map[string]string, error) {
 	headers := make(map[string]string, len(headerFlags))
-	for _, h := range headerFlags {
+	for i, h := range headerFlags {
 		parts := strings.SplitN(h, ":", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid --header value: expected key:value")
+			return nil, fmt.Errorf("invalid --header value at position %d: expected key:value", i+1)
 		}
 
 		key := strings.TrimSpace(parts[0])
 		if key == "" {
-			return nil, fmt.Errorf("invalid --header value: header name cannot be empty")
+			return nil, fmt.Errorf(
+				"invalid --header value at position %d: header name cannot be empty",
+				i+1,
+			)
 		}
 		if err := validate.ValidateHeaderName(key); err != nil {
 			return nil, fmt.Errorf(
-				"invalid --header value: invalid header name: must use HTTP token characters",
+				"invalid --header value at position %d: invalid header name: must use HTTP token characters",
+				i+1,
 			)
 		}
 
 		if err := validate.ValidateHeaderValue(parts[1]); err != nil {
 			return nil, fmt.Errorf(
-				"invalid --header value: invalid header value: contains a line break or control character",
+				"invalid --header value at position %d: invalid header value: contains a line break or control character",
+				i+1,
 			)
 		}
 		value := strings.TrimSpace(parts[1])

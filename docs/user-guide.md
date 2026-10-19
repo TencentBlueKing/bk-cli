@@ -218,6 +218,7 @@ bk-cli doctor
 
 `auth status` 用来看当前 context 是否已有凭据，`auth check` 更适合脚本里做 fail-fast。
 `doctor` 适合排查当前机器上的 context 列表、选中的 context、凭据类型、脱敏票据、URL 模板渲染结果和网关连通性。
+个人 token 登录后，`doctor` 会显示 `personal_token` 类型和脱敏值；凭据格式无效时，本地凭据检查失败。使用 `doctor --offline` 可跳过连通性探测；本地检查通过不代表 token 的远端有效期或权限已验证。
 
 ### 第三步：先发一个原始 API 请求
 

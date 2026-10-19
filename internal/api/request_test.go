@@ -212,6 +212,20 @@ var _ = Describe("ParseHeaderFlags", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("invalid header value"))
 	})
+
+	DescribeTable("identifies the invalid header position without echoing its contents",
+		func(invalid, reason string) {
+			_, err := api.ParseHeaderFlags([]string{"Accept:application/json", invalid})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("--header value at position 2"))
+			Expect(err.Error()).To(ContainSubstring(reason))
+			Expect(err.Error()).NotTo(ContainSubstring("private-value"))
+		},
+		Entry("missing separator", "private-value", "expected key:value"),
+		Entry("empty name", ":private-value", "header name cannot be empty"),
+		Entry("invalid name", "private-value bad:secret", "invalid header name"),
+		Entry("invalid value", "Authorization:private-value\n", "invalid header value"),
+	)
 })
 
 var _ = Describe("SubstitutePath", func() {

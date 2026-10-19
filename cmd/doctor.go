@@ -50,13 +50,14 @@ type doctorCheck struct {
 }
 
 type doctorCredential struct {
-	Type        string `json:"type"`
-	BkAppCode   string `json:"bk_app_code,omitempty"`
-	BkAppSecret string `json:"bk_app_secret,omitempty"`
-	BkToken     string `json:"bk_token,omitempty"`
-	BkTicket    string `json:"bk_ticket,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
-	UserKey     string `json:"user_key,omitempty"`
+	Type          string `json:"type"`
+	BkAppCode     string `json:"bk_app_code,omitempty"`
+	BkAppSecret   string `json:"bk_app_secret,omitempty"`
+	BkToken       string `json:"bk_token,omitempty"`
+	BkTicket      string `json:"bk_ticket,omitempty"`
+	AccessToken   string `json:"access_token,omitempty"`
+	PersonalToken string `json:"personal_token,omitempty"`
+	UserKey       string `json:"user_key,omitempty"`
 }
 
 type doctorContext struct {
@@ -332,6 +333,9 @@ func loadDoctorCredential(ctxName string) (*doctorCredential, bool, error) {
 	if err != nil {
 		return nil, true, err
 	}
+	if err := cred.Validate(); err != nil {
+		return nil, true, err
+	}
 
 	report := &doctorCredential{Type: string(cred.Type)}
 	switch cred.Type {
@@ -343,8 +347,8 @@ func loadDoctorCredential(ctxName string) (*doctorCredential, bool, error) {
 		report.UserKey = cred.UserKeyType()
 	case credential.TypeAccessToken:
 		report.AccessToken = maskDoctorSecret(cred.AccessToken)
-	default:
-		return nil, true, fmt.Errorf("unknown credential type: %q", cred.Type)
+	case credential.TypePersonalToken:
+		report.PersonalToken = maskDoctorSecret(cred.PersonalToken)
 	}
 
 	return report, true, nil
