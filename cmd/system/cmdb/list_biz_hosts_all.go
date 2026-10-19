@@ -381,7 +381,11 @@ func parseHostID(actionName string, host any) (int64, error) {
 	case json.Number:
 		asInt, err := hostID.Int64()
 		if err != nil {
-			break
+			return 0, output.SystemError(
+				"response_error",
+				actionName+" response contains a host entry whose bk_host_id is not a valid int64 integer",
+				"",
+			)
 		}
 		return asInt, nil
 	case int:

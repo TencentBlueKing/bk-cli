@@ -300,7 +300,7 @@ var _ = Describe("cmdb list_biz_hosts_all", func() {
 		func(raw string) {
 			_, err := parseHostID("list_biz_hosts_all", map[string]any{"bk_host_id": json.Number(raw)})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("non-numeric bk_host_id"))
+			Expect(err.Error()).To(ContainSubstring("bk_host_id is not a valid int64 integer"))
 		},
 		Entry("fractional ID", "1.5"),
 		Entry("out-of-range ID", "9223372036854775808"),
