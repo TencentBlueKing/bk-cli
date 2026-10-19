@@ -36,6 +36,7 @@ func NewSystemSpec() systemcmd.SystemSpec {
 				newFastTransferFileCmd,
 				newPushConfigFileCmd,
 				newFastExecuteScriptCmd,
+				newRunScriptCmd,
 			}
 			for _, build := range builders {
 				parent.AddCommand(build(deps))
