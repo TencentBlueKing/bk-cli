@@ -32,7 +32,7 @@ func NewSystemSpec() systemcmd.SystemSpec {
 		Description: "BlueKing API Gateway management - discover gateways and APIs",
 		YAMLFile:    "apigateway/actions.yaml",
 		RegisterGoActions: func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
-			parent.AddCommand(newDemoActionCmd(deps))
+			parent.AddCommand(newDemoActionCmd(deps), newApplyGatewayPermissionCmd(deps))
 			return nil
 		},
 	}

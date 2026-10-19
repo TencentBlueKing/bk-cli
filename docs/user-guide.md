@@ -346,6 +346,41 @@ bk-cli api bk-iam GET /api/v2/systems/
 
 如果你暂时没有现成的 system 子命令，这通常是最稳妥、最高效的探索方式。
 
+### 申请网关或接口权限
+
+遇到网关 API 权限不足（例如错误码 `1640301`）时，可以使用 `bk-cli apigateway apply_gateway_permission` 调用 `v2_open_apply_gateway_permission` 发起申请。该接口需要应用身份；`target_app_code` 应与请求使用的应用一致。业务系统自身的权限不足需按对应系统流程处理。
+
+**Agent 每次提交前必须询问用户，确认具体网关、申请应用、资源范围、有效期和原因；暂不允许跳过询问。** 申请会创建单据，触发通知和审批流程，成本较高。先汇总同一网关中需要的接口，将多个接口放入一个 `resource_names` 数组；只有用户明确同意整网关范围时才使用 `grant_dimension: gateway`。不要自动重试，避免重复申请单。
+
+先准备 `permission.json`（将示例应用、申请人和资源名称替换为实际值）：
+
+```json
+{
+  "target_app_code": "my-app",
+  "grant_dimension": "resource",
+  "resource_names": ["user_query", "user_create"],
+  "applicant": "developer",
+  "expire_days": 180,
+  "reason": "Read and create users for the integration"
+}
+```
+
+`target_app_code`、`grant_dimension`、`applicant` 必填；按资源申请时 `resource_names` 必填。`expire_days` 为 `180` 表示 6 个月、`360` 表示 12 个月，`0` 或省略表示永久；`reason` 可选。按整网关申请时将 `grant_dimension` 设为 `gateway`，无需 `resource_names`。
+
+```bash
+# 预览不会创建申请单，不需要确认
+bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
+  --body @permission.json --dry-run
+
+# 将预览的具体申请内容告知用户并询问；仅在用户明确同意后执行
+bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
+  --body @permission.json --confirmed
+```
+
+`--body` 也支持内联 JSON 或 `--body -` 从 stdin 读取。`--confirmed` 表示用户已明确确认本次申请内容，不能代替向用户询问；不传该参数或传 `--confirmed=false` 时，实际提交在本地返回 `confirmation_required`，不会发起请求。
+
+返回值保持 JSON envelope 和完整上游响应；`message` 展示申请单号，`data.data.record_id` 是上游申请记录 ID。**提交成功不表示权限已获批。** Agent 应向用户展示申请单号，以及响应中实际返回的审批链接、审批人等信息，方便联系审批。当前上游契约只保证 `record_id`，没有链接或审批人时不要猜测，也不要把申请单号当作审批完成状态。
+
 ### 使用 system 子命令
 
 system 子命令更适合“平台操作”，不需要你自己拼完整接口路径。

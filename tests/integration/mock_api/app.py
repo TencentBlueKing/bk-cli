@@ -169,6 +169,18 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             }
         )
 
+    @app.post("/bk-apigateway/prod/api/v2/open/gateways/<gateway_name>/permissions/apply/")
+    def apply_gateway_permission(gateway_name: str):
+        payload = request.get_json(silent=True) or {}
+        data = {
+            "record_id": 12345,
+            "approval_url": "https://approval.example.com/records/12345",
+            "approvers": ["gateway-admin"],
+            "gateway_name": gateway_name,
+            "submitted": payload,
+        }
+        return jsonify({"code": 0, "message": "OK", "data": data})
+
     @app.post("/devops/prod/v4/apigw-user/projects/<project_id>/build_start")
     def start_build(project_id: str):
         scenario = active_scenario()

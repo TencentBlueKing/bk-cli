@@ -1,0 +1,39 @@
+id: APIGW-NEG-001
+name: apigateway permission application requires explicit confirmation
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: reject unconfirmed submission before context or credentials are needed
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: confirmation_required
+        - path: error.hint
+          contains: Ask the user to confirm
+  - name: explicit refusal also prevents submission
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed=false
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: confirmation_required

@@ -1,0 +1,76 @@
+id: APIGW-006
+name: apigateway batch permission application after user confirmation
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: preview batch before asking for confirmation
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"resource","resource_names":["user_query","user_create"],"applicant":"developer","expire_days":180,"reason":"Integration"}'
+      - --dry-run
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.method
+          equals: POST
+        - path: request.url
+          contains: /bk-apigateway/prod/api/v2/open/gateways/bk-iam/permissions/apply/
+        - path: request.body.resource_names
+          equals: [user_query, user_create]
+  - name: submit the batch after explicit user confirmation
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"resource","resource_names":["user_query","user_create"],"applicant":"developer","expire_days":180,"reason":"Integration"}'
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 200
+        - path: message
+          contains: 'record_id: 12345'
+        - path: data.data.record_id
+          equals: 12345
+        - path: data.data.approval_url
+          equals: https://approval.example.com/records/12345
+        - path: data.data.approvers
+          equals: [gateway-admin]
+        - path: data.data.gateway_name
+          equals: bk-iam
+        - path: data.data.submitted.grant_dimension
+          equals: resource
+        - path: data.data.submitted.resource_names
+          equals: [user_query, user_create]
+        - path: data.data.submitted.target_app_code
+          equals: my-app
+        - path: data.data.submitted.applicant
+          equals: developer
+        - path: data.data.submitted.expire_days
+          equals: 180
