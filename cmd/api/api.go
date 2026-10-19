@@ -21,7 +21,6 @@ package api
 
 import (
 	"errors"
-	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -118,8 +117,7 @@ Examples:
 			method := strings.ToUpper(args[1])
 			apiPath := args[2]
 
-			return runAPI(
-				cmd.OutOrStdout(),
+			envelope, err := executeAPI(
 				gatewayName,
 				method,
 				apiPath,
@@ -134,6 +132,10 @@ Examples:
 				isVerbose(),
 				isInsecure(),
 			)
+			if err != nil {
+				return err
+			}
+			return output.WriteCommandEnvelope(cmd, envelope)
 		},
 	}
 
@@ -143,38 +145,9 @@ Examples:
 	cmd.Flags().StringArrayVar(&flagHeaders, "header", nil, "Additional headers (key:value, repeatable)")
 	cmd.Flags().StringVar(&flagStage, "stage", "prod", "API gateway stage (default: prod)")
 	cmd.Flags().StringVar(&flagTimeout, "timeout", "", "Request timeout override (e.g. 180s)")
+	output.AddJQFlag(cmd)
 
 	return cmd
-}
-
-func runAPI(
-	w io.Writer,
-	gatewayName, method, apiPath, pathJSON, queryJSON, body string,
-	headers []string,
-	stage, ctxOverride, timeoutOverride string,
-	dryRun, verbose bool,
-	insecure bool,
-) error {
-	envelope, err := executeAPI(
-		gatewayName,
-		method,
-		apiPath,
-		pathJSON,
-		queryJSON,
-		body,
-		headers,
-		stage,
-		ctxOverride,
-		timeoutOverride,
-		dryRun,
-		verbose,
-		insecure,
-	)
-	if err != nil {
-		return err
-	}
-
-	return envelope.WriteJSON(w)
 }
 
 func executeAPI(

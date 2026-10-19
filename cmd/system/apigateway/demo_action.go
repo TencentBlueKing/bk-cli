@@ -55,11 +55,19 @@ it performs local logic, keeps local-only flags, and then calls shared lower-lay
 				return err
 			}
 
+			// Local header echoes must be redacted before final output or jq sees them.
+			receivedHeaders := append([]string(nil), headers...)
+			for i, header := range receivedHeaders {
+				key, _, found := strings.Cut(header, ":")
+				if found && strings.EqualFold(strings.TrimSpace(key), "X-Bkapi-Authorization") {
+					receivedHeaders[i] = key + ":{...redacted...}"
+				}
+			}
 			received := map[string]any{
 				"name":    name,
 				"public":  public,
 				"body":    body,
-				"headers": append([]string(nil), headers...),
+				"headers": receivedHeaders,
 				"stage":   stage,
 			}
 

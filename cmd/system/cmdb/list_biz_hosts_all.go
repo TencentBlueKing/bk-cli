@@ -115,7 +115,7 @@ func newListBizHostsAllCmd(deps systemcmd.BuildDeps) *cobra.Command {
 						"page_limit":           pageLimit,
 					},
 				}
-				return result.Envelope.WriteJSON(cmd.OutOrStdout())
+				return output.WriteCommandEnvelope(cmd, result.Envelope)
 			}
 
 			const maxPages = 1000
@@ -226,7 +226,7 @@ func newListBizHostsAllCmd(deps systemcmd.BuildDeps) *cobra.Command {
 				"count": len(allHosts),
 				"info":  allHosts,
 			})
-			return env.WriteJSON(cmd.OutOrStdout())
+			return output.WriteCommandEnvelope(cmd, env)
 		},
 	}
 

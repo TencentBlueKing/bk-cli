@@ -456,6 +456,30 @@ bk-cli auth check >/dev/null
 bk-cli api bk-apigateway GET /api/v2/open/gateways/ | jq .
 ```
 
+### 内置 jq 筛选
+
+raw API 和所有 system action 可以直接用 `--jq` 查询完整最终 envelope：
+
+```bash
+# 提取网关名称，每个名称是一行带引号的 JSON 字符串
+bk-cli apigateway list_gateways --jq '.data.items[] | .name'
+
+# 在 CMDB 完成所有分页后汇总主机 ID
+bk-cli cmdb list_biz_hosts_all --bk_biz_id 2 --jq '.data.info | map(.bk_host_id)'
+
+# 对已脱敏预览查询 URL
+bk-cli api bk-demo GET /api/v2/foo/ --dry-run --jq '.request.url'
+
+# stdin 仍用于请求体，jq 不额外读取 stdin
+cat body.json | bk-cli api bk-demo POST /api/v2/foo/ --body - --jq '.data'
+```
+
+每个结果是一行合法 JSON：对象和数组紧凑编码，字符串带引号并转义换行；多结果输出 JSON Lines，`empty` 无输出。`null` / `false` / `empty` 不采用外部 jq 的 `-e` 退出规则。根输入是 envelope，因此上游内容通常从 `.data` 开始查询。context、auth、doctor、version、update、skills 等命令不支持此 flag，使用时会明确报错。
+
+空表达式、语法错误和未知函数在请求前失败，退出 1。运行错误或预算耗尽退出 2，并在 stdout 保留完整原结果、stderr 给出 `jq_execution_error` 或 `jq_limit_exceeded`。真实请求已经完成时会明确提示；先检查原结果中的任务/资源 ID，避免直接重跑写命令。已确认失败的结果不会被投影隐藏，原命令的 HTTP/业务判定及退出语义不变。stdout 写入失败返回非 0，部分写出后停止输出。
+
+内置解释器为 gojq v0.12.19，无需外部 jq。正常 `halt` 结束展示，`halt_error` 作为展示错误处理。固定预算为 2 秒、10,000 个结果、16 MiB 编码输出（含换行）。不开放系统环境变量、文件模块或额外 stdin；不提供 `-r` / `-e`，部分正则特性与外部 jq 有差异。整数 ID 与整数运算保持精度，小数及指数按 gojq 浮点语义处理，不保证任意精度小数。投影只减少展示量，不减少上游请求或下载量；进程内计算不提供严格内存隔离。
+
 ### 2. 优先查看是否有对应的  system 子命令，没有的话再切换使用 `api`
 
 使用 `-h` 方法，查看是否有对应的 system 子命令。优先使用 system 子命令。

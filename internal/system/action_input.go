@@ -40,6 +40,7 @@ var reservedGeneratedFlagNames = map[string]struct{}{
 	"help":                   {},
 	"context":                {},
 	"format":                 {}, // keep it built-in reserved, would be used in the furtur
+	"jq":                     {},
 	"dry-run":                {},
 	"verbose":                {},
 	"insecure":               {},

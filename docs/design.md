@@ -427,7 +427,21 @@ CLI 级错误输出到 stderr：
 - Go-implemented action 可以在同一个 envelope 里额外放入本地编排产生的 `data`，但 `dry_run` 与 `request` 字段的含义必须保持稳定。
 - 如果 Go-implemented action 会做多次上游调用编排，例如分页聚合，则 dry-run 至少要稳定展示第一跳请求，并可在 `data` 中补充分页或编排元数据。
 
-### 7.5 输入契约的一致性
+### 7.5 内置 `--jq` 结果投影
+
+`api`、YAML action、Go action 和 `cmdb list_biz_hosts_all` 支持独立的本地 `--jq '<expression>'`。该 flag 只在支持的执行命令注册，不是 root persistent flag；context、auth、doctor、version、update、skills 等命令显式使用时返回 unknown flag。帮助仍走原帮助路径，不执行请求。
+
+- 根输入为完整最终 envelope（包括 `.ok`、`.status`、`.headers`、`.data` 或 `.request`），聚合结束后执行一次。未传 flag 时保持原有输出与退出判定。
+- 每个结果输出一行紧凑 JSON，字符串带引号并转义，多个结果形成 JSON Lines；`null` / `false` 不改变原命令退出码，`empty` 不输出字节。不提供外部 jq 的 `-r` / `-e` 或命令行选项。
+- `internal/output.AddJQFlag` 在参数解析的 `Set` 中 Parse/Compile 一次，早于认证、body 文件/stdin 读取和远端执行。空白、语法错误或未知函数以命令输入错误退出 1。`WriteCommandEnvelope` 复用编译结果，供 raw API、YAML runner、Go executor 和最终聚合共用；中间请求不投影。
+- 先遵循当前结果判定：`ok:false` 的完整 envelope 绕过投影，CLI 错误仍沿原路径输出。当前 legacy HTTP 失败 envelope 的退出行为保持原样；分层业务/异步结果判定及通用 `--paginate` 由独立需求管理，本功能不新增这些能力。
+- 执行错误或调用方取消返回 `jq_execution_error`；时间、结果数或输出字节超限返回 `jq_limit_exceeded`，退出 2。stdout 回退为完整原 envelope，stderr 给出结构化错误；真实请求完成后明确说明展示失败不代表请求未执行。禁止自动重发；应先检查原结果中的任务/资源 ID。
+- 全部结果在有限缓冲区中完成后才写 stdout，预算固定为 **2 秒、10,000 个结果、16 MiB 编码输出（含换行）**。恰好达到上限允许；超限丢弃部分投影。stdout 写入错误或短写向上传播，已经开始写入后不追加回退 envelope。进程内解释器的单次分配、输入转换和原响应体不受该输出缓冲上限严格隔离；不承诺进程级内存隔离或所有内置运算均可被实时抢占。
+- 采用 MIT 的 `gojq v0.12.19`，完整 envelope 经标准库 JSON 编码及 `Decoder.UseNumber()` 适配为解释器 JSON 值，保留整数精度（包含超出 int64 的整数与整数运算）。小数、指数及浮点运算按 gojq 语义，不能承诺任意精度小数或保留数字原字面量；默认未开启 jq 的响应保真契约不变。
+- 不配置环境变量 loader、文件 module loader 或 input iterator：`env` / `$ENV` 为空对象，`input` / `inputs` 和文件模块在编译时拒绝。body stdin 与 jq 不争用输入。dry-run 先由共享请求层脱敏，再供表达式读取。
+- 正常 `halt` 终止投影并保留此前结果；`halt_error`（包括 null 值、退出码 0 和 try/catch 包裹）均按投影错误处理，不能接管 CLI 退出码。普通 jq `error` 可由表达式自身的 try/catch 处理。
+
+### 7.6 输入契约的一致性
 
 除了统一输出，bk-cli 还强调统一输入模式：
 
@@ -696,7 +710,7 @@ YAML action 参数不得使用 `in: body`。请求级输入通过命令 flags �
 - 每个 YAML action 都必须显式配置 `authConfig`；缺失时 YAML 加载失败。
 - `resourcePermissionRequired: true` 必须同时设置 `appVerifiedRequired: true`。
 - 如果同一个 action 在 `path` 与 `query` 中复用了同名 param，或与保留 flag 名冲突，命令注册阶段会跳过该 action 并输出 warning。
-- 为避免与内建 flags 冲突，YAML 里的 `path`/`query` param 名不能使用 `body`、`body-schema`、`header`、`stage`、`help`、`context`、`dry-run`、`format`、`verbose`、`insecure`。
+- 为避免与内建 flags 冲突，YAML 里的 `path`/`query` param 名不能使用 `body`、`body-schema`、`header`、`stage`、`help`、`context`、`dry-run`、`format`、`jq`、`verbose`、`insecure`。
 
 ### 11.2 YAML action 如何变成命令
 
