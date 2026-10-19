@@ -49,6 +49,13 @@ Use the existing top-level coverage folders:
 - `cases/context/`
 - `cases/auth/`
 - `cases/api/`
+- `cases/plugin/`
+
+Plugin YAML cases cover the embedded catalog, management commands, and host-side
+dispatch errors only. Keep them offline: do not download or install a third-party
+release from the internet. Raw stdio, protocol environment variables, argument and
+exit-code passthrough are covered by the subprocess tests in `internal/plugin` and
+`cmd`; do not add one integration YAML case per third-party action.
 
 ### System commands
 

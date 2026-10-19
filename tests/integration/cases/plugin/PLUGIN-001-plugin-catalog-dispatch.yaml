@@ -1,0 +1,47 @@
+id: PLUGIN-001
+name: plugin catalog, install preview and dispatch errors
+tags:
+  - suite-integration
+  - coverage-plugin
+steps:
+  - name: list catalog plugins
+    command: [plugin, list]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: reject unapproved version
+    command: [plugin, install, bkms, --version, v9.9.9]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: plugin_version_not_allowed
+  - name: preview install without downloading
+    command: [plugin, install, bkms, --version, v1.0.4, --dry-run]
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: data.version
+          equals: v1.0.4
+  - name: preview did not install
+    command: [bkms, --help]
+    expect:
+      exit_code: 125
+      checks:
+        - path: error.code
+          equals: plugin_not_installed
+  - name: reject host flag before plugin
+    command: [--dry-run, bkms, app, list]
+    expect:
+      exit_code: 125
+      checks:
+        - path: error.code
+          equals: plugin_unsupported_host_flag
+  - name: plugin help stub needs no install
+    command: [help, bkms]
+    expect:
+      exit_code: 0

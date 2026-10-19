@@ -29,12 +29,14 @@
 
 ## 当前目录布局规则
 
-- `context`、`auth` 和原始 `api` 场景直接放在各自对应的目录下
+- `context`、`auth`、原始 `api` 和插件宿主场景直接放在各自对应的目录下
+- 插件目录、管理命令和分派错误场景放在 `cases/plugin/`，并保持离线
 - system 场景放在 `cases/system/<system>/` 下
 
 示例：
 
 - `cases/context/CTX-001-context-create-use-list.yaml`
+- `cases/plugin/PLUGIN-001-plugin-catalog-dispatch.yaml`
 - `cases/system/devops/SYSGO-001-devops-start-build.yaml`
 - `cases/system/apigateway/SYSYAML-001-apigateway-list-gateways.yaml`
 

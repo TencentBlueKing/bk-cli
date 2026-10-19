@@ -1,0 +1,41 @@
+schema_version: 1
+plugins:
+  bkms:
+    binary: bkms-cli
+    description: BlueKing service governance CLI (bkms-cli)
+    recommended_version: v1.0.4
+    versions:
+      v1.0.4:
+        status: allowed
+        auth: none
+        platforms:
+          darwin-amd64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_darwin_amd64.tar.gz
+            archive_sha256: d4e4b5a94d8a01ce3dd2d1f52937cbe8cfca65e2f3016cc441b76cebd7a3291a
+            executable: bkms-cli
+            executable_sha256: 61777a6e71f8db2222edca5f2aa916d785ffef39bd926aea8d65bc67a78fb3c6
+          darwin-arm64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_darwin_arm64.tar.gz
+            archive_sha256: 35295f63012ec9a2cff5fece228cf4fa4901feb8e917bfd57cf0268c7ec6c42e
+            executable: bkms-cli
+            executable_sha256: e4e73b5f5b101f75585e709b37ef14839d913190c44e53e78148467fb43deb52
+          linux-amd64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_linux_amd64.tar.gz
+            archive_sha256: 2db9bc039a6b209e34d12d229be77f05936e7583ccd04fcddebc79f479b82fc1
+            executable: bkms-cli
+            executable_sha256: 16830a59a684b2b4ab02d67372f6682b7bb4d4e12d2eefdb84ee93339c9bc5bf
+          linux-arm64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_linux_arm64.tar.gz
+            archive_sha256: 22560b203622715961bdad576ba1957df7b4316cee132ba37a84ce551d56cf89
+            executable: bkms-cli
+            executable_sha256: bc6b357558f7a90e650cbe1df5df6d8c4f3d415844cff929bde416773c396c8d
+          windows-amd64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_windows_amd64.zip
+            archive_sha256: 854cfd87f67429631ff76c8e1e9103033bd880214c36e7c439a9773a7a04277e
+            executable: bkms-cli.exe
+            executable_sha256: b59dcaeb023c4494355ccb0b8f19c82c9449c51250d033969d559abd63020173
+          windows-arm64:
+            url: https://github.com/TencentBlueKing/blueking-service-governance/releases/download/bkms-cli/v1.0.4/bkms-cli_1.0.4_windows_arm64.zip
+            archive_sha256: e0044f7a24ac356119461e07c1f7baa059277b7995416c81333fb9e7e91b6ce0
+            executable: bkms-cli.exe
+            executable_sha256: 1c46d1c45260e8bae4d8c9de376494cc24cee9321345c673d615210e2559a5c0

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/TencentBlueKing/bk-cli/internal/validate"
@@ -121,7 +122,28 @@ func DeleteContext(name string) error {
 	return os.RemoveAll(ContextDir(name))
 }
 
-// ResolveContext resolves the context to use: explicit override or active.
+// fallbackContext returns the context used when neither --context nor an active marker is set:
+// "default" if it exists, "" if no context exists, and an error if only other contexts exist.
+func fallbackContext() (string, error) {
+	contexts, err := ListContexts()
+	if err != nil {
+		return "", err
+	}
+	if len(contexts) == 0 {
+		return "", nil
+	}
+	if slices.Contains(contexts, DefaultContextName) {
+		return DefaultContextName, nil
+	}
+	return "", fmt.Errorf(
+		"no active context and no %q context. Available: %v. "+
+			"Select one with: bk-cli context use NAME, or pass --context NAME",
+		DefaultContextName,
+		contexts,
+	)
+}
+
+// ResolveContext resolves the context to use: explicit override, active, then "default".
 // The first context must be created explicitly with `bk-cli context init`.
 func ResolveContext(override string) (string, *Config, error) {
 	name := override
@@ -136,22 +158,19 @@ func ResolveContext(override string) (string, *Config, error) {
 			}
 			name = active
 		} else {
-			contexts, err := ListContexts()
+			fallback, err := fallbackContext()
 			if err != nil {
 				return "", nil, err
 			}
-			if len(contexts) == 0 {
+			if fallback == "" {
 				return "", nil, fmt.Errorf(
 					"no context configured. Initialize one with: bk-cli context init --bk_api_url_tmpl=URL",
 				)
 			}
-			if err := validate.ValidateContextName(contexts[0]); err != nil {
+			if err := SetActiveContext(fallback); err != nil {
 				return "", nil, err
 			}
-			if err := SetActiveContext(contexts[0]); err != nil {
-				return "", nil, err
-			}
-			name = contexts[0]
+			name = fallback
 		}
 	}
 	if err := validate.ValidateContextName(name); err != nil {
@@ -177,9 +196,10 @@ func ResolveContext(override string) (string, *Config, error) {
 	return name, cfg, nil
 }
 
-// ResolveContextReadOnly resolves the context without creating any directories.
+// ResolveContextReadOnly resolves the context without creating any directories or files.
 // Returns ("", nil, nil) if no context exists and no override was specified.
-// Returns an error if an explicit override names a non-existent context.
+// Returns an error if an explicit override names a non-existent context, or if there is no
+// active context and no "default" context.
 func ResolveContextReadOnly(override string) (string, *Config, error) {
 	name := override
 	if name == "" {
@@ -189,18 +209,13 @@ func ResolveContextReadOnly(override string) (string, *Config, error) {
 			return "", nil, err
 		}
 		if name == "" {
-			// No active context — check if any exist
-			contexts, err := ListContexts()
+			name, err = fallbackContext()
 			if err != nil {
 				return "", nil, err
 			}
-			if len(contexts) == 0 {
+			if name == "" {
 				return "", nil, nil
 			}
-			if err := validate.ValidateContextName(contexts[0]); err != nil {
-				return "", nil, err
-			}
-			name = contexts[0]
 		}
 	}
 	if name != "" {

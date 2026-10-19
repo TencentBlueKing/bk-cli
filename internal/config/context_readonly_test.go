@@ -106,27 +106,59 @@ var _ = Describe("context read-only helpers", func() {
 		Expect(err.Error()).To(ContainSubstring("context name"))
 	})
 
-	It("uses the first existing context when there is no active context", func() {
+	It("uses the default context without persisting it when there is no active context", func() {
+		cfg := &config.Config{BkAPIURLTmpl: "https://example.com/api/{gateway_name}/"}
+		Expect(config.CreateContext("alpha", cfg)).To(Succeed())
+		Expect(config.CreateContext("default", cfg)).To(Succeed())
+
+		name, resolved, err := config.ResolveContextReadOnly("")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(name).To(Equal("default"))
+		Expect(resolved).NotTo(BeNil())
+
+		activeName, err := config.ActiveContextName()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(activeName).To(BeEmpty())
+	})
+
+	It("fails in read-only mode when there is no active context and no default context", func() {
 		cfg := &config.Config{BkAPIURLTmpl: "https://example.com/api/{gateway_name}/"}
 		Expect(config.CreateContext("alpha", cfg)).To(Succeed())
 
 		name, resolved, err := config.ResolveContextReadOnly("")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(name).To(Equal("alpha"))
-		Expect(resolved).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(`no active context and no "default" context`))
+		Expect(err.Error()).To(ContainSubstring("[alpha]"))
+		Expect(err.Error()).To(ContainSubstring("bk-cli context use NAME"))
+		Expect(name).To(BeEmpty())
+		Expect(resolved).To(BeNil())
 	})
 
-	It("auto-selects the first context and persists it in normal resolve mode", func() {
+	It("selects the default context and persists it in normal resolve mode", func() {
 		cfg := &config.Config{BkAPIURLTmpl: "https://example.com/api/{gateway_name}/"}
 		Expect(config.CreateContext("alpha", cfg)).To(Succeed())
+		Expect(config.CreateContext("default", cfg)).To(Succeed())
 
 		name, _, err := config.ResolveContext("")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(name).To(Equal("alpha"))
+		Expect(name).To(Equal("default"))
 
 		activeName, err := config.ActiveContextName()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(activeName).To(Equal("alpha"))
+		Expect(activeName).To(Equal("default"))
+	})
+
+	It("fails in normal resolve mode without persisting when no default context exists", func() {
+		cfg := &config.Config{BkAPIURLTmpl: "https://example.com/api/{gateway_name}/"}
+		Expect(config.CreateContext("alpha", cfg)).To(Succeed())
+
+		_, _, err := config.ResolveContext("")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(`no active context and no "default" context`))
+
+		activeName, err := config.ActiveContextName()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(activeName).To(BeEmpty())
 	})
 
 	It("rejects an invalid active context name in read-only mode", func() {

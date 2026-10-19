@@ -6,7 +6,7 @@
 
 ## Overview
 
-A command-line tool for interacting with [BlueKing](https://bk.tencent.com/) platform APIs. It is built for **developers, automation workflows, and agent integrations**, with structured JSON as the default output. Commands that perform remote requests or updates support `--dry-run`, and `--help` includes real-world examples.
+A command-line tool for interacting with [BlueKing](https://bk.tencent.com/) platform APIs. It is built for **developers, automation workflows, and agent integrations**, with structured JSON as the default output. Built-in bk-cli commands that perform remote requests or updates support `--dry-run`, and `--help` includes real-world examples. Third-party plugins define their own arguments and output contracts.
 
 For the full design contract, see [docs/design.md](docs/design.md).
 
@@ -19,8 +19,9 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
 - **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
+- **Third-party CLI plugins**: install reviewed standalone CLIs from the built-in approved catalog and call them through bk-cli
 - **Encrypted credential storage**: AES-256-GCM encryption per context
-- **Single binary**: with no runtime dependencies
+- **Single host binary**: bk-cli itself has no runtime dependencies; third-party plugins are installed separately
 
 ## Quick Start
 
@@ -34,6 +35,23 @@ For developers:
 
 - [Development Environment Setup](docs/develop-environment-guide.md)
 - [Extension Development Guide](docs/develop-extension-guide.md)
+
+## Common Commands
+
+### Third-party CLI plugins
+
+bk-cli ships an approved plugin catalog. Install a reviewed third-party CLI and call it through bk-cli:
+
+```bash
+bk-cli plugin list
+bk-cli plugin install bkms
+bk-cli bkms --help
+bk-cli --context clouds bkms <bkms arguments>
+```
+
+Only `--context` may appear before the plugin name. Everything after it, including output and exit code,
+belongs to the plugin. When bk-cli fails before starting the plugin it exits with 125 and prints a JSON error on stderr.
+Offline installs: `bk-cli plugin install bkms --from-file <official archive>`.
 
 ## Support
 

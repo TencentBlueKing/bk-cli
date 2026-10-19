@@ -6,7 +6,7 @@
 
 ## 概览
 
-一个用于与 [BlueKing](https://bk.tencent.com/) 平台 API 交互的命令行工具。它面向 **开发者、自动化任务和 agent 集成** 场景，默认输出结构化 JSON；涉及远端请求或执行更新的命令支持 `--dry-run`，并提供带真实示例的丰富 `--help`。
+一个用于与 [BlueKing](https://bk.tencent.com/) 平台 API 交互的命令行工具。它面向 **开发者、自动化任务和 agent 集成** 场景，默认输出结构化 JSON；bk-cli 内置的远端请求或更新命令支持 `--dry-run`，并提供带真实示例的丰富 `--help`。第三方插件遵循自己的参数与输出契约。
 
 详细设计请参考 [docs/design.md](docs/design.md)。
 
@@ -19,8 +19,9 @@
 - **灵活请求体输入**: `--body` 支持内联 JSON、`@file` 文件读取和 stdin 输入
 - **丰富的系统命令**: 内置多个 BlueKing system 子命令，也保留原始 `api` 调用作为兜底能力
 - **内置 Agent Skills**: 可通过 `bk-cli skills list` 和 `bk-cli skills read <name>` 查看随当前版本打包的使用指引，`skills read --raw` 可输出原始 Markdown
+- **第三方 CLI 插件**: 从内置官方目录安装经审核的独立 CLI，并通过 bk-cli 统一入口调用
 - **加密凭据存储**: 每个上下文使用 AES-256-GCM 加密
-- **单一二进制文件**: 无运行时依赖
+- **单一宿主二进制文件**: bk-cli 本身无运行时依赖；第三方插件需要单独安装
 
 ## 快速开始
 
@@ -34,6 +35,23 @@ Bash 示例中的 URL 模板和凭据使用单引号包裹；替换引号内的�
 
 - [开发环境搭建](docs/develop-environment-guide.md)
 - [扩展开发指南](docs/develop-extension-guide.md)
+
+## 常用命令
+
+### 第三方 CLI 插件
+
+bk-cli 内置官方插件目录，可以安装经审核的第三方 CLI，并通过统一入口调用：
+
+```bash
+bk-cli plugin list
+bk-cli plugin install bkms
+bk-cli bkms --help
+bk-cli --context clouds bkms <bkms 自己的参数>
+```
+
+插件名之前只能写 `--context`；插件名之后的参数、输出和退出码都由第三方决定。
+bk-cli 自身在启动插件前失败时，返回退出码 125，并在 stderr 输出 JSON 错误。
+离线环境可用 `bk-cli plugin install bkms --from-file <官方归档>`。
 
 ## 支持
 

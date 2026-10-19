@@ -20,6 +20,21 @@
 - 变更不大，不建议用 `SDD`，建议使用 `plan mode`(建议）或 `superpowers`
 - 一个 PR 只包含小范围的新增或变更，方便 Review 和 测试
 
+## 外部二进制 CLI 接入
+
+如果要接入的是独立发布、拥有自己命令树和参数解析的第三方 CLI，不要把它拆成
+`create-bk-cli-system` 的逐 action YAML。此类扩展走 bk-cli 的官方插件目录：
+
+1. 第三方先实现 [插件协议 v1](plugin-protocol.md)，并按其中的接入审核清单自查。
+2. 维护者审核指定版本和各平台发布产物。
+3. 使用 `go run ./tools/plugin-catalog-entry ...` 生成目录条目，核对后提交到
+   `internal/plugin/catalog.yaml`。
+4. 只有实现协议并通过审核的版本才能登记为 `auth: shared`；未接入协议的获准版本使用
+   `auth: none`。
+
+插件目录按“插件 + 版本 + 平台”精确授权，并随 bk-cli 发版。第三方新增版本需要更新目录
+并发布新的 bk-cli，不能通过本地配置自行注册。
+
 ## 前置准备
 
 - 如果是新增一个系统，需要准备：

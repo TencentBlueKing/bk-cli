@@ -22,6 +22,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -31,10 +32,13 @@ import (
 	apicmd "github.com/TencentBlueKing/bk-cli/cmd/api"
 	authcmd "github.com/TencentBlueKing/bk-cli/cmd/auth"
 	ctxcmd "github.com/TencentBlueKing/bk-cli/cmd/context"
+	plugincmd "github.com/TencentBlueKing/bk-cli/cmd/plugin"
 	syscmd "github.com/TencentBlueKing/bk-cli/cmd/system"
 	updatecmd "github.com/TencentBlueKing/bk-cli/cmd/update"
 	internalapi "github.com/TencentBlueKing/bk-cli/internal/api"
+	"github.com/TencentBlueKing/bk-cli/internal/config"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
+	pluginlib "github.com/TencentBlueKing/bk-cli/internal/plugin"
 )
 
 const (
@@ -109,6 +113,17 @@ func IsInsecure() bool {
 }
 
 func newRootCmd() *cobra.Command {
+	var manager *pluginlib.Manager
+	catalog, err := pluginlib.LoadCatalog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load plugin catalog: %v\n", err)
+	} else {
+		manager = pluginlib.NewManager(catalog, config.BaseDirectory(), runtime.GOOS, runtime.GOARCH)
+	}
+	return newRootCmdWithPluginManager(manager)
+}
+
+func newRootCmdWithPluginManager(manager *pluginlib.Manager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bk-cli",
 		Short: "BlueKing platform CLI for agents and automation",
@@ -171,6 +186,18 @@ Examples:
 		fmt.Fprintf(os.Stderr, "warning: failed to load system commands: %v\n", err)
 	}
 
+	rootPluginManager = manager
+	if manager != nil {
+		cmd.AddCommand(markRootCommand(plugincmd.NewPluginCmd(manager, IsDryRun, IsInsecure)))
+		for _, name := range attachPluginCommands(cmd, manager) {
+			fmt.Fprintf(
+				os.Stderr,
+				"warning: plugin %q conflicts with a built-in command and was skipped\n",
+				name,
+			)
+		}
+	}
+
 	// Initialize Cobra's built-in top-level commands so help rendering is stable
 	// whether callers use cmd.Help() directly or execute with -h/--help.
 	cmd.InitDefaultHelpCmd()
@@ -192,7 +219,8 @@ func markRootCommand(cmd *cobra.Command) *cobra.Command {
 
 func markTopLevelRootCommands(parent *cobra.Command) {
 	for _, child := range parent.Commands() {
-		if strings.HasPrefix(child.Short, systemCommandPrefix) {
+		if strings.HasPrefix(child.Short, systemCommandPrefix) ||
+			child.Annotations[pluginAnnotation] == "true" {
 			continue
 		}
 		markRootCommand(child)
@@ -224,6 +252,9 @@ func Execute() error {
 }
 
 func executeRoot(root *cobra.Command, args []string) error {
+	if call, ok := splitPluginInvocation(args, pluginNames(root)); ok {
+		return runPlugin(root, rootPluginManager, call)
+	}
 	args = normalizeSystemCommandBoolArgs(root, args)
 	if err := validateSystemCommandArgs(root, args); err != nil {
 		return err
