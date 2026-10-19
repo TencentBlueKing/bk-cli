@@ -173,8 +173,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def apply_gateway_permission(gateway_name: str):
         payload = request.get_json(silent=True) or {}
         data = {
-            "record_id": 12345,
-            "approval_url": "https://approval.example.com/records/12345",
+            "record_id": 1234567,
+            "approval_url": "https://approval.example.com/records/1234567",
             "approvers": ["gateway-admin"],
             "gateway_name": gateway_name,
             "submitted": payload,

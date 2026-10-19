@@ -1,4 +1,4 @@
-id: APIGW-006
+id: APIGW-007
 name: apigateway batch permission application after user confirmation
 tags:
   - coverage-system_go
@@ -55,11 +55,11 @@ steps:
         - path: status
           equals: 200
         - path: message
-          contains: 'record_id: 12345'
+          contains: 'record_id: 1234567)'
         - path: data.data.record_id
-          equals: 12345
+          equals: 1234567
         - path: data.data.approval_url
-          equals: https://approval.example.com/records/12345
+          equals: https://approval.example.com/records/1234567
         - path: data.data.approvers
           equals: [gateway-admin]
         - path: data.data.gateway_name

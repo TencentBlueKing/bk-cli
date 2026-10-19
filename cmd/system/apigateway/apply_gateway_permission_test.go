@@ -224,8 +224,9 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 		Entry("invalid JSON", "bk-iam", "{", "request_error"),
 	)
 
-	DescribeTable("only reports submission when the upstream returns an application record",
-		func(upstream string, submitted bool) {
+	DescribeTable(
+		"only reports submission when the upstream returns an application record",
+		func(upstream, recordID string) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
 			response = upstream
 			cmd := newCommand(false)
@@ -239,16 +240,26 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			Expect(cmd.RunE(cmd, nil)).To(Succeed())
 			var env output.Envelope
 			Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
-			if submitted {
-				Expect(env.Message).To(ContainSubstring("record_id: 12345"))
+			if recordID != "" {
+				Expect(env.Message).To(ContainSubstring("record_id: " + recordID + ")"))
 			} else {
 				Expect(env.Message).To(BeEmpty())
 			}
 			Expect(requests.Load()).To(Equal(int32(1)))
 		},
-		Entry("documented response without optional approval details", `{"data":{"record_id":12345}}`, true),
-		Entry("business error returned with HTTP 200", `{"code":1,"message":"Rejected"}`, false),
-		Entry("unexpected response shape", `[]`, false),
+		Entry("documented response without optional approval details", `{"data":{"record_id":12345}}`, "12345"),
+		Entry(
+			"large numeric record ID without scientific notation",
+			`{"data":{"record_id":1234567}}`,
+			"1234567",
+		),
+		Entry(
+			"string record ID preserved verbatim",
+			`{"data":{"record_id":"9007199254740993"}}`,
+			"9007199254740993",
+		),
+		Entry("business error returned with HTTP 200", `{"code":1,"message":"Rejected"}`, ""),
+		Entry("unexpected response shape", `[]`, ""),
 	)
 
 	It("preserves upstream errors without a successful application message", func() {

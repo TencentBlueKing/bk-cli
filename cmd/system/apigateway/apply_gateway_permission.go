@@ -20,6 +20,7 @@ package apigateway
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -124,6 +125,9 @@ or approvers, and do not assume the CLI knows the approval status.`,
 					return nil
 				}
 				if recordID, ok := data["record_id"]; ok {
+					if numericID, ok := recordID.(float64); ok {
+						recordID = strconv.FormatFloat(numericID, 'f', -1, 64)
+					}
 					env.Message = fmt.Sprintf(
 						"Permission application submitted (record_id: %v); ",
 						recordID,
