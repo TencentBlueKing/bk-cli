@@ -219,6 +219,41 @@ var _ = Describe("Auth Commands", func() {
 				BkAppSecret: "flag-secret",
 				BkTicket:    "env-ticket",
 			}),
+			Entry(
+				"explicit app secret overrides whitespace in the same environment field",
+				map[string]string{
+					"BK_APP_CODE":   "env-app",
+					"BK_APP_SECRET": " env-secret\n",
+					"BK_TOKEN":      "env-token",
+				},
+				[]string{"--bk_app_secret=flag-secret"},
+				credential.Credential{
+					Type:        credential.TypeAppUser,
+					BkAppCode:   "env-app",
+					BkAppSecret: "flag-secret",
+					BkToken:     "env-token",
+				},
+			),
+			Entry("explicit token ignores whitespace in unused environment modes", map[string]string{
+				"BK_APP_CODE": "env-app", "BK_APP_SECRET": "env-secret", "BK_TOKEN": " env-token\n",
+				"BK_TICKET": " env-ticket\n", "ACCESS_TOKEN": " env-access\n",
+			}, []string{"--bk_token=flag-token"}, credential.Credential{
+				Type:        credential.TypeAppUser,
+				BkAppCode:   "env-app",
+				BkAppSecret: "env-secret",
+				BkToken:     "flag-token",
+			}),
+			Entry("explicit access token ignores whitespace in all environment fields", map[string]string{
+				"BK_APP_CODE":   " env-app\n",
+				"BK_APP_SECRET": " env-secret\n",
+				"BK_TOKEN":      " env-token\n",
+				"BK_TICKET":     " env-ticket\n",
+				"ACCESS_TOKEN":  " env-access\n",
+			}, []string{"--access_token=flag-access"},
+				credential.Credential{Type: credential.TypeAccessToken, AccessToken: "flag-access"}),
+			Entry("explicit flag values retain their existing whitespace behavior", nil,
+				[]string{"--access_token= flag-access\n"},
+				credential.Credential{Type: credential.TypeAccessToken, AccessToken: " flag-access\n"}),
 		)
 
 		DescribeTable("rejects incomplete or conflicting environment credentials before saving",
@@ -263,6 +298,63 @@ var _ = Describe("Auth Commands", func() {
 			Entry("environment app without a user", map[string]string{
 				"BK_APP_CODE": "env-app", "BK_APP_SECRET": "env-secret",
 			}, nil),
+		)
+
+		DescribeTable("offers environment remedies when the app user credential is missing",
+			func(userKey string) {
+				Expect((&config.Config{
+					BkAPIURLTmpl: "https://bkapi.example.com/api/{gateway_name}/",
+					UserKey:      userKey,
+				}).Save(config.ConfigPath("default"))).To(Succeed())
+				GinkgoT().Setenv("BK_CLI_BK_APP_CODE", "env-app")
+				GinkgoT().Setenv("BK_CLI_BK_APP_SECRET", "env-secret")
+				out, stderr, err := executeCmdWithStderr(newTestRoot(), "auth", "login")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("invalid_credentials"))
+				for _, name := range []string{"BK_CLI_BK_TOKEN", "BK_CLI_BK_TICKET"} {
+					Expect(err.Error()).To(ContainSubstring(name))
+					Expect(stderr).To(ContainSubstring(name))
+				}
+				Expect(out + stderr + err.Error()).NotTo(ContainSubstring("env-secret"))
+				Expect(credential.Exists(config.CredentialsPath("default"))).To(BeFalse())
+			},
+			Entry("token context", "bk_token"),
+			Entry("ticket context", "bk_ticket"),
+		)
+
+		DescribeTable("rejects surrounding whitespace in selected environment credentials without overwriting",
+			func(name string) {
+				_, err := executeCmd(newTestRoot(), "auth", "login", "--access_token=saved-access")
+				Expect(err).NotTo(HaveOccurred())
+				before, err := os.ReadFile(config.CredentialsPath("default"))
+				Expect(err).NotTo(HaveOccurred())
+				if name != "BK_CLI_ACCESS_TOKEN" {
+					GinkgoT().Setenv("BK_CLI_BK_APP_CODE", "env-app")
+					GinkgoT().Setenv("BK_CLI_BK_APP_SECRET", "env-secret")
+					if name == "BK_CLI_BK_TICKET" {
+						GinkgoT().Setenv("BK_CLI_BK_TICKET", "env-ticket")
+					} else {
+						GinkgoT().Setenv("BK_CLI_BK_TOKEN", "env-token")
+					}
+				}
+				for _, value := range []string{" env-sensitive", "env-sensitive ", "env-sensitive\n", "\tenv-sensitive", "\u00a0env-sensitive", " \t\r\n"} {
+					GinkgoT().Setenv(name, value)
+					out, stderr, err := executeCmdWithStderr(newTestRoot(), "auth", "login")
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("invalid_credentials"))
+					Expect(err.Error()).To(ContainSubstring(name))
+					Expect(stderr).To(ContainSubstring(name))
+					Expect(out + stderr + err.Error()).NotTo(ContainSubstring("env-sensitive"))
+					after, err := os.ReadFile(config.CredentialsPath("default"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(after).To(Equal(before))
+				}
+			},
+			Entry("app code", "BK_CLI_BK_APP_CODE"),
+			Entry("app secret", "BK_CLI_BK_APP_SECRET"),
+			Entry("user token", "BK_CLI_BK_TOKEN"),
+			Entry("user ticket", "BK_CLI_BK_TICKET"),
+			Entry("access token", "BK_CLI_ACCESS_TOKEN"),
 		)
 
 		It("rejects each explicitly empty credential flag instead of using environment values", func() {

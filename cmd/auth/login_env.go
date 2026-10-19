@@ -21,6 +21,7 @@ package auth
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,7 +34,7 @@ import (
 func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 	var input credential.Credential
 	hasFlags := false
-	for _, field := range []struct {
+	fields := []struct {
 		name  string
 		value *string
 	}{
@@ -42,7 +43,8 @@ func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 		{"bk_token", &input.BkToken},
 		{"bk_ticket", &input.BkTicket},
 		{"access_token", &input.AccessToken},
-	} {
+	}
+	for _, field := range fields {
 		*field.value, _ = cmd.Flags().GetString(field.name)
 		if cmd.Flags().Changed(field.name) {
 			hasFlags = true
@@ -84,6 +86,18 @@ func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 		return input, output.UserError("invalid_credentials",
 			"BK_CLI_ACCESS_TOKEN conflicts with app credential environment variables",
 			"Keep one credential mode in the environment or select a mode with explicit credential flags.")
+	}
+	for _, field := range fields {
+		if !cmd.Flags().Changed(field.name) && strings.TrimSpace(*field.value) != *field.value {
+			return input, output.UserError(
+				"invalid_credentials",
+				fmt.Sprintf(
+					"BK_CLI_%s must not contain leading or trailing whitespace",
+					strings.ToUpper(field.name),
+				),
+				"Remove surrounding whitespace from the environment value. See: bk-cli auth login --help",
+			)
+		}
 	}
 	return input, nil
 }

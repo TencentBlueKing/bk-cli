@@ -32,6 +32,8 @@ Bash examples wrap URL templates and credentials in single quotes. Replace the v
 
 `auth login` can read `BK_CLI_BK_APP_CODE`, `BK_CLI_BK_APP_SECRET`, `BK_CLI_BK_TOKEN`, `BK_CLI_BK_TICKET`, or `BK_CLI_ACCESS_TOKEN` directly. Inject one complete credential mode through your secret manager or CI, then run `bk-cli auth login` (optionally with `--context <name>`) to keep credential values out of command-line arguments. Explicit credential flags take precedence; see the [User Guide](docs/user-guide.md#通过环境变量登录) for mode selection, conflicts, and security boundaries.
 
+If a selected environment credential contains leading or trailing whitespace (including newlines), login returns `invalid_credentials` and identifies the variable by name. Correct the injected value and retry.
+
 For developers:
 
 - [Development Environment Setup](docs/develop-environment-guide.md)

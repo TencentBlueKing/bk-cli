@@ -51,6 +51,7 @@ Environment fallbacks (read directly by the CLI):
 
 Explicit credential flags select the mode and take precedence; environment values
 only fill missing fields in that mode. Explicit empty values are rejected.
+Selected environment values with leading or trailing whitespace are rejected.
 Without credential flags, the environment must contain only one credential mode.
 With no credentials in either source, device flow remains unimplemented.
 Inject credentials through your secret manager or CI environment, then run auth login
@@ -120,12 +121,14 @@ Examples:
 						"invalid_credentials",
 						fmt.Sprintf(
 							"app credential mode requires a user credential; provide --bk_token or --bk_ticket "+
+								"or set BK_CLI_BK_TOKEN or BK_CLI_BK_TICKET "+
 								"together with --bk_app_code and --bk_app_secret (current context defaults to --%s)",
 							userKey,
 						),
 						fmt.Sprintf(
 							"Example: bk-cli auth login --bk_app_code='APP_CODE' --bk_app_secret='APP_SECRET' "+
-								"--%s='VALUE'; or use --access_token",
+								"--%s='VALUE'; or set BK_CLI_BK_TOKEN or BK_CLI_BK_TICKET and run bk-cli auth login; "+
+								"or use --access_token",
 							userKey,
 						),
 					)

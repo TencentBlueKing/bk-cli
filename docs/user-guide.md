@@ -216,6 +216,8 @@ bk-cli auth login --context dev
 
 显式空值（如 `--bk_token=''`）报 `invalid_credentials`，不会回退到环境。无凭据 flags 时，access token 与任一应用模式字段共存、或 token 与 ticket 同时非空，都会报 `invalid_credentials`；只传应用 code / secret 时，环境 token 与 ticket 同时非空也会报错。缺少模式必填字段同样失败，需补齐或清理环境后重试。
 
+实际采用的环境值若含首尾空格、制表符或换行，会返回 `invalid_credentials` 并提示变量名；CLI 不自动裁剪原值。请修正秘密管理工具或 CI 注入的值后重试。被显式 flags 覆盖或属于未选模式的环境值不参与此检查。仅注入应用 code + secret 而缺少用户票据时，可以补充 `BK_CLI_BK_TOKEN` 或 `BK_CLI_BK_TICKET`，然后再次执行 `bk-cli auth login`。
+
 没有凭据参数、环境也没有值时，仍返回 `not_implemented`（退出码 1）：设备码登录尚未实现，不等待 stdin、不使用或覆盖已有凭据。成功后仍加密保存到选中的 context；失败不覆盖旧凭据。
 
 环境输入避免的是 argv 暴露；有权限的进程仍可能读取环境，shell 调试输出和 CI 日志也可能暴露值。单引号只防止 shell 展开，不隐藏已经传入 flags 的票据。本次登录仅支持 flags 和环境变量；`--body -` 的 stdin 输入用于 API 请求体，不能导入登录凭据。
