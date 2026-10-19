@@ -49,7 +49,7 @@ For developers:
 - [BK-SOPS](https://github.com/TencentBlueKing/bk-sops): Standard Operations (SOPS) is a lightweight scheduling and orchestration SaaS product in the BlueKing ecosystem, with visual workflow design and execution.
 - [BK-CMDB](https://github.com/TencentBlueKing/bk-cmdb): BlueKing Configuration Management Database is an enterprise-grade platform for asset and application configuration.
 - [BK-JOB](https://github.com/TencentBlueKing/bk-job): BlueKing Job is an operations script management platform with high-concurrency task execution.
-- AIDev: BlueKing intelligent development resource APIs are available through `bk-cli aidev` for spaces, skills, MCPs, prompts, agents, knowledge bases, and credentials.
+- AIDev: BlueKing intelligent development resource APIs are available through `bk-cli aidev` for spaces, skills, MCPs, prompts, agents, knowledge bases, credentials, and tags. Examples: `bk-cli aidev list_spaces`, `bk-cli aidev list_tags`, and `bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space`.
 
 ## Contributing
 

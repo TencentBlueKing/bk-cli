@@ -96,7 +96,7 @@ var _ = Describe("aidev upload", func() {
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(false))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(false))
 		cmd.SetArgs([]string{"--file", filePath, "--space_id", "demo-space", "--module", "knowledge"})
 
 		stdout, err := systemtest.CaptureCommandStdout(func() error {
@@ -124,7 +124,7 @@ var _ = Describe("aidev upload", func() {
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(true))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
 		cmd.SetArgs([]string{"--file", filePath, "--space_id", "demo-space"})
 
 		stdout, err := systemtest.CaptureCommandStdout(func() error {
@@ -152,7 +152,7 @@ var _ = Describe("aidev upload", func() {
 	})
 
 	It("rejects extra positional args", func() {
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(true))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
 		cmd.SetArgs([]string{"extra"})
 
 		err := cmd.Execute()
@@ -161,7 +161,7 @@ var _ = Describe("aidev upload", func() {
 	})
 
 	It("rejects missing file before resolving runtime", func() {
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(true))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
 		cmd.SetArgs([]string{"--space_id", "demo-space"})
 
 		err := cmd.Execute()
@@ -174,7 +174,7 @@ var _ = Describe("aidev upload", func() {
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(true))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
 		cmd.SetArgs(
 			[]string{
 				"--file",
@@ -204,7 +204,7 @@ var _ = Describe("aidev upload", func() {
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
-		cmd := newCreatePrivateUploadCmd(systemtest.BuildDeps(true))
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
 		cmd.SetArgs([]string{"--file", filePath, "--space_id", "demo-space"})
 
 		stdout, err := systemtest.CaptureCommandStdout(func() error {

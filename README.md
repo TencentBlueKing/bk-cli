@@ -50,7 +50,7 @@
   SaaS 产品。
 - [BK-CMDB](https://github.com/TencentBlueKing/bk-cmdb)：蓝鲸配置平台是一个面向资产及应用的企业级配置管理平台。
 - [BK-JOB](https://github.com/TencentBlueKing/bk-job)：蓝鲸作业平台（Job）是一套运维脚本管理系统，具备海量任务并发处理能力。
-- AIDev：蓝鲸智能研发相关资源能力，可通过 `bk-cli aidev` 访问空间、Skill、MCP、Prompt、智能体、知识库和凭证等接口。
+- AIDev：蓝鲸智能研发相关资源能力，可通过 `bk-cli aidev` 访问空间、Skill、MCP、Prompt、智能体、知识库、凭证和标签等接口，例如 `bk-cli aidev list_spaces`、`bk-cli aidev list_tags` 和 `bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space`。
 
 ## 贡献
 

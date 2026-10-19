@@ -37,7 +37,7 @@ const (
 	uploadPath  = "/openapi/aidev/private/v1/upload/"
 )
 
-func newCreatePrivateUploadCmd(deps systemcmd.BuildDeps) *cobra.Command {
+func newUploadFileCmd(deps systemcmd.BuildDeps) *cobra.Command {
 	var (
 		stage   string
 		file    string
@@ -47,14 +47,14 @@ func newCreatePrivateUploadCmd(deps systemcmd.BuildDeps) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create_private_upload",
-		Short: "统一上传 skill / knowledge 制品，返回路径、元数据和 expires_at；默认 48 小时过期，由公共任务清理",
+		Use:   "upload_file",
+		Short: "上传 Skill 或知识文件制品，取得供后续 upsert 或导入使用的文件引用。适用于普通文件上传；返回上传成功不等于资源已同步。",
 		Args:  cobra.NoArgs,
-		Long: `统一上传 skill / knowledge 制品，返回路径、元数据和 expires_at；默认 48 小时过期，由公共任务清理。
+		Long: `上传 Skill 或知识文件制品，取得供后续 upsert 或导入使用的文件引用。适用于普通文件上传；返回上传成功不等于资源已同步。
 
 该接口使用 multipart/form-data。必须传入 --file 和 --space_id，--module 默认 skill。`,
-		Example: "  bk-cli aidev create_private_upload --file ./artifact.zip --space_id demo-space\n" +
-			"  bk-cli aidev create_private_upload --file ./knowledge.zip --space_id demo-space --module knowledge",
+		Example: "  bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space\n" +
+			"  bk-cli aidev upload_file --file ./knowledge.zip --space_id demo-space --module knowledge",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := systemcmd.ValidateNonEmptyStringFlag("file", file); err != nil {
 				return err
@@ -97,7 +97,7 @@ func executeUpload(
 		return err
 	}
 
-	return systemcmd.ExecuteRequest(cmd, runtime, "create_private_upload", syslib.RequestSpec{
+	return systemcmd.ExecuteRequest(cmd, runtime, "upload_file", syslib.RequestSpec{
 		GatewayName: gatewayName,
 		Method:      "POST",
 		Path:        uploadPath,

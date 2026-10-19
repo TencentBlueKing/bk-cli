@@ -2,8 +2,8 @@ name: aidev
 gateway_name: bk-aidev
 description: "BlueKing AIDev resource commands"
 actions:
-  - name: retrieve_private_spaces
-    description: "返回当前用户在 IAM 中有 VIEW_SPACE 权限的所有空间；限定当前租户，无需传入 space_id，可按 keyword 搜索"
+  - name: list_spaces
+    description: "列出当前调用身份可访问的空间及 space_id，支持关键词过滤。适用于尚未确定目标空间时；该接口不授予空间权限。"
     method: GET
     path: "/openapi/aidev/private/v1/spaces/"
     authConfig:
@@ -16,10 +16,10 @@ actions:
         type: string
         description: "搜索关键词，支持空间名称模糊搜索"
     examples:
-      - "bk-cli aidev retrieve_private_spaces"
+      - "bk-cli aidev list_spaces"
 
-  - name: list_private_skills
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+  - name: list_skills
+    description: "按空间和 fuzzy 关键词筛选 Skill 并取得 ID；结果可能分页，调用方需逐项精确比对 skill_code。适用于同步前查重或 Agent Skill 引用解析。"
     method: GET
     path: "/openapi/aidev/private/v1/skills/"
     authConfig:
@@ -68,10 +68,10 @@ actions:
         type: string
         description: "标签名称"
     examples:
-      - "bk-cli aidev list_private_skills"
+      - "bk-cli aidev list_skills"
 
-  - name: create_private_skills_upsert
-    description: "Upsert 逻辑：skill_code 不存在则创建，存在则更新；默认允许覆盖已存在的同版本，传 allow_version_overwrite=false 可禁止覆盖"
+  - name: upsert_skill
+    description: "使用已上传的 Skill 制品按 skill_code 创建或更新 Skill。已有编码会更新；同版本是否可覆盖受 allow_version_overwrite 控制。适用于完成 ZIP 上传和版本核对后。"
     method: POST
     path: "/openapi/aidev/private/v1/skills/upsert/"
     body_required: true
@@ -172,10 +172,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_skills_upsert --body '{\"space_id\":\"demo-space\",\"skill_code\":\"demo-skill\",\"skill_name\":\"Demo Skill\",\"description\":\"demo description\",\"url\":\"bkrepo://demo.zip\"}'"
+      - "bk-cli aidev upsert_skill --body '{\"space_id\":\"demo-space\",\"skill_code\":\"demo-skill\",\"skill_name\":\"Demo Skill\",\"description\":\"demo description\",\"url\":\"bkrepo://demo.zip\"}'"
 
-  - name: retrieve_private_skills
-    description: "获取指定 Skill 的详细信息"
+  - name: get_skill
+    description: "读取指定 Skill 的配置；传 version 时读取该版本。适用于同步前比对、确认版本或解析 Agent 引用。"
     method: GET
     path: "/openapi/aidev/private/v1/skills/{skill_id}/"
     authConfig:
@@ -198,10 +198,10 @@ actions:
         type: string
         description: "版本号，不传则返回最新版本"
     examples:
-      - "bk-cli aidev retrieve_private_skills --skill_id 1 --space_id demo-space"
+      - "bk-cli aidev get_skill --skill_id 1 --space_id demo-space"
 
-  - name: delete_private_skills
-    description: "归档指定 Skill"
+  - name: archive_skill
+    description: "归档指定 Skill。先核对目标 ID、版本和 Agent 引用，再执行。"
     method: DELETE
     path: "/openapi/aidev/private/v1/skills/{skill_id}/"
     authConfig:
@@ -215,10 +215,10 @@ actions:
         description: "Skill ID"
         required: true
     examples:
-      - "bk-cli aidev delete_private_skills --skill_id 1"
+      - "bk-cli aidev archive_skill --skill_id 1"
 
-  - name: retrieve_private_skills_download
-    description: "获取指定 Skill 文件的临时下载链接"
+  - name: get_skill_download_url
+    description: "获取指定 Skill 文件的临时下载链接。适用于核对或下载已有制品；链接有时效，不用于上传新版本。"
     method: GET
     path: "/openapi/aidev/private/v1/skills/{skill_id}/download/"
     authConfig:
@@ -237,10 +237,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_skills_download --skill_id 1 --space_id demo-space"
+      - "bk-cli aidev get_skill_download_url --skill_id 1 --space_id demo-space"
 
-  - name: retrieve_private_skills_versions
-    description: "获取指定 Skill 的历史版本列表"
+  - name: list_skill_versions
+    description: "列出指定 Skill 的历史版本。适用于选择待查看或下载的版本；不改变当前版本。"
     method: GET
     path: "/openapi/aidev/private/v1/skills/{skill_id}/versions/"
     authConfig:
@@ -259,10 +259,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_skills_versions --skill_id 1 --space_id demo-space"
+      - "bk-cli aidev list_skill_versions --skill_id 1 --space_id demo-space"
 
-  - name: list_private_mcps
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+  - name: list_mcps
+    description: "按空间、mcp_code 和类型列出 MCP 候选，结果可能分页。适用于发现资源；建立 Agent 引用时应改用 by-code 精确确认。"
     method: GET
     path: "/openapi/aidev/private/v1/mcps/"
     authConfig:
@@ -335,10 +335,10 @@ actions:
         type: string
         description: "更新人"
     examples:
-      - "bk-cli aidev list_private_mcps"
+      - "bk-cli aidev list_mcps"
 
-  - name: create_private_mcps
-    description: "在当前用户有创建权限的空间中创建 MCP"
+  - name: create_mcp
+    description: "在指定空间创建 MCP 配置。适用于确需新建 MCP 时；Agent 引用已有 MCP 应先使用 by-code 精确查询。"
     method: POST
     path: "/openapi/aidev/private/v1/mcps/"
     body_required: true
@@ -440,7 +440,8 @@ actions:
                 "enum": [
                   "space",
                   "user",
-                  "public"
+                  "public",
+                  "global"
                 ],
                 "type": "string"
               }
@@ -471,10 +472,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_mcps --body '{\"space_id\":\"demo-space\",\"mcp_name\":\"Demo MCP\",\"mcp_code\":\"demo-mcp\",\"url\":\"bkrepo://demo.zip\",\"protocol\":\"stdio\",\"credential_type\":\"api_key\",\"description\":\"demo description\"}'"
+      - "bk-cli aidev create_mcp --body '{\"space_id\":\"demo-space\",\"mcp_name\":\"Demo MCP\",\"mcp_code\":\"demo-mcp\",\"url\":\"bkrepo://demo.zip\",\"protocol\":\"stdio\",\"credential_type\":\"api_key\",\"description\":\"demo description\"}'"
 
-  - name: retrieve_private_mcps
-    description: "获取指定 MCP 的详细信息，当前 APIGW MCP 会基于列表结果组装详情，后续接入专用详情接口后可无缝切换"
+  - name: get_mcp
+    description: "按类型和 ID 读取 MCP 详情。适用于已取得准确 ID 后核对资源型或 APIGW MCP 配置。"
     method: GET
     path: "/openapi/aidev/private/v1/mcps/{mcp_type}/{mcp_id}/"
     authConfig:
@@ -502,10 +503,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_mcps --mcp_id 1 --mcp_type apigw --space_id demo-space"
+      - "bk-cli aidev get_mcp --mcp_id 1 --mcp_type apigw --space_id demo-space"
 
-  - name: retrieve_private_mcps_register_json
-    description: "获取指定 MCP 的注册 JSON 结构，可直接用于注册 MCP 工具；当前 APIGW MCP 会基于列表结果组装返回"
+  - name: get_mcp_register_json
+    description: "获取指定类型和 ID 的 MCP 注册 JSON，供外部客户端注册工具；不创建 MCP，也不授权 Agent。"
     method: GET
     path: "/openapi/aidev/private/v1/mcps/{mcp_type}/{mcp_id}/register_json/"
     authConfig:
@@ -533,10 +534,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_mcps_register_json --mcp_id 1 --mcp_type apigw --space_id demo-space"
+      - "bk-cli aidev get_mcp_register_json --mcp_id 1 --mcp_type apigw --space_id demo-space"
 
-  - name: query_private_knowledgebase
-    description: "基于当前用户身份和指定空间发起知识库查询，查询能力与应用态 knowledgebase query 保持一致。"
+  - name: query_knowledgebase
+    description: "在指定空间对知识库内容发起检索并返回命中结果。适用于回答知识问题；不用于查找知识库配置或同步文档。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledgebase/query/"
     body_required: true
@@ -566,6 +567,7 @@ actions:
             "type": "integer",
             "title": "前多少个",
             "default": 5,
+            "minimum": 1,
             "nullable": true
           },
           "type": {
@@ -596,8 +598,26 @@ actions:
             "nullable": true
           },
           "query": {
-            "type": "string",
-            "title": "匹配内容"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            ],
+            "title": "匹配内容（文本或图文content）"
           },
           "thres": {
             "type": "number",
@@ -642,6 +662,7 @@ actions:
                         "topk": {
                           "type": "integer",
                           "title": "前多少个",
+                          "minimum": 1,
                           "nullable": true
                         },
                         "scalar": {
@@ -729,6 +750,11 @@ actions:
             "minLength": 1,
             "description": "空间 ID，必填"
           },
+          "with_rrf": {
+            "type": "boolean",
+            "title": "是否融合不同查询变体的排名",
+            "default": true
+          },
           "use_rerank": {
             "type": "boolean",
             "title": "是否使用rerank模型",
@@ -788,7 +814,6 @@ actions:
               "type": "integer"
             },
             "title": "知识ID",
-            "default": [],
             "nullable": true
           },
           "query_function": {
@@ -806,6 +831,58 @@ actions:
             ],
             "title": "检索方式（兼容字段）",
             "nullable": true
+          },
+          "query_strategy": {
+            "type": "object",
+            "title": "KnowledgeQueryStrategy",
+            "properties": {
+              "with_query_cls": {
+                "type": "boolean",
+                "title": "With Query Cls",
+                "default": false
+              },
+              "with_index_specific_search": {
+                "type": "boolean",
+                "title": "With Index Specific Search",
+                "default": true
+              },
+              "use_translated_query_in_scores": {
+                "type": "boolean",
+                "title": "Use Translated Query In Scores",
+                "default": true
+              },
+              "use_independent_query_in_scores": {
+                "type": "boolean",
+                "title": "Use Independent Query In Scores",
+                "default": true
+              },
+              "with_index_specific_search_init": {
+                "type": "boolean",
+                "title": "With Index Specific Search Init",
+                "default": true
+              },
+              "with_index_specific_search_keywords": {
+                "type": "boolean",
+                "title": "With Index Specific Search Keywords",
+                "default": false
+              },
+              "merge_query_cls_with_resp_or_rewrite": {
+                "type": "boolean",
+                "title": "Merge Query Cls With Resp Or Rewrite",
+                "default": false
+              },
+              "use_independent_query_in_translation": {
+                "type": "boolean",
+                "title": "Use Independent Query In Translation",
+                "default": false
+              },
+              "with_index_specific_search_translation": {
+                "type": "boolean",
+                "title": "With Index Specific Search Translation",
+                "default": false
+              }
+            },
+            "description": "API-owned compatibility options for SDK query expansion and scoring."
           },
           "retriever_code": {
             "type": "string",
@@ -837,7 +914,6 @@ actions:
               "type": "integer"
             },
             "title": "知识库ID",
-            "default": [],
             "nullable": true
           },
           "rejection_message": {
@@ -860,6 +936,7 @@ actions:
                   "type": "integer",
                   "title": "前多少个",
                   "default": 10,
+                  "minimum": 1,
                   "nullable": true
                 },
                 "index_name": {
@@ -934,6 +1011,15 @@ actions:
             "type": "integer",
             "title": "前多少个(兼容检索测试)",
             "default": 0,
+            "minimum": 0,
+            "nullable": true
+          },
+          "qa_response_knowledge_base_id": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "title": "问答知识库ID",
             "nullable": true
           },
           "knowledge_resource_reject_threshold": {
@@ -978,10 +1064,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev query_private_knowledgebase --body '{\"space_id\":\"demo-space\",\"query\":\"hello\"}'"
+      - "bk-cli aidev query_knowledgebase --body '{\"space_id\":\"demo-space\",\"query\":\"hello\"}'"
 
-  - name: list_private_prompts
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+  - name: list_prompts
+    description: "按空间和筛选条件列出 Prompt，结果可能分页。适用于定位已有 Prompt code 或 ID；Agent 的 inline Prompt 不需先创建独立 Prompt。"
     method: GET
     path: "/openapi/aidev/private/v1/prompts/"
     authConfig:
@@ -1042,10 +1128,10 @@ actions:
         type: string
         description: "标签名称"
     examples:
-      - "bk-cli aidev list_private_prompts"
+      - "bk-cli aidev list_prompts"
 
-  - name: upsert_private_prompts
-    description: "Upsert 逻辑：prompt_code 在当前租户+空间不存在则创建，存在则更新"
+  - name: upsert_prompt
+    description: "按当前空间的 prompt_code 创建或更新独立 Prompt。适用于确需维护可复用 Prompt 时；已有编码会更新线上内容。"
     method: POST
     path: "/openapi/aidev/private/v1/prompts/upsert/"
     body_required: true
@@ -1129,10 +1215,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev upsert_private_prompts --body '{\"space_id\":\"demo-space\",\"prompt_code\":\"demo-prompt\",\"prompt_name\":\"Demo Prompt\",\"content\":\"demo content\"}'"
+      - "bk-cli aidev upsert_prompt --body '{\"space_id\":\"demo-space\",\"prompt_code\":\"demo-prompt\",\"prompt_name\":\"Demo Prompt\",\"content\":\"demo content\"}'"
 
-  - name: retrieve_private_prompts
-    description: "获取指定 Prompt 的详细信息"
+  - name: get_prompt
+    description: "读取指定 Prompt 的详细配置。适用于复用或变更已有 Prompt 前核对内容。"
     method: GET
     path: "/openapi/aidev/private/v1/prompts/{prompt_id}/"
     authConfig:
@@ -1151,10 +1237,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_prompts --prompt_id 1 --space_id demo-space"
+      - "bk-cli aidev get_prompt --prompt_id 1 --space_id demo-space"
 
-  - name: list_private_agents
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+  - name: list_agents
+    description: "按空间、agent_code 或名称查找智能体并取得 ID；结果可能分页。适用于同步前判断资源是否已存在，不应将模糊匹配结果直接当作唯一目标。"
     method: GET
     path: "/openapi/aidev/private/v1/agents/"
     authConfig:
@@ -1211,10 +1297,10 @@ actions:
         type: string
         description: "标签名称"
     examples:
-      - "bk-cli aidev list_private_agents"
+      - "bk-cli aidev list_agents"
 
-  - name: create_private_agents
-    description: "在当前用户有创建权限的空间中创建智能体"
+  - name: create_agent
+    description: "创建指定空间的智能体，返回供后续配置更新使用的 Agent ID。适用于该 agent_code 尚不存在时；创建可能联动开发者中心，请先确认空间、编码和名称。"
     method: POST
     path: "/openapi/aidev/private/v1/agents/"
     body_required: true
@@ -1335,10 +1421,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_agents --body '{\"space_id\":\"demo-space\",\"agent_name\":\"Demo Agent\",\"agent_code\":\"demo-agent\"}'"
+      - "bk-cli aidev create_agent --body '{\"space_id\":\"demo-space\",\"agent_name\":\"Demo Agent\",\"agent_code\":\"demo-agent\"}'"
 
-  - name: retrieve_private_agents
-    description: "获取指定智能体的详细信息"
+  - name: get_agent
+    description: "读取指定智能体的配置：不传 version 返回当前草稿配置；传 version 返回指定已发布版本。适用于同步前比对草稿、核对依赖或读取已发布子智能体配置。"
     method: GET
     path: "/openapi/aidev/private/v1/agents/{agent_id}/"
     authConfig:
@@ -1361,10 +1447,10 @@ actions:
         type: string
         description: "已发布版本号；不传返回当前草稿配置"
     examples:
-      - "bk-cli aidev retrieve_private_agents --agent_id 1 --space_id demo-space"
+      - "bk-cli aidev get_agent --agent_id 1 --space_id demo-space"
 
-  - name: delete_private_agents
-    description: "归档指定智能体；已发布的插件应用将异步从开发者中心下架"
+  - name: archive_agent
+    description: "归档指定智能体；已发布的插件应用可能异步下架。适用于明确要移除智能体时，先核对目标 ID 和资源引用。"
     method: DELETE
     path: "/openapi/aidev/private/v1/agents/{agent_id}/"
     authConfig:
@@ -1378,10 +1464,10 @@ actions:
         description: "Agent ID"
         required: true
     examples:
-      - "bk-cli aidev delete_private_agents --agent_id 1"
+      - "bk-cli aidev archive_agent --agent_id 1"
 
-  - name: publish_private_agents
-    description: "发布智能体配置，不传版本号时自动递增"
+  - name: publish_agent
+    description: "提交指定智能体的发布请求并返回版本与状态。建议不传 version，由平台自动生成：首次为 1.0.0，后续递增末位；仅在确需指定版本号时传入。pending 或 running 表示后台处理中，不等于发布或部署完成。"
     method: POST
     path: "/openapi/aidev/private/v1/agents/{agent_id}/publish/"
     body_required: true
@@ -1455,10 +1541,10 @@ actions:
         description: "Agent ID"
         required: true
     examples:
-      - "bk-cli aidev publish_private_agents --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+      - "bk-cli aidev publish_agent --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
 
-  - name: update_private_agents
-    description: "更新智能体（名称、描述、模型配置、提示词、知识库、工具、MCP 等）"
+  - name: update_agent
+    description: "更新已有智能体的配置，包括模型、Prompt、知识库、Skill 和 MCP 等引用。适用于完成依赖解析及差异核对后同步配置；会改变线上智能体。"
     method: PUT
     path: "/openapi/aidev/private/v1/agents/{agent_id}/update/"
     body_required: true
@@ -2212,10 +2298,10 @@ actions:
         description: "Agent ID"
         required: true
     examples:
-      - "bk-cli aidev update_private_agents --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+      - "bk-cli aidev update_agent --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
 
-  - name: create_private_knowledgebase
-    description: "创建新的知识库"
+  - name: create_knowledgebase
+    description: "在指定空间创建知识库配置并返回 ID。适用于 knowledgebase_code 不存在时；文档内容需另行上传和导入。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledgebase/"
     body_required: true
@@ -2283,10 +2369,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_knowledgebase --body '{\"space_id\":\"demo-space\",\"name\":\"demo\"}'"
+      - "bk-cli aidev create_knowledgebase --body '{\"space_id\":\"demo-space\",\"name\":\"demo\"}'"
 
-  - name: info_private_knowledgebase
-    description: "获取知识库的知识统计信息"
+  - name: get_knowledge_stats
+    description: "读取指定空间内当前调用身份可访问的知识库与知识文档统计汇总。适用于了解数量和文件大小；不按单个知识库 ID 查询，也不返回完整配置。"
     method: GET
     path: "/openapi/aidev/private/v1/knowledgebase/info/"
     authConfig:
@@ -2300,10 +2386,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev info_private_knowledgebase --space_id demo-space"
+      - "bk-cli aidev get_knowledge_stats --space_id demo-space"
 
-  - name: list_private_knowledgebase
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+  - name: list_knowledgebases
+    description: "按空间和 knowledgebase_code 筛选知识库并取得 ID；编码筛选为模糊匹配，调用方需逐项精确比对。这是只读查询，虽然使用 POST，结果可能分页。适用于同步前查重或 Agent 引用解析。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledgebase/list/"
     body_schema: |-
@@ -2460,10 +2546,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev list_private_knowledgebase"
+      - "bk-cli aidev list_knowledgebases"
 
-  - name: delete_private_knowledgebase
-    description: "删除指定的知识库"
+  - name: delete_knowledgebase
+    description: "删除指定知识库。先确认其中知识、Agent 引用及删除影响，再执行。"
     method: DELETE
     path: "/openapi/aidev/private/v1/knowledgebase/{id}/"
     authConfig:
@@ -2476,10 +2562,10 @@ actions:
         type: int
         required: true
     examples:
-      - "bk-cli aidev delete_private_knowledgebase --id 1"
+      - "bk-cli aidev delete_knowledgebase --id 1"
 
-  - name: update_private_knowledgebase
-    description: "更新指定知识库的内容"
+  - name: update_knowledgebase
+    description: "更新已有知识库的配置。适用于查到 ID 且完成配置差异核对后；不会单独完成知识文档 ZIP 导入。"
     method: PATCH
     path: "/openapi/aidev/private/v1/knowledgebase/{id}/update/"
     body_required: true
@@ -2549,10 +2635,10 @@ actions:
         type: int
         required: true
     examples:
-      - "bk-cli aidev update_private_knowledgebase --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
+      - "bk-cli aidev update_knowledgebase --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
 
-  - name: create_private_knowledges
-    description: "创建新的知识文档"
+  - name: create_knowledge
+    description: "在指定知识库中创建一条知识文档。适用于单篇新增；批量或整目录 ZIP 同步应选择相应接口。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/"
     body_required: true
@@ -2564,8 +2650,7 @@ actions:
           "space_id",
           "knowledge_base_id",
           "knowledge_name",
-          "file_name",
-          "file_path"
+          "file_name"
         ],
         "properties": {
           "url": {
@@ -2616,7 +2701,8 @@ actions:
           },
           "file_path": {
             "type": "string",
-            "title": "文件路径"
+            "title": "兼容字段：知识库内相对路径",
+            "default": ""
           },
           "file_size": {
             "type": "integer",
@@ -2639,9 +2725,12 @@ actions:
           "tag_names": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "title": "标签名称列表",
+            "title": "标签路径列表",
             "nullable": true
           },
           "anchor_path": {
@@ -2674,6 +2763,11 @@ actions:
           "knowledge_base_id": {
             "type": "integer",
             "title": "知识库ID"
+          },
+          "parent_anchor_path": {
+            "type": "string",
+            "title": "目标父目录",
+            "nullable": true
           }
         },
         "description": "创建知识请求"
@@ -2683,10 +2777,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_knowledges --body '{\"space_id\":\"demo-space\",\"knowledge_base_id\":1,\"knowledge_name\":\"Demo Knowledge\",\"file_name\":\"demo.md\",\"file_path\":\"bkrepo://demo.md\"}'"
+      - "bk-cli aidev create_knowledge --body '{\"space_id\":\"demo-space\",\"knowledge_base_id\":1,\"knowledge_name\":\"Demo Knowledge\",\"file_name\":\"demo.md\",\"file_path\":\"bkrepo://demo.md\"}'"
 
-  - name: batch_create_private_knowledges
-    description: "批量创建多个知识文档"
+  - name: batch_create_knowledges
+    description: "一次创建多条知识文档。适用于已确认同一批输入的多篇新增；整目录 ZIP 同步使用 archive/import。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/batch/create/"
     body_required: true
@@ -2721,10 +2815,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev batch_create_private_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
+      - "bk-cli aidev batch_create_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
 
-  - name: batch_delete_private_knowledges
-    description: "批量删除多个知识文档"
+  - name: batch_delete_knowledges
+    description: "一次删除多条知识文档。适用于已逐项核对目标 ID 和删除影响的批量清理。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/batch/delete/"
     body_required: true
@@ -2758,10 +2852,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev batch_delete_private_knowledges --body '{\"space_id\":\"demo-space\",\"ids\":[]}'"
+      - "bk-cli aidev batch_delete_knowledges --body '{\"space_id\":\"demo-space\",\"ids\":[]}'"
 
-  - name: batch_update_private_knowledges
-    description: "批量更新多个知识文档"
+  - name: batch_update_knowledges
+    description: "一次更新多条已有知识文档。适用于每条目标 ID 和修改内容均已确认的批量操作。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/batch/update/"
     body_required: true
@@ -2796,10 +2890,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev batch_update_private_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
+      - "bk-cli aidev batch_update_knowledges --body '{\"space_id\":\"demo-space\",\"items\":[]}'"
 
-  - name: list_private_knowledges
-    description: "获取指定知识库下的知识列表"
+  - name: list_knowledges
+    description: "列出指定知识库或目录内的知识文档；这是只读查询，虽然使用 POST。适用于确认导入后的文档范围或定位文档 ID。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/list/"
     body_required: true
@@ -2889,10 +2983,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev list_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+      - "bk-cli aidev list_knowledges --body '{\"space_id\":\"demo-space\"}'"
 
-  - name: preview_link_private_knowledges
-    description: "预览远程链接内容"
+  - name: preview_knowledge_link
+    description: "预览待导入远程链接的内容。适用于创建链接型知识前检查可读取性；不创建知识文档。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/preview_link/"
     body_required: true
@@ -2923,6 +3017,18 @@ actions:
             "minLength": 1,
             "description": "空间 ID，必填"
           },
+          "file_name": {
+            "type": "string",
+            "title": "文件名",
+            "default": "",
+            "description": "下载链接无后缀时可指定 .zip 文件名"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "文件类型",
+            "default": "",
+            "description": "zip 预览压缩包，folder 预览已上传的本地文件夹"
+          },
           "recursive": {
             "type": "boolean",
             "title": "是否递归",
@@ -2941,10 +3047,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev preview_link_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+      - "bk-cli aidev preview_knowledge_link --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
 
-  - name: status_info_private_knowledges
-    description: "获取知识的状态统计信息"
+  - name: get_knowledge_status
+    description: "按空间和 anchor_path 查询知识处理状态统计及可见的 ZIP 导入任务。适用于导入前检查是否已有任务，或提交后查询进度；不触发重试。"
     method: GET
     path: "/openapi/aidev/private/v1/knowledges/status_info/"
     authConfig:
@@ -2964,10 +3070,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev status_info_private_knowledges --space_id demo-space"
+      - "bk-cli aidev get_knowledge_status --space_id demo-space"
 
-  - name: structure_header_private_knowledges
-    description: "获取远程文件的结构头信息"
+  - name: get_knowledge_structure_header
+    description: "读取远程文件的结构头信息，供结构化知识导入前确认字段；不创建或更新知识。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/structure_header/"
     body_required: true
@@ -3008,10 +3114,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev structure_header_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+      - "bk-cli aidev get_knowledge_structure_header --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
 
-  - name: trigger_private_knowledges
-    description: "触发知识更新操作"
+  - name: trigger_knowledge_update
+    description: "触发已有知识文档的更新任务。适用于明确需要重新抓取或更新时；可能产生后台处理。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/trigger/"
     body_required: true
@@ -3052,10 +3158,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev trigger_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+      - "bk-cli aidev trigger_knowledge_update --body '{\"space_id\":\"demo-space\"}'"
 
-  - name: update_frequency_type_private_knowledges
-    description: "获取知识更新频率类型列表"
+  - name: list_knowledge_update_frequencies
+    description: "列出知识文档支持的更新频率选项，供创建或更新配置时选择；不触发更新。"
     method: GET
     path: "/openapi/aidev/private/v1/knowledges/update_frequency_type/"
     authConfig:
@@ -3063,10 +3169,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev update_frequency_type_private_knowledges"
+      - "bk-cli aidev list_knowledge_update_frequencies"
 
-  - name: verify_private_knowledges
-    description: "校验知识链接是否有效"
+  - name: verify_knowledge_link
+    description: "校验待使用的知识链接是否有效。适用于创建或更新链接型知识前预检；不保存文档。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/verify/"
     body_required: true
@@ -3107,10 +3213,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev verify_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"knowledgebase_type\":\"document\"}'"
+      - "bk-cli aidev verify_knowledge_link --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"knowledgebase_type\":\"document\"}'"
 
-  - name: delete_private_knowledges
-    description: "删除指定的知识"
+  - name: delete_knowledge
+    description: "删除指定知识文档。适用于明确移除单篇文档时，先确认 ID 和影响。"
     method: DELETE
     path: "/openapi/aidev/private/v1/knowledges/{id}/"
     authConfig:
@@ -3123,10 +3229,10 @@ actions:
         type: int
         required: true
     examples:
-      - "bk-cli aidev delete_private_knowledges --id 1"
+      - "bk-cli aidev delete_knowledge --id 1"
 
-  - name: index_info_private_knowledges
-    description: "获取指定知识的索引配置信息"
+  - name: get_knowledge_index_info
+    description: "读取指定知识文档的索引配置。适用于核对切分、清洗和检索设置；不返回文档正文。"
     method: GET
     path: "/openapi/aidev/private/v1/knowledges/{id}/index_info/"
     authConfig:
@@ -3144,10 +3250,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev index_info_private_knowledges --id 1 --space_id demo-space"
+      - "bk-cli aidev get_knowledge_index_info --id 1 --space_id demo-space"
 
-  - name: preview_private_knowledges
-    description: "预览指定知识的内容"
+  - name: preview_knowledge
+    description: "读取指定知识文档的预览内容。适用于核对正文，不用于获取完整索引配置。"
     method: GET
     path: "/openapi/aidev/private/v1/knowledges/{id}/preview/"
     authConfig:
@@ -3165,10 +3271,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev preview_private_knowledges --id 1 --space_id demo-space"
+      - "bk-cli aidev preview_knowledge --id 1 --space_id demo-space"
 
-  - name: update_private_knowledges
-    description: "更新指定知识的内容"
+  - name: update_knowledge
+    description: "更新指定知识文档的内容或配置。适用于已定位文档 ID 的单篇修改。"
     method: PATCH
     path: "/openapi/aidev/private/v1/knowledges/{id}/update/"
     body_required: true
@@ -3231,6 +3337,11 @@ actions:
             "title": "文件路径",
             "nullable": true
           },
+          "file_size": {
+            "type": "integer",
+            "title": "文件大小",
+            "nullable": true
+          },
           "file_type": {
             "type": "string",
             "title": "文件类型",
@@ -3239,9 +3350,12 @@ actions:
           "tag_names": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "title": "标签名称列表",
+            "title": "标签路径列表",
             "nullable": true
           },
           "anchor_path": {
@@ -3269,6 +3383,11 @@ actions:
             "type": "integer",
             "title": "知识库ID",
             "nullable": true
+          },
+          "parent_anchor_path": {
+            "type": "string",
+            "title": "目标父目录",
+            "nullable": true
           }
         },
         "description": "更新知识请求"
@@ -3283,10 +3402,10 @@ actions:
         type: int
         required: true
     examples:
-      - "bk-cli aidev update_private_knowledges --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
+      - "bk-cli aidev update_knowledge --id 1 --body '{\"space_id\":\"demo-space\",\"id\":1}'"
 
-  - name: list_credentiale_types
-    description: "获取所有可用的凭证类型及其配置参数"
+  - name: list_credential_types
+    description: "列出可创建的凭证类型和配置字段。适用于尚不清楚凭证类型或表单结构时；该接口不创建凭证。"
     method: GET
     path: "/openapi/aidev/private/v1/credential_types/"
     authConfig:
@@ -3294,10 +3413,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev list_credentiale_types"
+      - "bk-cli aidev list_credential_types"
 
   - name: list_credentials
-    description: "省略 space_id 或传 all 时查询当前租户内所有有权限空间的资源；传具体 ID 时查询该空间。支持筛选和统一分页。"
+    description: "按空间和筛选条件查找凭证配置，结果可能分页。适用于定位待绑定或待维护的凭证；不要将列表结果当作密钥明文。"
     method: GET
     path: "/openapi/aidev/private/v1/credentials/"
     authConfig:
@@ -3336,8 +3455,8 @@ actions:
     examples:
       - "bk-cli aidev list_credentials"
 
-  - name: create_credentials
-    description: "创建新的凭证配置"
+  - name: create_credential
+    description: "在指定空间创建凭证配置，返回凭证 ID。仅在明确需要新凭证且字段已确认时调用；凭证生命周期与绑定关系分开管理。"
     method: POST
     path: "/openapi/aidev/private/v1/credentials/"
     body_required: true
@@ -3413,10 +3532,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_credentials --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\"}'"
+      - "bk-cli aidev create_credential --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\"}'"
 
   - name: batch_delete_credentials
-    description: "批量删除指定凭证"
+    description: "批量删除指定凭证；先逐项确认 ID 与引用关系。适用于一次清理多个已确认不再使用的凭证。"
     method: POST
     path: "/openapi/aidev/private/v1/credentials/batch_delete/"
     body_required: true
@@ -3454,8 +3573,8 @@ actions:
     examples:
       - "bk-cli aidev batch_delete_credentials --body '{\"space_id\":\"demo-space\",\"credential_ids\":[]}'"
 
-  - name: bind_credentials
-    description: "将凭证绑定到指定资源"
+  - name: bind_credential
+    description: "将已有凭证绑定到目标资源。适用于凭证和资源均已确定时；会改变目标资源的凭证关联。"
     method: POST
     path: "/openapi/aidev/private/v1/credentials/bind/"
     body_required: true
@@ -3506,10 +3625,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev bind_credentials --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+      - "bk-cli aidev bind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
 
-  - name: unbind_credentials
-    description: "解绑凭证与资源的关联"
+  - name: unbind_credential
+    description: "解除凭证与目标资源的绑定。适用于明确撤销该关联时；可能影响目标资源调用外部服务。"
     method: POST
     path: "/openapi/aidev/private/v1/credentials/unbind/"
     body_required: true
@@ -3560,10 +3679,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev unbind_credentials --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+      - "bk-cli aidev unbind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
 
-  - name: delete_credentials
-    description: "删除指定凭证"
+  - name: delete_credential
+    description: "删除指定凭证。先查询引用并确认解绑或影响范围，再执行删除。"
     method: DELETE
     path: "/openapi/aidev/private/v1/credentials/{credential_id}/"
     authConfig:
@@ -3577,10 +3696,10 @@ actions:
         description: "凭证 ID"
         required: true
     examples:
-      - "bk-cli aidev delete_credentials --credential_id 1"
+      - "bk-cli aidev delete_credential --credential_id 1"
 
-  - name: list_references_credentials
-    description: "获取凭证被哪些资源引用"
+  - name: list_credential_references
+    description: "查询指定凭证被哪些资源引用。适用于更新、解绑或删除前评估影响。"
     method: GET
     path: "/openapi/aidev/private/v1/credentials/{credential_id}/references/"
     authConfig:
@@ -3599,10 +3718,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev list_references_credentials --credential_id 1 --space_id demo-space"
+      - "bk-cli aidev list_credential_references --credential_id 1 --space_id demo-space"
 
-  - name: update_credentials
-    description: "更新指定凭证的配置"
+  - name: update_credential
+    description: "更新指定凭证的配置。适用于已核对凭证 ID、需要变更字段时；可能影响已绑定该凭证的资源。"
     method: PATCH
     path: "/openapi/aidev/private/v1/credentials/{credential_id}/update/"
     body_required: true
@@ -3690,10 +3809,10 @@ actions:
         description: "凭证 ID"
         required: true
     examples:
-      - "bk-cli aidev update_credentials --credential_id 1 --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\",\"credential_id\":1}'"
+      - "bk-cli aidev update_credential --credential_id 1 --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\",\"credential_id\":1}'"
 
-  - name: reclean_private_knowledges
-    description: "按当前或指定导入链路重建知识产物，与管理端一键重建口径一致"
+  - name: reclean_knowledge
+    description: "按当前或指定导入链路重新清洗并重建知识产物。适用于确认现有产物需重建时；会触发后台处理。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/reclean/"
     body_required: true
@@ -3748,10 +3867,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev reclean_private_knowledges --body '{\"space_id\":\"demo-space\"}'"
+      - "bk-cli aidev reclean_knowledge --body '{\"space_id\":\"demo-space\"}'"
 
-  - name: list_private_resource_references
-    description: "按资源类型和实例 ID 查询引用该资源的 Agent；调用者必须拥有资源所属空间的使用权限。"
+  - name: list_resource_references
+    description: "查询哪些 Agent 引用了指定类型和 ID 的资源。适用于删除或变更 Skill、MCP、知识库等资源前评估影响。"
     method: GET
     path: "/openapi/aidev/private/v1/resources/{resource_type}/{instance_id}/references/"
     authConfig:
@@ -3775,10 +3894,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev list_private_resource_references --instance_id 1 --resource_type skill --space_id demo-space"
+      - "bk-cli aidev list_resource_references --instance_id 1 --resource_type skill --space_id demo-space"
 
-  - name: list_private_collections
-    description: "处理 GET 请求：合并 query 与 path params。"
+  - name: list_collections
+    description: "按空间和 collection_code 查找角色 Prompt Collection，取得 collection_id；结果可能分页。适用于 Agent 引用解析或同步前查重。"
     method: GET
     path: "/openapi/aidev/private/v1/collections/"
     authConfig:
@@ -3805,10 +3924,10 @@ actions:
         type: string
         description: "空间 ID；省略或 all 表示所有有权限的空间"
     examples:
-      - "bk-cli aidev list_private_collections"
+      - "bk-cli aidev list_collections"
 
-  - name: upsert_private_collections
-    description: "带请求体的 method 通用处理：合并 body 与 path params。"
+  - name: upsert_collection
+    description: "按 collection_code 创建或更新角色 Prompt Collection，并返回 collection_id。适用于同步 Agent 所引用的角色指令；已有编码会更新线上内容。"
     method: POST
     path: "/openapi/aidev/private/v1/collections/upsert/"
     body_required: true
@@ -3889,7 +4008,8 @@ actions:
               {
                 "enum": [
                   "space",
-                  "public"
+                  "public",
+                  "global"
                 ],
                 "type": "string"
               }
@@ -3918,10 +4038,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev upsert_private_collections --body '{\"space_id\":\"demo-space\",\"collection_code\":\"demo-collection\",\"collection_name\":\"Demo Collection\",\"content\":[]}'"
+      - "bk-cli aidev upsert_collection --body '{\"space_id\":\"demo-space\",\"collection_code\":\"demo-collection\",\"collection_name\":\"Demo Collection\",\"content\":[]}'"
 
-  - name: detail_private_collections
-    description: "处理 GET 请求：合并 query 与 path params。"
+  - name: get_collection
+    description: "读取指定角色 Prompt Collection 的消息内容及配置。适用于同步前比对，或确认 Agent 引用的现有 Collection。"
     method: GET
     path: "/openapi/aidev/private/v1/collections/{collection_id}/"
     authConfig:
@@ -3939,10 +4059,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev detail_private_collections --collection_id 1 --space_id demo-space"
+      - "bk-cli aidev get_collection --collection_id 1 --space_id demo-space"
 
-  - name: archive_import_private_knowledges
-    description: "异步导入上传或远程ZIP，覆盖目标目录内容；通过相同anchor_path的status_info查询进度"
+  - name: import_knowledge_archive
+    description: "将已上传或远程 ZIP 异步导入指定 anchor_path，并覆盖目标目录内容。适用于目录化文档同步；返回任务 ID 后用相同 anchor_path 查询 status_info，不应把提交成功当作处理完成。"
     method: POST
     path: "/openapi/aidev/private/v1/knowledges/archive/import/"
     body_required: true
@@ -3975,7 +4095,8 @@ actions:
           },
           "file_name": {
             "type": "string",
-            "title": "不含.zip扩展名的名称"
+            "title": "来源名称",
+            "description": "ZIP 不含 .zip 扩展名；文件夹使用目录名称"
           },
           "file_size": {
             "type": "integer",
@@ -3985,7 +4106,7 @@ actions:
           "file_type": {
             "type": "string",
             "title": "文件类型",
-            "description": "必须为 zip"
+            "description": "zip 或 folder；folder 表示已上传的本地文件夹"
           },
           "tag_names": {
             "type": "array",
@@ -3999,7 +4120,7 @@ actions:
           },
           "anchor_path": {
             "type": "string",
-            "title": "解包目标目录",
+            "title": "导入目标目录",
             "description": "目标知识库及目录，导入将覆盖目录内容"
           },
           "created_type": {
@@ -4026,10 +4147,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev archive_import_private_knowledges --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"file_name\":\"demo.md\",\"file_type\":\"demo-file_type\",\"anchor_path\":\"/\"}'"
+      - "bk-cli aidev import_knowledge_archive --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\",\"file_name\":\"demo\",\"file_type\":\"zip\",\"anchor_path\":\"/\"}'"
 
-  - name: retrieve_private_mcps_by_code
-    description: "space_id 可选；传入 agent_code 时先校验调用方对智能体所属空间的权限，再查询 MCP。"
+  - name: get_mcp_by_code
+    description: "按 mcp_type 和 mcp_code 精确解析 MCP 的 ID、类型及可用范围。适用于 Agent 配置引用 MCP 时；传 agent_code 可按目标 Agent 的关联场景检查 APIGW MCP。"
     method: GET
     path: "/openapi/aidev/private/v1/mcps/by-code/{mcp_code}/"
     authConfig:
@@ -4055,10 +4176,10 @@ actions:
         type: string
         description: "空间 ID；省略或 all 表示所有有权限的空间"
     examples:
-      - "bk-cli aidev retrieve_private_mcps_by_code --mcp_code demo-mcp"
+      - "bk-cli aidev get_mcp_by_code --mcp_code demo-mcp"
 
-  - name: retrieve_private_resource_mcps
-    description: "获取指定资源型 MCP 的详细信息"
+  - name: get_resource_mcp
+    description: "读取指定资源型 MCP 的详情。适用于已知资源型 MCP ID 时核对配置。"
     method: GET
     path: "/openapi/aidev/private/v1/mcps/{mcp_id}/"
     authConfig:
@@ -4077,10 +4198,10 @@ actions:
         description: "空间 ID，必填"
         required: true
     examples:
-      - "bk-cli aidev retrieve_private_resource_mcps --mcp_id 1 --space_id demo-space"
+      - "bk-cli aidev get_resource_mcp --mcp_id 1 --space_id demo-space"
 
-  - name: create_private_space_manage_apply_resources
-    description: "用户态跨空间资源申请"
+  - name: apply_cross_space_resources
+    description: "为指定资源发起跨空间使用申请，返回请求 ID 和审批工单信息。适用于目标空间尚无资源使用权限时；提交申请不等于授权已生效。"
     method: POST
     path: "/openapi/aidev/private/v1/space_manage/apply_resources/"
     body_required: true
@@ -4146,10 +4267,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_space_manage_apply_resources --body '{\"space_id\":\"demo-space\",\"resource_type\":\"skill\",\"resource_ids\":[]}'"
+      - "bk-cli aidev apply_cross_space_resources --body '{\"space_id\":\"demo-space\",\"resource_type\":\"skill\",\"resource_ids\":[]}'"
 
-  - name: create_private_upload_status
-    description: "knowledge / skill 共用；上传失败或超时后可查询；文件不完整时返回错误，不自动重新上传"
+  - name: check_upload_status
+    description: "查询并校验直传文件是否存在、大小范围和 SHA256 格式，返回实际文件大小与摘要。调用方仍需与本地文件比对；适用于上传后或超时后确认结果，不会重新上传。"
     method: POST
     path: "/openapi/aidev/private/v1/upload/status/"
     body_required: true
@@ -4179,10 +4300,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_upload_status --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
+      - "bk-cli aidev check_upload_status --body '{\"space_id\":\"demo-space\",\"url\":\"bkrepo://demo.zip\"}'"
 
-  - name: create_private_upload_url
-    description: "knowledge / skill 共用；有效期默认 15 分钟、仅可上传一次；文件直传 BKRepo 后分别调用知识 ZIP 导入或 Skill upsert"
+  - name: get_upload_url
+    description: "为 Skill 或知识 ZIP 申请限时、一次性的直传地址。适用于大文件直传；取得地址后仍需上传文件并校验状态。"
     method: POST
     path: "/openapi/aidev/private/v1/upload/url/"
     body_required: true
@@ -4227,10 +4348,10 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_private_upload_url --body '{\"space_id\":\"demo-space\",\"file_name\":\"demo.md\"}'"
+      - "bk-cli aidev get_upload_url --body '{\"space_id\":\"demo-space\",\"file_name\":\"demo.md\"}'"
 
-  - name: append_private_agent_admins
-    description: "需空间访问和智能体管理权限；仅追加 PaaS 插件管理员，保留原成员，不修改使用者或空间 IAM 权限"
+  - name: append_agent_admins
+    description: "向智能体对应的开发者中心插件追加管理员，保留原有成员；不修改 Agent 使用者或空间权限。适用于 Agent 创建后补充管理员。"
     method: POST
     path: "/openapi/aidev/private/v1/agents/{agent_id}/admins/"
     body_required: true
@@ -4276,4 +4397,20 @@ actions:
         description: "智能体 ID"
         required: true
     examples:
-      - "bk-cli aidev append_private_agent_admins --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+      - "bk-cli aidev append_agent_admins --agent_id 1 --body '{\"space_id\":\"demo-space\",\"agent_id\":1}'"
+
+  - name: list_tags
+    description: "获取当前租户指定范围的全量标签树，供智能体配置时选择标签；无需指定空间或智能体。"
+    method: GET
+    path: "/openapi/aidev/private/v1/tags/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: scope_name
+        in: query
+        type: string
+        description: "标签范围，默认使用智能体标签范围；未识别的范围沿用 meta 回退到通用默认范围"
+    examples:
+      - "bk-cli aidev list_tags --scope_name agent"

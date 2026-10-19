@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing/fstest"
 
+	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -851,7 +852,7 @@ actions:
 		for _, path := range [][]string{
 			{"apigateway", "list_gateways"},
 			{"apigateway", "demo_action"},
-			{"aidev", "retrieve_private_spaces"},
+			{"aidev", "list_spaces"},
 			{"bcs", "cluster_manager", "update_auto_scaling_option"},
 			{"bcs", "cluster_manager", "create_cluster"},
 			{"bcs", "cluster_manager", "delete_nodes_from_cluster"},
@@ -1156,14 +1157,14 @@ actions:
 		err := registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)
 		Expect(err).NotTo(HaveOccurred())
 
-		upload, _, err := root.Find([]string{"aidev", "create_private_upload"})
+		upload, _, err := root.Find([]string{"aidev", "upload_file"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(upload.Flag("file")).NotTo(BeNil())
 		Expect(upload.Flag("space_id")).NotTo(BeNil())
 		Expect(upload.Flag("module")).NotTo(BeNil())
 		Expect(upload.Flag(syslib.ActionBodyFlagName)).To(BeNil())
 
-		listSkills, _, err := root.Find([]string{"aidev", "list_private_skills"})
+		listSkills, _, err := root.Find([]string{"aidev", "list_skills"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(listSkills.Flag("space_id")).NotTo(BeNil())
 		Expect(listSkills.Flag("page")).NotTo(BeNil())
@@ -1171,12 +1172,12 @@ actions:
 		Expect(listSkills.Flag(syslib.ActionStageFlagName)).NotTo(BeNil())
 		Expect(listSkills.Flag(syslib.ActionHeaderFlagName)).NotTo(BeNil())
 
-		retrieveSkill, _, err := root.Find([]string{"aidev", "retrieve_private_skills"})
+		retrieveSkill, _, err := root.Find([]string{"aidev", "get_skill"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(retrieveSkill.Flag("skill_id")).NotTo(BeNil())
 		Expect(retrieveSkill.Flag("space_id")).NotTo(BeNil())
 
-		upsertSkill, _, err := root.Find([]string{"aidev", "create_private_skills_upsert"})
+		upsertSkill, _, err := root.Find([]string{"aidev", "upsert_skill"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(upsertSkill.Flag(syslib.ActionBodyFlagName)).NotTo(BeNil())
 		Expect(upsertSkill.Flag(syslib.ActionBodyFlagName).Usage).To(ContainSubstring("[Required]"))
@@ -1184,7 +1185,117 @@ actions:
 
 		aidevCmd, _, err := root.Find([]string{"aidev"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(aidevCmd.Commands()).To(HaveLen(63))
+		commandNames := make([]string, 0, len(aidevCmd.Commands()))
+		for _, action := range aidevCmd.Commands() {
+			commandNames = append(commandNames, action.Name())
+		}
+		Expect(commandNames).To(ConsistOf([]string{
+			"append_agent_admins",
+			"apply_cross_space_resources",
+			"archive_agent",
+			"archive_skill",
+			"batch_create_knowledges",
+			"batch_delete_credentials",
+			"batch_delete_knowledges",
+			"batch_update_knowledges",
+			"bind_credential",
+			"check_upload_status",
+			"create_agent",
+			"create_credential",
+			"create_knowledge",
+			"create_knowledgebase",
+			"create_mcp",
+			"delete_credential",
+			"delete_knowledge",
+			"delete_knowledgebase",
+			"get_agent",
+			"get_collection",
+			"get_knowledge_index_info",
+			"get_knowledge_stats",
+			"get_knowledge_status",
+			"get_knowledge_structure_header",
+			"get_mcp",
+			"get_mcp_by_code",
+			"get_mcp_register_json",
+			"get_prompt",
+			"get_resource_mcp",
+			"get_skill",
+			"get_skill_download_url",
+			"get_upload_url",
+			"import_knowledge_archive",
+			"list_agents",
+			"list_collections",
+			"list_credential_references",
+			"list_credential_types",
+			"list_credentials",
+			"list_knowledge_update_frequencies",
+			"list_knowledgebases",
+			"list_knowledges",
+			"list_mcps",
+			"list_prompts",
+			"list_resource_references",
+			"list_skill_versions",
+			"list_skills",
+			"list_spaces",
+			"list_tags",
+			"preview_knowledge",
+			"preview_knowledge_link",
+			"publish_agent",
+			"query_knowledgebase",
+			"reclean_knowledge",
+			"trigger_knowledge_update",
+			"unbind_credential",
+			"update_agent",
+			"update_credential",
+			"update_knowledge",
+			"update_knowledgebase",
+			"upload_file",
+			"upsert_collection",
+			"upsert_prompt",
+			"upsert_skill",
+			"verify_knowledge_link",
+		}))
+
+		tags, _, err := root.Find([]string{"aidev", "list_tags"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tags.Flag("scope_name")).NotTo(BeNil())
+		Expect(tags.Flag("space_id")).To(BeNil())
+		Expect(tags.Short).To(Equal("获取当前租户指定范围的全量标签树，供智能体配置时选择标签；无需指定空间或智能体。"))
+		Expect(upload.Short).To(ContainSubstring("返回上传成功不等于资源已同步"))
+	})
+
+	It("shows the updated AIDev knowledge request schema", func() {
+		root := &cobra.Command{Use: "bk-cli"}
+		Expect(registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)).To(Succeed())
+
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetArgs([]string{"aidev", "create_knowledge", "-h", "--body-schema"})
+		Expect(root.Execute()).To(Succeed())
+
+		var schema struct {
+			Required   []string                   `json:"required"`
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		Expect(
+			json.Unmarshal([]byte(strings.TrimPrefix(out.String(), "Request body schema:\n")), &schema),
+		).To(
+			Succeed(),
+		)
+		Expect(schema.Required).To(ConsistOf("space_id", "knowledge_base_id", "knowledge_name", "file_name"))
+		Expect(schema.Properties).To(HaveKey("parent_anchor_path"))
+		var tags struct {
+			Items struct {
+				Type  string `json:"type"`
+				Items struct {
+					Type string `json:"type"`
+				} `json:"items"`
+			} `json:"items"`
+		}
+		Expect(json.Unmarshal(schema.Properties["tag_names"], &tags)).To(Succeed())
+		Expect(tags.Items.Type).To(Equal("array"))
+		Expect(tags.Items.Items.Type).To(Equal("string"))
+		Expect(string(schema.Properties["file_path"])).To(ContainSubstring(`"default": ""`))
 	})
 
 	It("does not register empty systems", func() {
@@ -1386,9 +1497,9 @@ actions:
 		Expect(err).NotTo(HaveOccurred())
 		Expect(actionCmd.Name()).To(Equal("list_gateways"))
 
-		aidevCmd, _, err := root.Find([]string{"aidev", "retrieve_private_spaces"})
+		aidevCmd, _, err := root.Find([]string{"aidev", "list_spaces"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(aidevCmd.Name()).To(Equal("retrieve_private_spaces"))
+		Expect(aidevCmd.Name()).To(Equal("list_spaces"))
 
 		cmdbCmd, _, err := root.Find([]string{"cmdb", "search_business"})
 		Expect(err).NotTo(HaveOccurred())

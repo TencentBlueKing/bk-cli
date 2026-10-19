@@ -32,7 +32,7 @@ func NewSystemSpec() systemcmd.SystemSpec {
 		Description: "BlueKing AIDev resource commands",
 		YAMLFile:    "aidev/actions.yaml",
 		RegisterGoActions: func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
-			parent.AddCommand(newCreatePrivateUploadCmd(deps))
+			parent.AddCommand(newUploadFileCmd(deps))
 			return nil
 		},
 	}

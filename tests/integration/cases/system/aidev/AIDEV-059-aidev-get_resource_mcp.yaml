@@ -1,0 +1,45 @@
+id: AIDEV-059
+name: aidev get_resource_mcp happy path
+tags:
+- coverage-system_yaml
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - --bk_api_url_tmpl
+  - ${MOCK_API_BASE_URL}/{gateway_name}
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - --access_token
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: get resource mcp
+  command:
+  - aidev
+  - get_resource_mcp
+  - --mcp_id
+  - '1'
+  - --space_id
+  - demo-space
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: data.method
+      equals: GET
+    - path: data.path
+      contains: /bk-aidev/prod/openapi/aidev/private/v1/mcps/1/
