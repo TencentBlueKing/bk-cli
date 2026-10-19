@@ -212,6 +212,8 @@ bk-cli auth login
 bk-cli auth login --context dev
 ```
 
+登录完成后，应在注入变量的 shell 或 CI 步骤中执行 `unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN`，或只在 `auth login` 这一步的作用域内注入这些变量，避免后续命令及其子进程（包括第三方插件）继承明文凭据。后续 API 请求可使用已加密保存到 context 的凭据。
+
 显式凭据 flags 先确定模式，并优先于同名环境字段。环境只补齐选中模式内未显式传入的字段。例如 `--bk_token` 选择应用 + token，即使环境中还有 ticket 或 access token，也不会切换身份；只传应用 code 或 secret 时，从环境选择唯一的 token 或 ticket，不能改用 access token。多个非空凭据 flags 仍沿用原顺序：access token 优先，其次 ticket，再其次 token。
 
 显式空值（如 `--bk_token=''`）报 `invalid_credentials`，不会回退到环境。无凭据 flags 时，access token 与任一应用模式字段共存、或 token 与 ticket 同时非空，都会报 `invalid_credentials`；只传应用 code / secret 时，环境 token 与 ticket 同时非空也会报错。缺少模式必填字段同样失败，需补齐或清理环境后重试。
