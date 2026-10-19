@@ -246,6 +246,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     "bk_host_name": "host-102",
                 },
             ]
+            if active_scenario() == "CMDB-007":
+                hosts = [
+                    {"bk_host_id": 9007199254740992},
+                    {"bk_host_id": 9007199254740993},
+                    {"bk_host_id": 9223372036854775807},
+                ]
             return jsonify(
                 {
                     "count": len(hosts),

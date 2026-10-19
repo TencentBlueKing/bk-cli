@@ -20,7 +20,10 @@ package api_test
 
 import (
 	"bytes"
+	stdjson "encoding/json"
+	"io"
 	"net/http"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +31,57 @@ import (
 
 	"github.com/TencentBlueKing/bk-cli/internal/api"
 )
+
+var _ = Describe("ParseResponse", func() {
+	DescribeTable(
+		"preserves JSON number literals through envelope output",
+		func(body string, status int) {
+			resp := &http.Response{
+				StatusCode: status,
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}
+			env, err := api.BuildResponseEnvelope(resp)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env.OK).To(Equal(status >= 200 && status < 300))
+
+			var out bytes.Buffer
+			Expect(env.WriteJSON(&out)).To(Succeed())
+			var encoded struct {
+				Data json.RawMessage `json:"data"`
+			}
+			Expect(json.Unmarshal(out.Bytes(), &encoded)).To(Succeed())
+			var compact bytes.Buffer
+			Expect(stdjson.Compact(&compact, encoded.Data)).To(Succeed())
+			Expect(compact.String()).To(Equal(body))
+		},
+		Entry("integer beyond float64's exact range", `9007199254740993`, http.StatusOK),
+		Entry("maximum signed 64-bit integer", `{"id":9223372036854775807}`, http.StatusOK),
+		Entry(
+			"nested integers and arrays",
+			`{"nested":{"ids":[9007199254740993,-9007199254740993,18446744073709551615]}}`,
+			http.StatusOK,
+		),
+		Entry("integer beyond 64-bit range", `18446744073709551616`, http.StatusOK),
+		Entry("high precision decimal", `0.1234567890123456789`, http.StatusOK),
+		Entry("exponent spelling", `1.2300e+40`, http.StatusOK),
+		Entry("exponent beyond float64 range", `1e400`, http.StatusOK),
+		Entry("small exponent", `1e-400`, http.StatusOK),
+		Entry("mixed JSON values", `{"values":[1,true,false,"9007199254740993",null]}`, http.StatusOK),
+		Entry("negative zero", `-0.0`, http.StatusAccepted),
+		Entry("non-2xx response", `{"id":9007199254740993}`, http.StatusBadGateway),
+	)
+
+	DescribeTable("keeps invalid JSON as the complete original text",
+		func(body string) {
+			parsed, err := api.ParseResponse(&http.Response{Body: io.NopCloser(strings.NewReader(body))})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(parsed).To(Equal(body))
+		},
+		Entry("malformed object", `{"id":`),
+		Entry("multiple JSON values", `{"id":1} {"id":2}`),
+		Entry("trailing non-JSON text", `{"id":1} trailing`),
+	)
+})
 
 var _ = Describe("ExtractGatewayHeaders", func() {
 	newResp := func(headers map[string]string) *http.Response {
@@ -170,8 +224,8 @@ var _ = Describe("BuildDryRunEnvelope", func() {
 		req := &api.Request{
 			Method:     "POST",
 			URL:        "https://example.com/api",
-			ParamsJSON: `{"job_instance_id":20004841045,"ids":[1,20004841045]}`,
-			BodyJSON:   `{"id":20004841045,"nested":{"values":[20004841045]}}`,
+			ParamsJSON: `{"job_instance_id":9007199254740993,"ids":[1,9007199254740993]}`,
+			BodyJSON:   `{"id":9007199254740993,"nested":{"values":[9007199254740993]}}`,
 		}
 
 		env := api.BuildDryRunEnvelope(req)
@@ -180,29 +234,29 @@ var _ = Describe("BuildDryRunEnvelope", func() {
 		Expect(ok).To(BeTrue())
 		jobInstanceID, ok := params["job_instance_id"].(json.Number)
 		Expect(ok).To(BeTrue())
-		Expect(jobInstanceID.String()).To(Equal("20004841045"))
+		Expect(jobInstanceID.String()).To(Equal("9007199254740993"))
 		ids, ok := params["ids"].([]any)
 		Expect(ok).To(BeTrue())
 		idValue, ok := ids[1].(json.Number)
 		Expect(ok).To(BeTrue())
-		Expect(idValue.String()).To(Equal("20004841045"))
+		Expect(idValue.String()).To(Equal("9007199254740993"))
 
 		body, ok := env.Request.Body.(map[string]any)
 		Expect(ok).To(BeTrue())
 		bodyID, ok := body["id"].(json.Number)
 		Expect(ok).To(BeTrue())
-		Expect(bodyID.String()).To(Equal("20004841045"))
+		Expect(bodyID.String()).To(Equal("9007199254740993"))
 		nested, ok := body["nested"].(map[string]any)
 		Expect(ok).To(BeTrue())
 		values, ok := nested["values"].([]any)
 		Expect(ok).To(BeTrue())
 		nestedValue, ok := values[0].(json.Number)
 		Expect(ok).To(BeTrue())
-		Expect(nestedValue.String()).To(Equal("20004841045"))
+		Expect(nestedValue.String()).To(Equal("9007199254740993"))
 
 		var out bytes.Buffer
 		Expect(env.WriteJSON(&out)).To(Succeed())
-		Expect(out.String()).To(ContainSubstring(`"job_instance_id": 20004841045`))
-		Expect(out.String()).To(ContainSubstring(`"id": 20004841045`))
+		Expect(out.String()).To(ContainSubstring(`"job_instance_id": 9007199254740993`))
+		Expect(out.String()).To(ContainSubstring(`"id": 9007199254740993`))
 	})
 })
