@@ -29,7 +29,7 @@ import (
 
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
-	"github.com/TencentBlueKing/bk-cli/internal/systemcmd"
+	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
 )
 
 const (
@@ -52,7 +52,9 @@ func newUploadFileCmd(deps systemcmd.BuildDeps) *cobra.Command {
 		Args:  cobra.NoArgs,
 		Long: `上传 Skill 或知识文件制品，取得供后续 upsert 或导入使用的文件引用。适用于普通文件上传；返回上传成功不等于资源已同步。
 
-该接口使用 multipart/form-data。必须传入 --file 和 --space_id，--module 默认 skill。`,
+该接口使用 multipart/form-data。必须传入 --file 和 --space_id，--module 默认 skill。
+
+文件必须存在且为可读的常规文件。上传时流式读取文件；--dry-run 校验文件并显示 size（字节），不读取文件内容。`,
 		Example: "  bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space\n" +
 			"  bk-cli aidev upload_file --file ./knowledge.zip --space_id demo-space --module knowledge",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,9 +94,27 @@ func executeUpload(
 	stage string,
 	headers []string,
 ) error {
-	body, contentType, err := uploadBodyForRuntime(runtime, filePath, module, spaceID)
+	info, err := os.Stat(filePath)
 	if err != nil {
-		return err
+		return output.UserError("request_error", err.Error(), "Check --file path")
+	}
+	if !info.Mode().IsRegular() {
+		return output.UserError("request_error", "--file must be a regular file", "Check --file path")
+	}
+
+	fh, err := os.Open(filePath)
+	if err != nil {
+		return output.UserError("request_error", err.Error(), "Check --file path")
+	}
+	defer func() { _ = fh.Close() }()
+
+	var body io.Reader = bytes.NewReader(nil)
+	contentType := "multipart/form-data; boundary={...}"
+	if runtime == nil || !runtime.DryRun {
+		body, contentType, err = buildUploadBody(fh, module, spaceID)
+		if err != nil {
+			return err
+		}
 	}
 
 	return systemcmd.ExecuteRequest(cmd, runtime, "upload_file", syslib.RequestSpec{
@@ -105,6 +125,7 @@ func executeUpload(
 		ContentType: contentType,
 		DryRunBody: map[string]any{
 			"file":     filepath.Base(filePath),
+			"size":     info.Size(),
 			"module":   module,
 			"space_id": spaceID,
 		},
@@ -118,31 +139,16 @@ func executeUpload(
 	}, nil)
 }
 
-func uploadBodyForRuntime(runtime *syslib.Runtime, filePath, module, spaceID string) (*bytes.Buffer, string, error) {
-	if runtime != nil && runtime.DryRun {
-		return bytes.NewBuffer(nil), "multipart/form-data; boundary={...}", nil
-	}
+// buildUploadBody buffers only multipart metadata; the caller owns the file
+// and keeps it open until shared request execution returns.
+func buildUploadBody(fh *os.File, module, spaceID string) (io.Reader, string, error) {
+	metadata := &bytes.Buffer{}
+	writer := multipart.NewWriter(metadata)
 
-	return buildUploadBody(filePath, module, spaceID)
-}
-
-func buildUploadBody(filePath, module, spaceID string) (*bytes.Buffer, string, error) {
-	fh, err := os.Open(filePath)
-	if err != nil {
-		return nil, "", output.UserError("request_error", err.Error(), "Check --file path")
-	}
-	defer func() { _ = fh.Close() }()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
-	if err != nil {
+	if _, err := writer.CreateFormFile("file", filepath.Base(fh.Name())); err != nil {
 		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
 	}
-	if _, err := io.Copy(part, fh); err != nil {
-		return nil, "", output.UserError("request_error", err.Error(), "Check --file path")
-	}
+	fileHeaderSize := metadata.Len()
 	if err := writer.WriteField("module", module); err != nil {
 		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
 	}
@@ -153,5 +159,8 @@ func buildUploadBody(filePath, module, spaceID string) (*bytes.Buffer, string, e
 		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
 	}
 
+	// Insert the file stream between its part header and the remaining fields.
+	data := metadata.Bytes()
+	body := io.MultiReader(bytes.NewReader(data[:fileHeaderSize]), fh, bytes.NewReader(data[fileHeaderSize:]))
 	return body, writer.FormDataContentType(), nil
 }

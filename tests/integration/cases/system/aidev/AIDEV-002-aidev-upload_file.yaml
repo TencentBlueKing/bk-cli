@@ -45,3 +45,51 @@ steps:
       equals: POST
     - path: data.path
       contains: /bk-aidev/prod/openapi/aidev/private/v1/upload/
+- name: preview existing file size
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/aidev-upload.txt
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: 0
+    checks:
+    - path: dry_run
+      equals: true
+    - path: request.body.size
+      equals: 12
+    - path: request.body.file
+      equals: aidev-upload.txt
+- name: reject missing file during preview
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/missing-aidev-upload.zip
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: nonzero
+    checks:
+    - path: error.code
+      equals: request_error
+- name: reject directory during preview
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: nonzero
+    checks:
+    - path: error.code
+      equals: request_error
+    - path: error.message
+      contains: regular file

@@ -19,11 +19,13 @@
 package aidev
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +33,7 @@ import (
 
 	systemtest "github.com/TencentBlueKing/bk-cli/cmd/system/testutil"
 	"github.com/TencentBlueKing/bk-cli/internal/config"
+	"github.com/TencentBlueKing/bk-cli/internal/output"
 )
 
 var _ = Describe("aidev upload", func() {
@@ -149,6 +152,83 @@ var _ = Describe("aidev upload", func() {
 		Expect(body["file"]).To(Equal("demo.txt"))
 		Expect(body["space_id"]).To(Equal("demo-space"))
 		Expect(body["module"]).To(Equal("skill"))
+		Expect(body["size"]).To(Equal(float64(4)))
+	})
+
+	It("rejects nonexistent files during dry-run", func() {
+		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
+		cmd.SetArgs([]string{"--file", filepath.Join(tmpDir, "missing.zip"), "--space_id", "demo-space"})
+		err := cmd.Execute()
+		Expect(err).To(HaveOccurred())
+		var cliErr *output.CLIError
+		Expect(errors.As(err, &cliErr)).To(BeTrue())
+		Expect(cliErr.Code).To(Equal("request_error"))
+	})
+
+	It("rejects directories during dry-run", func() {
+		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
+		cmd := newUploadFileCmd(systemtest.BuildDeps(true))
+		cmd.SetArgs([]string{"--file", tmpDir, "--space_id", "demo-space"})
+		err := cmd.Execute()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("regular file"))
+	})
+
+	It("streams large files without allocating a file-sized buffer", func() {
+		const fileSize = 8 * 1024 * 1024
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			reader, err := r.MultipartReader()
+			Expect(err).NotTo(HaveOccurred())
+			part, err := reader.NextPart()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(part.FormName()).To(Equal("file"))
+			n, err := io.Copy(io.Discard, part)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(int64(fileSize)))
+			_, _ = w.Write([]byte(`{"uploaded":true}`))
+		}))
+		DeferCleanup(server.Close)
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		filePath := filepath.Join(tmpDir, "large.zip")
+		fh, err := os.Create(filePath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fh.Truncate(fileSize)).To(Succeed())
+		Expect(fh.Close()).To(Succeed())
+		cmd := newUploadFileCmd(systemtest.BuildDeps(false))
+		cmd.SetArgs([]string{"--file", filePath, "--space_id", "demo-space"})
+		runtime.GC()
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		_, err = systemtest.CaptureCommandStdout(func() error { return cmd.Execute() })
+		runtime.ReadMemStats(&after)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after.TotalAlloc - before.TotalAlloc).To(BeNumerically("<", 2*1024*1024))
+	})
+
+	It("preserves multipart fields for empty files", func() {
+		filePath := filepath.Join(tmpDir, "empty.zip")
+		Expect(os.WriteFile(filePath, nil, 0o600)).To(Succeed())
+		fh, err := os.Open(filePath)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(fh.Close)
+		body, contentType, err := buildUploadBody(fh, "knowledge", "demo-space")
+		Expect(err).NotTo(HaveOccurred())
+		req, err := http.NewRequest(http.MethodPost, "https://bkapi.example.com", body)
+		Expect(err).NotTo(HaveOccurred())
+		req.Header.Set("Content-Type", contentType)
+		Expect(req.ParseMultipartForm(1024)).To(Succeed())
+		DeferCleanup(req.MultipartForm.RemoveAll)
+		file, header, err := req.FormFile("file")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(file.Close)
+		content, err := io.ReadAll(file)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(content).To(BeEmpty())
+		Expect(header.Filename).To(Equal("empty.zip"))
+		Expect(req.FormValue("module")).To(Equal("knowledge"))
+		Expect(req.FormValue("space_id")).To(Equal("demo-space"))
 	})
 
 	It("rejects extra positional args", func() {

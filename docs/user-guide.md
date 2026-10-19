@@ -240,6 +240,8 @@ AIDev action 名称与最新资源配置中的操作 ID 一致，例如 `list_sk
 bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space
 ```
 
+文件必须存在且为可读的常规文件，上传时流式读取内容。使用 `--dry-run` 时仍会检查本地文件，预览 body 中的 `size` 表示文件大小（字节），不会读取或上传文件内容。
+
 如果你不知道参数怎么写，最稳妥的方式就是：
 
 ```
