@@ -614,12 +614,16 @@ var _ = Describe("requestexec", func() {
 
 		It("executes a raw non-JSON body through the shared request path", func() {
 			type capturedRequest struct {
-				contentType string
-				body        string
+				contentType      string
+				contentLength    int64
+				transferEncoding []string
+				body             string
 			}
 			var captured capturedRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				captured.contentType = r.Header.Get("Content-Type")
+				captured.contentLength = r.ContentLength
+				captured.transferEncoding = r.TransferEncoding
 				body, err := io.ReadAll(r.Body)
 				Expect(err).NotTo(HaveOccurred())
 				captured.body = string(body)
@@ -635,16 +639,19 @@ var _ = Describe("requestexec", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := ExecuteRequest(runtime, RequestSpec{
-				GatewayName: "bk-apigateway",
-				Method:      http.MethodPost,
-				Path:        "/api/v1/upload/",
-				BodyReader:  strings.NewReader("raw-body"),
-				ContentType: "application/octet-stream",
-				AuthConfig:  &api.AuthRequirements{},
+				GatewayName:   "bk-apigateway",
+				Method:        http.MethodPost,
+				Path:          "/api/v1/upload/",
+				BodyReader:    strings.NewReader("raw-body"),
+				ContentType:   "application/octet-stream",
+				ContentLength: int64(len("raw-body")),
+				AuthConfig:    &api.AuthRequirements{},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Envelope.OK).To(BeTrue())
 			Expect(captured.contentType).To(Equal("application/octet-stream"))
+			Expect(captured.contentLength).To(Equal(int64(len("raw-body"))))
+			Expect(captured.transferEncoding).To(BeEmpty())
 			Expect(captured.body).To(Equal("raw-body"))
 		})
 

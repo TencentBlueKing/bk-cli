@@ -16,7 +16,7 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// Package aidev implements the AIDev system command and its YAML-defined actions.
+// Package aidev implements YAML-backed AIDev actions and Go-based file upload.
 package aidev
 
 import (

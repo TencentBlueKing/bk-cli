@@ -70,10 +70,12 @@ type RequestSpec struct {
 	BodyReader io.Reader
 
 	// ContentType is applied only with BodyReader because JSON bodies always use
-	// application/json. DryRunBody is an optional safe representation of
-	// BodyReader payloads for --dry-run output; it is never sent to the upstream API.
-	ContentType string
-	DryRunBody  any
+	// application/json. ContentLength sets a known raw body length when positive.
+	// DryRunBody is an optional safe representation of BodyReader payloads for
+	// --dry-run output; it is never sent to the upstream API.
+	ContentType   string
+	ContentLength int64
+	DryRunBody    any
 
 	Headers    []string
 	Stage      string
@@ -245,16 +247,17 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 	}
 
 	reqSpec := &api.Request{
-		Method:      spec.Method,
-		URL:         fullURL,
-		ParamsJSON:  spec.ParamsJSON,
-		BodyJSON:    spec.BodyJSON,
-		BodyReader:  spec.BodyReader,
-		ContentType: spec.ContentType,
-		DryRunBody:  spec.DryRunBody,
-		Headers:     headerMap,
-		AuthHeaders: authHeaders,
-		TenantID:    resolveTenantID(runtime.Config),
+		Method:        spec.Method,
+		URL:           fullURL,
+		ParamsJSON:    spec.ParamsJSON,
+		BodyJSON:      spec.BodyJSON,
+		BodyReader:    spec.BodyReader,
+		ContentType:   spec.ContentType,
+		ContentLength: spec.ContentLength,
+		DryRunBody:    spec.DryRunBody,
+		Headers:       headerMap,
+		AuthHeaders:   authHeaders,
+		TenantID:      resolveTenantID(runtime.Config),
 	}
 
 	httpReq, err := reqSpec.Build()

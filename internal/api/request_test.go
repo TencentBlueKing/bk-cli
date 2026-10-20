@@ -90,14 +90,16 @@ var _ = Describe("Request.Build", func() {
 
 	It("POST with non-JSON body uses provided Content-Type", func() {
 		r := &api.Request{
-			Method:      "POST",
-			URL:         "https://example.com/api/v1/test",
-			BodyReader:  strings.NewReader("raw-body"),
-			ContentType: "multipart/form-data; boundary=test",
+			Method:        "POST",
+			URL:           "https://example.com/api/v1/test",
+			BodyReader:    strings.NewReader("raw-body"),
+			ContentType:   "multipart/form-data; boundary=test",
+			ContentLength: int64(len("raw-body")),
 		}
 		req, err := r.Build()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(req.Header.Get("Content-Type")).To(Equal("multipart/form-data; boundary=test"))
+		Expect(req.ContentLength).To(Equal(int64(len("raw-body"))))
 		body, _ := io.ReadAll(req.Body)
 		Expect(string(body)).To(Equal("raw-body"))
 	})

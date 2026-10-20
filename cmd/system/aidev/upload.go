@@ -94,7 +94,12 @@ func executeUpload(
 	stage string,
 	headers []string,
 ) error {
-	info, err := os.Stat(filePath)
+	fh, err := os.Open(filePath)
+	if err != nil {
+		return output.UserError("request_error", err.Error(), "Check --file path")
+	}
+	defer func() { _ = fh.Close() }()
+	info, err := fh.Stat()
 	if err != nil {
 		return output.UserError("request_error", err.Error(), "Check --file path")
 	}
@@ -102,27 +107,23 @@ func executeUpload(
 		return output.UserError("request_error", "--file must be a regular file", "Check --file path")
 	}
 
-	fh, err := os.Open(filePath)
-	if err != nil {
-		return output.UserError("request_error", err.Error(), "Check --file path")
-	}
-	defer func() { _ = fh.Close() }()
-
 	var body io.Reader = bytes.NewReader(nil)
 	contentType := "multipart/form-data; boundary={...}"
+	var contentLength int64
 	if runtime == nil || !runtime.DryRun {
-		body, contentType, err = buildUploadBody(fh, module, spaceID)
+		body, contentType, contentLength, err = buildUploadBody(fh, info.Size(), module, spaceID)
 		if err != nil {
 			return err
 		}
 	}
 
 	return systemcmd.ExecuteRequest(cmd, runtime, "upload_file", syslib.RequestSpec{
-		GatewayName: gatewayName,
-		Method:      "POST",
-		Path:        uploadPath,
-		BodyReader:  body,
-		ContentType: contentType,
+		GatewayName:   gatewayName,
+		Method:        "POST",
+		Path:          uploadPath,
+		BodyReader:    body,
+		ContentType:   contentType,
+		ContentLength: contentLength,
 		DryRunBody: map[string]any{
 			"file":     filepath.Base(filePath),
 			"size":     info.Size(),
@@ -141,26 +142,26 @@ func executeUpload(
 
 // buildUploadBody buffers only multipart metadata; the caller owns the file
 // and keeps it open until shared request execution returns.
-func buildUploadBody(fh *os.File, module, spaceID string) (io.Reader, string, error) {
+func buildUploadBody(fh *os.File, fileSize int64, module, spaceID string) (io.Reader, string, int64, error) {
 	metadata := &bytes.Buffer{}
 	writer := multipart.NewWriter(metadata)
 
 	if _, err := writer.CreateFormFile("file", filepath.Base(fh.Name())); err != nil {
-		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
+		return nil, "", 0, output.SystemError("request_build_failed", err.Error(), "")
 	}
 	fileHeaderSize := metadata.Len()
 	if err := writer.WriteField("module", module); err != nil {
-		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
+		return nil, "", 0, output.SystemError("request_build_failed", err.Error(), "")
 	}
 	if err := writer.WriteField("space_id", spaceID); err != nil {
-		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
+		return nil, "", 0, output.SystemError("request_build_failed", err.Error(), "")
 	}
 	if err := writer.Close(); err != nil {
-		return nil, "", output.SystemError("request_build_failed", err.Error(), "")
+		return nil, "", 0, output.SystemError("request_build_failed", err.Error(), "")
 	}
 
 	// Insert the file stream between its part header and the remaining fields.
 	data := metadata.Bytes()
 	body := io.MultiReader(bytes.NewReader(data[:fileHeaderSize]), fh, bytes.NewReader(data[fileHeaderSize:]))
-	return body, writer.FormDataContentType(), nil
+	return body, writer.FormDataContentType(), int64(len(data)) + fileSize, nil
 }

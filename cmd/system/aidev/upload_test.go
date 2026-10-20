@@ -19,6 +19,7 @@
 package aidev
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -54,15 +55,18 @@ var _ = Describe("aidev upload", func() {
 
 	DescribeTable("sends a multipart file upload request", func(personal bool) {
 		type capturedRequest struct {
-			method      string
-			path        string
-			contentType string
-			authHeader  string
-			bearer      string
-			spaceID     string
-			module      string
-			fileName    string
-			fileContent string
+			method           string
+			path             string
+			contentType      string
+			contentLength    int64
+			bodyLength       int64
+			transferEncoding []string
+			authHeader       string
+			bearer           string
+			spaceID          string
+			module           string
+			fileName         string
+			fileContent      string
 		}
 
 		var captured capturedRequest
@@ -70,8 +74,17 @@ var _ = Describe("aidev upload", func() {
 			captured.method = r.Method
 			captured.path = r.URL.Path
 			captured.contentType = r.Header.Get("Content-Type")
+			captured.contentLength = r.ContentLength
+			captured.transferEncoding = r.TransferEncoding
 			captured.authHeader = r.Header.Get("X-Bkapi-Authorization")
 			captured.bearer = r.Header.Get("Authorization")
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			captured.bodyLength = int64(len(body))
+			r.Body = io.NopCloser(bytes.NewReader(body))
 
 			if err := r.ParseMultipartForm(1024); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -125,6 +138,8 @@ var _ = Describe("aidev upload", func() {
 		Expect(captured.method).To(Equal(http.MethodPost))
 		Expect(captured.path).To(Equal("/bk-aidev/prod/openapi/aidev/private/v1/upload/"))
 		Expect(captured.contentType).To(HavePrefix("multipart/form-data; boundary="))
+		Expect(captured.contentLength).To(Equal(captured.bodyLength))
+		Expect(captured.transferEncoding).To(BeEmpty())
 		if personal {
 			Expect(captured.bearer).To(Equal("Bearer personal-upload-token"))
 			Expect(captured.authHeader).To(BeEmpty())
@@ -242,10 +257,11 @@ var _ = Describe("aidev upload", func() {
 		fh, err := os.Open(filePath)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(fh.Close)
-		body, contentType, err := buildUploadBody(fh, "knowledge", "demo-space")
+		body, contentType, contentLength, err := buildUploadBody(fh, 0, "knowledge", "demo-space")
 		Expect(err).NotTo(HaveOccurred())
 		req, err := http.NewRequest(http.MethodPost, "https://bkapi.example.com", body)
 		Expect(err).NotTo(HaveOccurred())
+		req.ContentLength = contentLength
 		req.Header.Set("Content-Type", contentType)
 		Expect(req.ParseMultipartForm(1024)).To(Succeed())
 		DeferCleanup(req.MultipartForm.RemoveAll)
