@@ -186,6 +186,31 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			[]string{"Authorization:Bearer test-personal-token"}),
 	)
 
+	DescribeTable("checks command-local personal token restrictions for cached credentials and header overrides",
+		func(credType credential.CredentialType, headers map[string]string, rejected bool) {
+			var cred *credential.Credential
+			if credType != "" {
+				cred = &credential.Credential{Type: credType}
+			}
+			err := validatePersonalTokenAuth(cred, headers)
+			if rejected {
+				Expect(err).To(MatchError(ContainSubstring("unsupported_credential_type")))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		},
+		Entry("anonymous without headers", credential.CredentialType(""), nil, false),
+		Entry("application credentials", credential.TypeAppUser, nil, false),
+		Entry("access token credentials", credential.TypeAccessToken, nil, false),
+		Entry("cached personal credentials", credential.TypePersonalToken, nil, true),
+		Entry("explicit Bearer header without stored credentials", credential.CredentialType(""),
+			map[string]string{"aUtHoRiZaTiOn": " bEaReR personal"}, true),
+		Entry("non-Bearer header", credential.TypeAccessToken,
+			map[string]string{"Authorization": "Basic example"}, false),
+		Entry("empty header", credential.TypeAccessToken,
+			map[string]string{"Authorization": ""}, false),
+	)
+
 	DescribeTable("submits exactly one batch and preserves all returned approval details",
 		func(input string) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
@@ -265,20 +290,34 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	)
 
 	DescribeTable(
-		"rejects malformed permission fields before sending an application",
+		"delegates permission fields and body structure to the server",
 		func(input string) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			status = http.StatusBadRequest
+			response = `{"code":1,"message":"Server rejected application fields"}`
 			cmd := newCommand(false)
 			Expect(
 				cmd.ParseFlags([]string{"--confirmed", "--gateway_name", "bk-iam", "--body", input}),
 			).To(
 				Succeed(),
 			)
-			Expect(cmd.RunE(cmd, nil)).To(MatchError(ContainSubstring("request_error")))
-			Expect(requests.Load()).To(BeZero())
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			Expect(cmd.RunE(cmd, nil)).To(Succeed())
+			Expect(requests.Load()).To(Equal(int32(1)))
+			Expect(capturedBody).To(Equal(input))
+			var env output.Envelope
+			Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
+			Expect(env.OK).To(BeFalse())
+			Expect(env.Status).To(Equal(http.StatusBadRequest))
+			Expect(env.Data).To(HaveKeyWithValue("message", "Server rejected application fields"))
+			Expect(env.Message).To(BeEmpty())
 		},
 		Entry("array body", `[]`),
 		Entry("null body", `null`),
+		Entry("string body", `"application"`),
+		Entry("boolean body", `true`),
+		Entry("numeric body", `42`),
 		Entry("missing required fields", `{}`),
 		Entry(
 			"blank target application",
@@ -336,10 +375,10 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 		),
 	)
 
-	DescribeTable("validates resolved file and stdin bodies during preview and submission",
+	DescribeTable("rejects invalid JSON from inline, file and stdin during preview and submission",
 		func(source string, dryRun bool) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
-			input := `{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[]}`
+			input := `{`
 			bodyInput := input
 			if source == "file" {
 				path := filepath.Join(GinkgoT().TempDir(), "body.json")
@@ -364,10 +403,11 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			).To(
 				Succeed(),
 			)
-			Expect(cmd.RunE(cmd, nil)).To(MatchError(ContainSubstring("resource_names")))
+			Expect(cmd.RunE(cmd, nil)).To(MatchError(ContainSubstring("--body JSON")))
 			Expect(requests.Load()).To(BeZero())
 		},
 		Entry("inline preview", "inline", true),
+		Entry("inline submission", "inline", false),
 		Entry("file submission", "file", false),
 		Entry("stdin submission", "stdin", false),
 		Entry("file preview", "file", true),
@@ -375,7 +415,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	)
 
 	DescribeTable(
-		"keeps valid gateway and batch application bodies unchanged",
+		"keeps application bodies unchanged as the server contract evolves",
 		func(input string) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
 			cmd := newCommand(false)
@@ -388,6 +428,14 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			Expect(requests.Load()).To(Equal(int32(1)))
 			Expect(capturedBody).To(Equal(input))
 		},
+		Entry(
+			"legacy dimension and string expiry",
+			`{"target_app_code":"my-app","grant_dimension":"api","applicant":"developer","expire_days":"180"}`,
+		),
+		Entry(
+			"future dimension and expiry",
+			`{"grant_dimension":"future","expire_days":90,"future_field":{"id":9007199254740993}}`,
+		),
 		Entry(
 			"gateway with omitted expiry",
 			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}`,

@@ -256,10 +256,10 @@ case-insensitive; generating personal authentication alongside an explicit
 `X-Bkapi-Authorization` is rejected. Redact both authentication header names in
 preview, request/response logs, and response envelope headers.
 
-Go actions that require application identity and cannot use personal tokens may set
-`RequestSpec.DisallowPersonalToken`. The shared executor rejects stored or cached
-personal credentials and explicit Bearer headers before request construction,
-including dry-run. `apigateway apply_gateway_permission` uses this restriction.
+Action-specific credential restrictions belong in the Go command. Use
+`runtime.EnsureCredential()` to load or reuse credentials before checking them.
+`apigateway apply_gateway_permission` rejects personal credentials and explicit
+Bearer headers locally, including dry-run.
 
 Exact header payload shapes, validation, and redaction behavior remain defined in `docs/design.md` and the shared request/runtime packages.
 

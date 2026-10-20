@@ -38,7 +38,29 @@ steps:
           contains: /bk-apigateway/prod/api/v2/open/gateways/bk-iam/permissions/apply/
         - path: request.body.resource_names
           equals: [user_query, user_create]
-  - name: reject an invalid confirmed batch locally
+  - name: preview future fields without local business validation
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --body
+      - '{"grant_dimension":"future","expire_days":"90","resource_names":[],"future_field":true}'
+      - --dry-run
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.body.grant_dimension
+          equals: future
+        - path: request.body.expire_days
+          equals: "90"
+        - path: request.body.resource_names
+          equals: []
+        - path: request.body.future_field
+          equals: true
+  - name: reject invalid JSON locally after confirmation
     command:
       - apigateway
       - apply_gateway_permission
@@ -46,7 +68,7 @@ steps:
       - bk-iam
       - --confirmed
       - --body
-      - '{"target_app_code":"my-app","grant_dimension":"resource","resource_names":[],"applicant":"developer"}'
+      - '{'
     expect:
       exit_code: 1
       checks:
@@ -55,7 +77,7 @@ steps:
         - path: error.code
           equals: request_error
         - path: error.message
-          contains: resource_names
+          contains: --body JSON
   - name: submit the batch after explicit user confirmation
     command:
       - apigateway

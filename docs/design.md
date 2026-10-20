@@ -251,7 +251,6 @@ flowchart TD
 - 允许顶层 system 注册一层 subsystem；当前不开放多层 subsystem，但 `SystemSpec` 抽象保留了未来放开递归注册的口子。
 - 提供 `ResolveRuntime` 统一解析 context、dry-run、verbose、insecure。
 - 提供 `ExecuteRequest` 作为单次请求 action 的标准执行路径。
-- Go action 可通过 `RequestSpec.ValidateBody` 校验共享层解析后的 body 原文；回调在文件/stdin 读取后、凭据加载和预览/发送前调用一次，失败返回 `request_error`。回调只校验，不改写 body；未设置回调的请求保持原行为。
 - 提供 flag 注册（`AddCommonRequestFlags`）、校验（`Validate*`）、序列化（`MarshalJSON`）和 JSON 解析（`ParseJSONObjectFlag`）等共享 helper。
 - 提供 `EnsureEnvelope` 防御空 envelope。
 
@@ -564,7 +563,7 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
 
 `personal_token` 使用独立的 `--personal_token` 登录 flag，与其他五个凭据 flags 按显式出现互斥（包括显式空值）。输入必须符合 RFC 6750 §2.1 的单个 Bearer token 字符语法，不添加前缀、不裁剪原值。非法输入返回 `invalid_credentials` 且不回显原值，也不替换已有凭据。复用 AES-GCM 存储和 context 隔离，不改变旧凭据格式；存储读取后，在生成个人认证头前再次校验。
 
-个人模式不套用应用/用户字段拼装；默认要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。Go action 若明确不支持个人 token，可设置 `RequestSpec.DisallowPersonalToken`：共享层在加载凭据后、构造请求前拒绝个人凭据（含 runtime 已缓存的凭据）及显式 Bearer header，返回 `unsupported_credential_type`，dry-run 同样拒绝。`apigateway apply_gateway_permission` 使用此限制，因为申请接口需要应用身份；其他请求保持默认认证行为。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
+个人模式不套用应用/用户字段拼装；默认要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。`apigateway apply_gateway_permission` 需要应用身份，因此在命令内通过 `runtime.EnsureCredential()` 加载或复用凭据，拒绝个人凭据及显式 Bearer header，返回 `unsupported_credential_type`，dry-run 同样拒绝。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
 
 YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪些认证维度：
 

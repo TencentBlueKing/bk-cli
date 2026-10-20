@@ -261,7 +261,7 @@ bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
   --body @permission.json --confirmed
 ```
 
-不传 `--confirmed` 或传 `--confirmed=false` 时，实际提交返回 `confirmation_required`，不会发起请求。预览和提交都校验 body 必须是 JSON object、应用和申请人必须为非空字符串、申请范围及资源列表是否合法，以及有效期是否为上述整数；无效输入返回 `request_error`，不会发送请求。原始 body 保持不变；申请人格式、调用应用是否匹配、资源是否存在及是否允许申请由网关校验。
+不传 `--confirmed` 或传 `--confirmed=false` 时，实际提交返回 `confirmation_required`，不会发起请求。预览和提交沿用共享请求层的 JSON 语法校验和内联、文件、stdin 读取规则；非法 JSON 返回 `request_error`，不会发送请求。原始 body 保持不变；请求体结构、字段类型、必填字段、申请范围、资源列表、有效期以及是否允许申请均由服务端校验。
 
 返回值保持 JSON envelope 和完整上游响应。提交成功后，向用户展示 `data.data.record_id` 申请单号（`message` 也会展示返回的单号），大单号应保持原值。**提交成功不表示权限已获批。** 响应中若有非空 `itsm_ticket_id`、`itsm_ticket_url`，展示对应工单和审批链接；若返回审批人或其他审批信息，也一并告知用户。没有返回链接或审批人时不要猜测，不要把申请单号当作审批完成状态。
 

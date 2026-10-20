@@ -85,23 +85,6 @@ var _ = Describe("requestexec", func() {
 	})
 
 	Describe("personal token", func() {
-		It("rejects preloaded personal credentials for an action requiring application identity", func() {
-			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
-			runtime, err := ResolveRuntime("", true, false)
-			Expect(err).NotTo(HaveOccurred())
-			runtime.Credential = &credential.Credential{
-				Type: credential.TypePersonalToken, PersonalToken: "preloaded-personal",
-			}
-			result, err := ExecuteRequest(runtime, RequestSpec{
-				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/permissions/apply/",
-				AuthConfig:            &api.AuthRequirements{AppVerifiedRequired: true},
-				DisallowPersonalToken: true,
-			})
-			cliErr := expectCLIError(err, "unsupported_credential_type")
-			Expect(cliErr.Message).To(ContainSubstring("application identity"))
-			Expect(result).To(BeNil())
-		})
-
 		It(
 			"sends Bearer for raw API and every required policy, with overrides and anonymous runtime reuse",
 			func() {
@@ -254,7 +237,7 @@ var _ = Describe("requestexec", func() {
 		})
 	})
 
-	Describe("ensureRuntimeCredential", func() {
+	Describe("Runtime.EnsureCredential", func() {
 		It("does nothing when the credential is already present", func() {
 			preloaded := &credential.Credential{
 				Type:        credential.TypeAccessToken,
@@ -265,13 +248,13 @@ var _ = Describe("requestexec", func() {
 				Credential:  preloaded,
 			}
 
-			err := ensureRuntimeCredential(runtime)
+			err := runtime.EnsureCredential()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(runtime.Credential).To(BeIdenticalTo(preloaded))
 		})
 
 		It("requires a context name when loading lazily", func() {
-			err := ensureRuntimeCredential(&Runtime{})
+			err := (&Runtime{}).EnsureCredential()
 
 			Expect(err).To(MatchError("runtime context name is required when credential is not preloaded"))
 		})
@@ -280,7 +263,7 @@ var _ = Describe("requestexec", func() {
 			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
 			runtime := &Runtime{ContextName: "default"}
 
-			err := ensureRuntimeCredential(runtime)
+			err := runtime.EnsureCredential()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(runtime.Credential).NotTo(BeNil())
 			Expect(runtime.Credential.AccessToken).To(Equal("token-123"))
@@ -288,31 +271,6 @@ var _ = Describe("requestexec", func() {
 	})
 
 	Describe("helper functions", func() {
-		DescribeTable("validates personal token restrictions without requiring credentials for anonymous calls",
-			func(credType credential.CredentialType, headers map[string]string, rejected bool) {
-				var cred *credential.Credential
-				if credType != "" {
-					cred = &credential.Credential{Type: credType}
-				}
-				err := validatePersonalTokenAuth(cred, headers)
-				if rejected {
-					expectCLIError(err, "unsupported_credential_type")
-				} else {
-					Expect(err).NotTo(HaveOccurred())
-				}
-			},
-			Entry("anonymous without headers", credential.CredentialType(""), nil, false),
-			Entry("application credentials", credential.TypeAppUser, nil, false),
-			Entry("access token credentials", credential.TypeAccessToken, nil, false),
-			Entry("cached personal credentials", credential.TypePersonalToken, nil, true),
-			Entry("explicit Bearer header without stored credentials", credential.CredentialType(""),
-				map[string]string{"aUtHoRiZaTiOn": " bEaReR personal"}, true),
-			Entry("non-Bearer header", credential.TypeAccessToken,
-				map[string]string{"Authorization": "Basic example"}, false),
-			Entry("empty header", credential.TypeAccessToken,
-				map[string]string{"Authorization": ""}, false),
-		)
-
 		It("rejects a Content-Type override when a JSON body is present", func() {
 			err := validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, `{"ok":true}`)
 
@@ -394,73 +352,6 @@ var _ = Describe("requestexec", func() {
 				"must be greater than 0",
 			),
 		)
-	})
-
-	Describe("resolved body validation", func() {
-		It("rejects the body before loading credentials or sending a request", func() {
-			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
-			runtime, err := ResolveRuntime("", false, false)
-			Expect(err).NotTo(HaveOccurred())
-			calls := 0
-			_, err = ExecuteRequest(runtime, RequestSpec{
-				GatewayName: "bk-apigateway",
-				Method:      http.MethodPost,
-				Path:        "/api/v1/demo/",
-				BodyJSON:    `{"invalid":true}`,
-				AuthConfig:  &api.AuthRequirements{AppVerifiedRequired: true},
-				ValidateBody: func(body string) error {
-					calls++
-					Expect(body).To(Equal(`{"invalid":true}`))
-					return errors.New("application fields are invalid")
-				},
-			})
-			expectCLIError(err, "request_error")
-			Expect(err.Error()).To(ContainSubstring("application fields are invalid"))
-			Expect(calls).To(Equal(1))
-			Expect(runtime.Credential).To(BeNil())
-		})
-
-		It("validates stdin exactly once and previews the same resolved body", func() {
-			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
-			r, w, err := os.Pipe()
-			Expect(err).NotTo(HaveOccurred())
-			original := os.Stdin
-			os.Stdin = r
-			DeferCleanup(func() { os.Stdin = original; Expect(r.Close()).To(Succeed()) })
-			input := `{"name":"from-stdin","id":9007199254740993}`
-			_, err = w.WriteString(input)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(w.Close()).To(Succeed())
-			runtime, err := ResolveRuntime("", true, false)
-			Expect(err).NotTo(HaveOccurred())
-			calls := 0
-			result, err := ExecuteRequest(runtime, RequestSpec{
-				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/api/v1/demo/",
-				BodyJSON: "-", AuthConfig: &api.AuthRequirements{},
-				ValidateBody: func(body string) error {
-					calls++
-					Expect(body).To(Equal(input))
-					return nil
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(calls).To(Equal(1))
-			Expect(result.DryRunRequest.Body).To(HaveKeyWithValue("id", json.Number("9007199254740993")))
-		})
-
-		It("does not validate when the body source cannot be read", func() {
-			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
-			runtime, err := ResolveRuntime("", true, false)
-			Expect(err).NotTo(HaveOccurred())
-			calls := 0
-			_, err = ExecuteRequest(runtime, RequestSpec{
-				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/api/v1/demo/",
-				BodyJSON: "@" + tmpDir + "/missing.json", AuthConfig: &api.AuthRequirements{},
-				ValidateBody: func(_ string) error { calls++; return nil },
-			})
-			expectCLIError(err, "request_error")
-			Expect(calls).To(BeZero())
-		})
 	})
 
 	Describe("ExecuteRequest", func() {

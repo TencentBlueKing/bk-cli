@@ -427,7 +427,7 @@ bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
   --body @permission.json --confirmed
 ```
 
-预览和提交都会先做轻量校验：body 必须是 JSON object；`target_app_code`、`applicant` 必须为非空字符串；`grant_dimension` 必须为 `gateway` 或 `resource`；按资源申请时 `resource_names` 必须是非空字符串数组；`expire_days` 若提供，必须是整数 `0`、`180` 或 `360`。无效输入返回 `request_error`，不会发送请求。原始 body 保持不变；申请人格式、调用应用是否匹配、资源是否存在及是否允许申请仍由网关校验。修正申请内容后，应重新预览并向用户确认。
+预览和提交都沿用共享请求层的 JSON 语法校验和输入读取规则，支持内联 JSON、`@file` 和 stdin。非法 JSON 返回 `request_error`，不会发送请求。原始 body 保持不变；请求体结构、字段类型、必填字段、申请范围、资源列表、有效期以及是否允许申请均由服务端校验。修正申请内容后，应重新预览并向用户确认。
 
 `--body` 也支持内联 JSON 或 `--body -` 从 stdin 读取。`--confirmed` 表示用户已明确确认本次申请内容，不能代替向用户询问；不传该参数或传 `--confirmed=false` 时，实际提交在本地返回 `confirmation_required`，不会发起请求。
 

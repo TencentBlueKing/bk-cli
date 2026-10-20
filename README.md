@@ -31,8 +31,6 @@
 
 Bash 示例中的 URL 模板和凭据使用单引号包裹；替换引号内的示例值，避免 `$` 和命令替换被 shell 展开。
 
-接口缺少网关权限时，可用 `bk-cli apigateway apply_gateway_permission` 批量申请（需要应用身份，不支持 `personal_token`，包括 dry-run）；Agent 每次提交前必须先向用户确认网关、应用、资源范围、有效期和原因，获得明确同意后才传 `--confirmed`。申请会创建单据并触发通知和审批，建议先用 `--dry-run` 预览，预览和提交均会校验申请字段；[权限申请示例](docs/user-guide.md#申请网关或接口权限)包含请求体和返回信息说明。
-
 开发者：
 
 - [开发环境搭建](docs/develop-environment-guide.md)

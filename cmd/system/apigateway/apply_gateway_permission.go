@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"strings"
 
-	json "github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
+	"github.com/TencentBlueKing/bk-cli/internal/api"
+	"github.com/TencentBlueKing/bk-cli/internal/credential"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
@@ -59,10 +60,9 @@ application credential context or log in with app credentials or a suitable
 access_token before previewing or submitting.
 
 The required --body accepts JSON, @file or - for stdin.
-Before preview or submission, the CLI validates the JSON object, required strings,
-grant dimension, resource list and expiry. Invalid fields return request_error.
-The original body is sent unchanged; the server checks applicant format, caller
-identity, resource existence and whether an application is allowed.
+Before preview or submission, the shared request layer reads the input and checks
+JSON syntax. Invalid JSON returns request_error. The original body is sent unchanged;
+the server validates its structure, fields and whether an application is allowed.
 
 Body fields:
   target_app_code: required; application requesting permission, matching the caller
@@ -114,15 +114,27 @@ Do not invent approval links or approvers, or assume the CLI knows approval stat
 			if err != nil {
 				return err
 			}
+			headerMap, err := api.ParseHeaderFlags(headers)
+			if err != nil {
+				return output.UserError(
+					"request_error",
+					err.Error(),
+					"Use repeatable --header key:value entries",
+				)
+			}
+			if err := runtime.EnsureCredential(); err != nil {
+				return err
+			}
+			if err := validatePersonalTokenAuth(runtime.Credential, headerMap); err != nil {
+				return err
+			}
 			return systemcmd.ExecuteRequest(cmd, runtime, "apply_gateway_permission", syslib.RequestSpec{
-				GatewayName:           "bk-apigateway",
-				Method:                "POST",
-				Path:                  "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
-				BodyJSON:              body,
-				ValidateBody:          validatePermissionApplicationBody,
-				DisallowPersonalToken: true,
-				Headers:               headers,
-				Stage:                 stage,
+				GatewayName: "bk-apigateway",
+				Method:      "POST",
+				Path:        "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
+				BodyJSON:    body,
+				Headers:     headers,
+				Stage:       stage,
 				AuthConfig: &syslib.AuthConfig{
 					AppVerifiedRequired:        true,
 					UserVerifiedRequired:       false,
@@ -163,41 +175,22 @@ Do not invent approval links or approvers, or assume the CLI knows approval stat
 	return cmd
 }
 
-func validatePermissionApplicationBody(body string) error {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(body), &fields); err != nil || fields == nil {
-		return fmt.Errorf("--body must be a JSON object")
-	}
-	for _, name := range []string{"target_app_code", "applicant"} {
-		var value string
-		if err := json.Unmarshal(fields[name], &value); err != nil || strings.TrimSpace(value) == "" {
-			return fmt.Errorf("--body %s must be a non-empty string", name)
+func validatePersonalTokenAuth(cred *credential.Credential, headers map[string]string) error {
+	personalAuth := cred != nil && cred.Type == credential.TypePersonalToken
+	for name, value := range headers {
+		if strings.EqualFold(name, "Authorization") {
+			parts := strings.Fields(value)
+			personalAuth = personalAuth || (len(parts) > 0 && strings.EqualFold(parts[0], "Bearer"))
 		}
 	}
-	var dimension string
-	if err := json.Unmarshal(fields["grant_dimension"], &dimension); err != nil ||
-		(dimension != "gateway" && dimension != "resource") {
-		return fmt.Errorf("--body grant_dimension must be gateway or resource")
-	}
-	if dimension == "resource" {
-		var names []string
-		if err := json.Unmarshal(fields["resource_names"], &names); err != nil || len(names) == 0 {
-			return fmt.Errorf("--body resource_names must be a non-empty array of non-empty strings")
-		}
-		for _, name := range names {
-			if strings.TrimSpace(name) == "" {
-				return fmt.Errorf(
-					"--body resource_names must be a non-empty array of non-empty strings",
-				)
-			}
-		}
-	}
-	if raw, present := fields["expire_days"]; present {
-		var days *int
-		if err := json.Unmarshal(raw, &days); err != nil || days == nil ||
-			(*days != 0 && *days != 180 && *days != 360) {
-			return fmt.Errorf("--body expire_days must be an integer: 0, 180 or 360")
-		}
+	if personalAuth {
+		return output.UserError(
+			"unsupported_credential_type",
+			"personal_token authentication is not supported for this action; application identity is required",
+			"Select an application credential context using --context, or run bk-cli auth login with "+
+				"--bk_app_code/--bk_app_secret and --bk_token/--bk_ticket, or a suitable --access_token; "+
+				"remove any Authorization: Bearer override before previewing or submitting.",
+		)
 	}
 	return nil
 }
