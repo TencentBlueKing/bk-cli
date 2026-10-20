@@ -20,8 +20,10 @@ package cmdb
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	json "github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
 	"github.com/TencentBlueKing/bk-cli/internal/output"
@@ -113,7 +115,7 @@ func newListBizHostsAllCmd(deps systemcmd.BuildDeps) *cobra.Command {
 						"page_limit":           pageLimit,
 					},
 				}
-				return result.Envelope.WriteJSON(cmd.OutOrStdout())
+				return output.WriteCommandEnvelope(cmd, result.Envelope)
 			}
 
 			const maxPages = 1000
@@ -224,7 +226,7 @@ func newListBizHostsAllCmd(deps systemcmd.BuildDeps) *cobra.Command {
 				"count": len(allHosts),
 				"info":  allHosts,
 			})
-			return env.WriteJSON(cmd.OutOrStdout())
+			return output.WriteCommandEnvelope(cmd, env)
 		},
 	}
 
@@ -303,11 +305,19 @@ func parsePagedInfoResponse(actionName string, data any) (int, []any, error) {
 		)
 	}
 
-	count, ok := payload["count"].(float64)
+	count, ok := payload["count"].(json.Number)
 	if !ok {
 		return 0, nil, output.SystemError(
 			"response_error",
 			actionName+" response is missing numeric count",
+			"",
+		)
+	}
+	total, err := strconv.Atoi(count.String())
+	if err != nil {
+		return 0, nil, output.SystemError(
+			"response_error",
+			actionName+" response contains an invalid integer count",
 			"",
 		)
 	}
@@ -321,7 +331,7 @@ func parsePagedInfoResponse(actionName string, data any) (int, []any, error) {
 		)
 	}
 
-	return int(count), info, nil
+	return total, info, nil
 }
 
 func appendUniqueHosts(
@@ -368,6 +378,16 @@ func parseHostID(actionName string, host any) (int64, error) {
 	}
 
 	switch hostID := rawHostID.(type) {
+	case json.Number:
+		asInt, err := hostID.Int64()
+		if err != nil {
+			return 0, output.SystemError(
+				"response_error",
+				actionName+" response contains a host entry whose bk_host_id is not a valid int64 integer",
+				"",
+			)
+		}
+		return asInt, nil
 	case int:
 		return int64(hostID), nil
 	case int32:

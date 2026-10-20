@@ -28,6 +28,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
 )
@@ -322,6 +323,7 @@ func buildYAMLActionCmd(
 	}
 
 	cmd.Flags().StringVar(&stage, syslib.ActionStageFlagName, "prod", "[Optional] API gateway stage")
+	output.AddJQFlag(cmd)
 	cmd.Flags().StringVar(&body, syslib.ActionBodyFlagName, "", bodyUsage)
 	cmd.Flags().StringArrayVar(
 		&headers,

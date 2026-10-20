@@ -1,0 +1,55 @@
+id: API-004
+name: raw API jq projection and local validation
+tags:
+  - coverage-api
+  - suite-integration
+steps:
+  - name: reject invalid jq before context or request body input
+    command: [api, bk-demo, POST, /result, --body, "-", --jq, missing_function]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: project final response
+    command: [api, bk-demo, POST, /result, --body, '{"id":9007199254740993}', --jq, '{status, method:.data.method}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 200
+        - path: method
+          equals: POST
+  - name: project redacted dry run and integer input
+    command: [api, bk-demo, POST, /result, --body, '{"id":18446744073709551617}', --dry-run, --jq, '{id:(.request.body.id|tostring),auth:.request.headers["X-Bkapi-Authorization"]}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: id
+          equals: "18446744073709551617"
+        - path: auth
+          equals: "{...redacted...}"
+  - name: preserve completed POST when projection fails
+    command: [api, bk-demo, POST, /result, --body, '{}', --jq, '1, .data.method[]']
+    expect:
+      exit_code: 2
+      checks:
+        - path: ok
+          equals: true
+        - path: data.method
+          equals: POST
+  - name: reject jq on unsupported command
+    command: [version, --jq, '.']
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error

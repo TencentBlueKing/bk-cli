@@ -32,10 +32,10 @@ Each context has its own config (URL template, tenant) and credentials. And the 
 
 Examples:
   # First-run setup
-  bk-cli context init --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}/"
+  bk-cli context init --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/'
 
   # Create a new context (it does not become active automatically)
-  bk-cli context create clouds --bk_api_url_tmpl="https://bkapi.clouds.example.com/api/{gateway_name}/"
+  bk-cli context create clouds --bk_api_url_tmpl='https://bkapi.clouds.example.com/api/{gateway_name}/'
 
   # List all contexts
   bk-cli context list

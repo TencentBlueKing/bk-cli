@@ -96,6 +96,16 @@ var _ = Describe("BuildActionInputSpec", func() {
 		Expect(err.Error()).To(ContainSubstring("collide with built-in CLI flag --body"))
 	})
 
+	It("rejects jq query flag conflicts", func() {
+		action := &system.Action{
+			Name:   "broken",
+			Params: []system.Param{{Name: "jq", In: "query", Type: "string"}},
+		}
+		_, err := system.BuildActionInputSpec(action)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("collide with built-in CLI flag --jq"))
+	})
+
 	It("rejects insecure flag name conflicts", func() {
 		action := &system.Action{
 			Name:   "broken",

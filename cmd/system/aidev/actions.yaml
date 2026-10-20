@@ -472,7 +472,7 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_mcp --body '{\"space_id\":\"demo-space\",\"mcp_name\":\"Demo MCP\",\"mcp_code\":\"demo-mcp\",\"url\":\"bkrepo://demo.zip\",\"protocol\":\"stdio\",\"credential_type\":\"api_key\",\"description\":\"demo description\"}'"
+      - "bk-cli aidev create_mcp --body '{\"space_id\":\"demo-space\",\"mcp_name\":\"Demo MCP\",\"mcp_code\":\"demo-mcp\",\"url\":\"bkrepo://demo.zip\",\"protocol\":\"stdio\",\"credential_type\":\"custom\",\"description\":\"demo description\"}'"
 
   - name: get_mcp
     description: "按类型和 ID 读取 MCP 详情。适用于已取得准确 ID 后核对资源型或 APIGW MCP 配置。"
@@ -3532,7 +3532,7 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev create_credential --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\"}'"
+      - "bk-cli aidev create_credential --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"custom\",\"credential_detail\":{\"key\":\"demo-value\"},\"space_id\":\"demo-space\"}'"
 
   - name: batch_delete_credentials
     description: "批量删除指定凭证；先逐项确认 ID 与引用关系。适用于一次清理多个已确认不再使用的凭证。"
@@ -3625,7 +3625,7 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev bind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+      - "bk-cli aidev bind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"mcp\",\"resource_id\":1}'"
 
   - name: unbind_credential
     description: "解除凭证与目标资源的绑定。适用于明确撤销该关联时；可能影响目标资源调用外部服务。"
@@ -3679,7 +3679,7 @@ actions:
       userVerifiedRequired: true
       resourcePermissionRequired: true
     examples:
-      - "bk-cli aidev unbind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"skill\",\"resource_id\":1}'"
+      - "bk-cli aidev unbind_credential --body '{\"space_id\":\"demo-space\",\"credential_id\":1,\"resource_type\":\"mcp\",\"resource_id\":1}'"
 
   - name: delete_credential
     description: "删除指定凭证。先查询引用并确认解绑或影响范围，再执行删除。"
@@ -3809,7 +3809,7 @@ actions:
         description: "凭证 ID"
         required: true
     examples:
-      - "bk-cli aidev update_credential --credential_id 1 --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"api_key\",\"credential_detail\":\"demo-credential-detail\",\"space_id\":\"demo-space\",\"credential_id\":1}'"
+      - "bk-cli aidev update_credential --credential_id 1 --body '{\"credential_name\":\"demo-credential\",\"credential_type\":\"custom\",\"credential_detail\":{\"key\":\"demo-value\"},\"space_id\":\"demo-space\",\"credential_id\":1}'"
 
   - name: reclean_knowledge
     description: "按当前或指定导入链路重新清洗并重建知识产物。适用于确认现有产物需重建时；会触发后台处理。"

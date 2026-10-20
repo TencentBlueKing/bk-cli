@@ -233,7 +233,7 @@ YAML actions are good when the command mostly maps flags to a single remote requ
 - complex request bodies should stay on the shared `--body '<json>'` / `--body @file` / `--body -` input and expose body examples through `examples`; default help shows `Usage`, `Examples`, then a `body_schema` hint; full schema is shown only by `-h --body-schema`
 - if the upstream OpenAPI request body is required, set `body_required: true` so YAML actions fail locally when `--body` is missing
 - `--body-schema` is a help modifier, not an execution flag; `bk-cli ... --body-schema` without `-h` must fail before auth or request execution
-- param names must not collide with built-in or reserved flags such as `body`, `body-schema`, `header`, `stage`, `help`, `context`, `dry-run`, `format`, `verbose`, and `insecure`
+- param names must not collide with built-in or reserved flags such as `body`, `body-schema`, `header`, `stage`, `help`, `context`, `dry-run`, `format`, `jq`, `verbose`, and `insecure`
 - `format` is currently reserved for future CLI use; do not treat it as an exposed flag today
 - duplicate path/query names or generated-flag collisions skip that action with a warning
 - path placeholders are escaped as single URL path segments
@@ -248,6 +248,19 @@ For detailed shared input, override, and preview semantics, prefer checking `doc
 - `userVerifiedRequired` means the request needs user identity, such as `bk_token`, `bk_ticket`, or an `access_token` that satisfies the request
 - when both are `true`, the generated auth header must contain both app and user identity
 - when both are `false`, the CLI must not auto-generate `X-Bkapi-Authorization` and must not require local credentials for that request
+
+Personal-token credentials use `Authorization: Bearer <personal-token>` for raw API
+calls and actions requiring authentication. They do not need app/user credential
+fields. Explicitly anonymous actions do not load or generate authentication even
+when the runtime has a cached personal credential. Same-name header overrides are
+case-insensitive; generating personal authentication alongside an explicit
+`X-Bkapi-Authorization` is rejected. Redact both authentication header names in
+preview, request/response logs, and response envelope headers.
+
+Action-specific credential restrictions belong in the Go command. Use
+`runtime.EnsureCredential()` to load or reuse credentials before checking them.
+`apigateway apply_gateway_permission` rejects personal credentials and explicit
+Bearer headers locally, including dry-run.
 
 Exact header payload shapes, validation, and redaction behavior remain defined in `docs/design.md` and the shared request/runtime packages.
 
@@ -297,6 +310,12 @@ Prefer the shared helpers instead of rebuilding command plumbing:
 ### Local body synthesis rules
 
 When a Go-implemented action supports both named flags and raw `--body`, treat `--body` as the explicit override. Skip local body synthesis if `--body` is provided; otherwise validate enough local inputs to build a correct request. When a flag accepts structured JSON, parse and validate it locally before putting it into the final payload.
+
+## Final result projection
+
+`api` and public system actions register `output.AddJQFlag(cmd)` locally. Go actions inherit it through `AddCommonRequestFlags` / `AddCommonRequestFlagsWithoutBody`; YAML actions register it in their builder. `jq` is reserved for generated flags.
+
+Write final request results through `output.WriteCommandEnvelope(cmd, env)`, after any result checks, redaction, response mutation, or pagination aggregation. Keep intermediate requests in the shared request layer without projecting them. The output helper compiles during flag parsing, buffers JSON Lines with finite execution/output budgets, bypasses failed envelopes, and preserves completed request results on projection failures. Keep unsupported commands explicit instead of adding a root flag that can be silently ignored. Detailed semantics are defined in `docs/design.md`.
 
 ## Runtime, auth, and request behavior
 
@@ -390,6 +409,12 @@ Keep those files focused on:
 - explicit handoff to `AGENTS.md` and `docs/design.md` when the topic becomes implementation or extension work
 
 Do not put implementation-only details here, such as YAML loader internals, `authConfig` field semantics, generated-flag rules, package wiring, or Go helper contracts.
+
+Files under `skills/` are versioned project deliverables. Agents may create or update them when required by an authorized repository task, including synchronizing command names, flags, examples, and troubleshooting guidance.
+
+Permission to maintain these repository files does not authorize creating, modifying, installing, or activating skills in the worker's runtime skill directories, such as `~/.agents/skills/` or `~/.codex/skills/`.
+
+If a worker task broadly prohibits skill changes and conflicts with a requested repository edit, report the exact instruction and target file so the task can clarify this boundary. Repository guidance does not override an explicit worker task restriction.
 
 ### What belongs in `.agents/skills/create-bk-cli-system/SKILL.md`
 

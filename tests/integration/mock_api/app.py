@@ -74,6 +74,18 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def active_scenario() -> str:
         return request.headers.get("X-Mock-Scenario", "").strip()
 
+    @app.before_request
+    def verify_personal_auth():
+        # Exercise the shared auth path without echoing credentials into reports.
+        if active_scenario() == "PERSONAL-TOKEN":
+            if (
+                request.headers.get("Authorization") != "Bearer integration-personal"
+                or request.headers.get("X-Bkapi-Authorization")
+                or request.headers.get("X-Bk-Tenant-Id") != "personal-tenant"
+            ):
+                return jsonify({"error": "unexpected_personal_auth"}), 401
+        return None
+
     def request_body() -> Any:
         payload = request.get_json(silent=True)
         if payload is not None:
@@ -169,6 +181,18 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             }
         )
 
+    @app.post("/bk-apigateway/prod/api/v2/open/gateways/<gateway_name>/permissions/apply/")
+    def apply_gateway_permission(gateway_name: str):
+        payload = request.get_json(silent=True) or {}
+        data = {
+            "record_id": 9007199254740993,
+            "approval_url": "https://approval.example.com/records/9007199254740993",
+            "approvers": ["gateway-admin"],
+            "gateway_name": gateway_name,
+            "submitted": payload,
+        }
+        return jsonify({"code": 0, "message": "OK", "data": data})
+
     @app.post("/devops/prod/v4/apigw-user/projects/<project_id>/build_start")
     def start_build(project_id: str):
         scenario = active_scenario()
@@ -246,6 +270,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     "bk_host_name": "host-102",
                 },
             ]
+            if active_scenario() == "CMDB-007":
+                hosts = [
+                    {"bk_host_id": 9007199254740992},
+                    {"bk_host_id": 9007199254740993},
+                    {"bk_host_id": 9223372036854775807},
+                ]
             return jsonify(
                 {
                     "count": len(hosts),

@@ -47,7 +47,7 @@ func ExecuteRequest(
 			return err
 		}
 	}
-	return result.Envelope.WriteJSON(cmd.OutOrStdout())
+	return output.WriteCommandEnvelope(cmd, result.Envelope)
 }
 
 // EnsureEnvelope guards Go-implemented actions against unexpected nil envelopes.

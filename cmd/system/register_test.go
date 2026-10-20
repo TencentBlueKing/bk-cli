@@ -1183,6 +1183,34 @@ actions:
 		Expect(upsertSkill.Flag(syslib.ActionBodyFlagName).Usage).To(ContainSubstring("[Required]"))
 		Expect(upsertSkill.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
 
+		expectedHelpExamples := map[string][]string{
+			"create_mcp": {
+				`"credential_type":"custom"`,
+			},
+			"create_credential": {
+				`"credential_type":"custom"`,
+				`"credential_detail":{"key":"demo-value"}`,
+			},
+			"bind_credential": {
+				`"resource_type":"mcp"`,
+			},
+			"unbind_credential": {
+				`"resource_type":"mcp"`,
+			},
+			"update_credential": {
+				`"credential_type":"custom"`,
+				`"credential_detail":{"key":"demo-value"}`,
+			},
+		}
+		for actionName, expectedFragments := range expectedHelpExamples {
+			action, _, findErr := root.Find([]string{"aidev", actionName})
+			Expect(findErr).NotTo(HaveOccurred())
+			help := action.Example
+			for _, fragment := range expectedFragments {
+				Expect(help).To(ContainSubstring(fragment), "action: %s", actionName)
+			}
+		}
+
 		aidevCmd, _, err := root.Find([]string{"aidev"})
 		Expect(err).NotTo(HaveOccurred())
 		commandNames := make([]string, 0, len(aidevCmd.Commands()))

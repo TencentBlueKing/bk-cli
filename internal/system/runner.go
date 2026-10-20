@@ -112,7 +112,7 @@ func RunAction(
 		return err
 	}
 
-	return result.Envelope.WriteJSON(cmd.OutOrStdout())
+	return output.WriteCommandEnvelope(cmd, result.Envelope)
 }
 
 // ValidateRequiredBody returns a local input error before runtime resolution

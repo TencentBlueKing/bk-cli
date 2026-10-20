@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/goccy/go-json v0.10.6
+	github.com/itchyny/gojq v0.12.19
 	github.com/onsi/ginkgo/v2 v2.31.0
 	github.com/onsi/gomega v1.42.0
 	github.com/spf13/cobra v1.10.2
@@ -20,6 +21,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/itchyny/timefmt-go v0.1.8 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect

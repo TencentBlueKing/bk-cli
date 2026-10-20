@@ -33,6 +33,7 @@ import (
 
 	systemtest "github.com/TencentBlueKing/bk-cli/cmd/system/testutil"
 	"github.com/TencentBlueKing/bk-cli/internal/config"
+	"github.com/TencentBlueKing/bk-cli/internal/credential"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 )
 
@@ -51,12 +52,13 @@ var _ = Describe("aidev upload", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	It("sends a multipart file upload request", func() {
+	DescribeTable("sends a multipart file upload request", func(personal bool) {
 		type capturedRequest struct {
 			method      string
 			path        string
 			contentType string
 			authHeader  string
+			bearer      string
 			spaceID     string
 			module      string
 			fileName    string
@@ -69,6 +71,7 @@ var _ = Describe("aidev upload", func() {
 			captured.path = r.URL.Path
 			captured.contentType = r.Header.Get("Content-Type")
 			captured.authHeader = r.Header.Get("X-Bkapi-Authorization")
+			captured.bearer = r.Header.Get("Authorization")
 
 			if err := r.ParseMultipartForm(1024); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -96,6 +99,13 @@ var _ = Describe("aidev upload", func() {
 		DeferCleanup(server.Close)
 
 		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		if personal {
+			key, err := credential.DeriveKey()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(credential.Save(config.CredentialsPath("default"), &credential.Credential{
+				Type: credential.TypePersonalToken, PersonalToken: "personal-upload-token",
+			}, key)).To(Succeed())
+		}
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
@@ -115,15 +125,28 @@ var _ = Describe("aidev upload", func() {
 		Expect(captured.method).To(Equal(http.MethodPost))
 		Expect(captured.path).To(Equal("/bk-aidev/prod/openapi/aidev/private/v1/upload/"))
 		Expect(captured.contentType).To(HavePrefix("multipart/form-data; boundary="))
-		Expect(captured.authHeader).To(ContainSubstring(`"access_token":"token-123"`))
+		if personal {
+			Expect(captured.bearer).To(Equal("Bearer personal-upload-token"))
+			Expect(captured.authHeader).To(BeEmpty())
+		} else {
+			Expect(captured.authHeader).To(ContainSubstring(`"access_token":"token-123"`))
+			Expect(captured.bearer).To(BeEmpty())
+		}
 		Expect(captured.spaceID).To(Equal("demo-space"))
 		Expect(captured.module).To(Equal("knowledge"))
 		Expect(captured.fileName).To(Equal("demo.txt"))
 		Expect(captured.fileContent).To(Equal("demo"))
-	})
+	}, Entry("with an access token", false), Entry("with a personal token", true))
 
-	It("redacts auth and shows multipart metadata during dry-run", func() {
+	DescribeTable("redacts auth and shows multipart metadata during dry-run", func(personal bool) {
 		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
+		if personal {
+			key, err := credential.DeriveKey()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(credential.Save(config.CredentialsPath("default"), &credential.Credential{
+				Type: credential.TypePersonalToken, PersonalToken: "personal-upload-token",
+			}, key)).To(Succeed())
+		}
 		filePath := filepath.Join(tmpDir, "demo.txt")
 		Expect(os.WriteFile(filePath, []byte("demo"), 0o600)).To(Succeed())
 
@@ -146,14 +169,20 @@ var _ = Describe("aidev upload", func() {
 			Equal("https://bkapi.example.com/api/bk-aidev/prod/openapi/aidev/private/v1/upload/"),
 		)
 		headers := request["headers"].(map[string]any)
-		Expect(headers["X-Bkapi-Authorization"]).To(Equal("{...redacted...}"))
+		if personal {
+			Expect(headers["Authorization"]).To(Equal("{...redacted...}"))
+			Expect(headers).NotTo(HaveKey("X-Bkapi-Authorization"))
+			Expect(stdout).NotTo(ContainSubstring("personal-upload-token"))
+		} else {
+			Expect(headers["X-Bkapi-Authorization"]).To(Equal("{...redacted...}"))
+		}
 		Expect(headers["Content-Type"]).To(HavePrefix("multipart/form-data; boundary="))
 		body := request["body"].(map[string]any)
 		Expect(body["file"]).To(Equal("demo.txt"))
 		Expect(body["space_id"]).To(Equal("demo-space"))
 		Expect(body["module"]).To(Equal("skill"))
 		Expect(body["size"]).To(Equal(float64(4)))
-	})
+	}, Entry("with an access token", false), Entry("with a personal token", true))
 
 	It("rejects nonexistent files during dry-run", func() {
 		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())

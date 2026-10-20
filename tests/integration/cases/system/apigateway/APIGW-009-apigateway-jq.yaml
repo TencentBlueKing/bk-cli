@@ -1,0 +1,33 @@
+id: APIGW-009
+name: YAML and Go actions share final jq output
+tags:
+  - coverage-system_yaml
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: project YAML result
+    command: [apigateway, list_gateways, --name, integration, --jq, '{name:.data.items[0].name,status}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: name
+          equals: integration
+        - path: status
+          equals: 200
+  - name: project Go result after response mutation
+    command: [apigateway, demo_action, --name, demo, --public, --jq, '{public:.data.received.public,name:.data.upstream.items[0].name}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: public
+          equals: true
+        - path: name
+          equals: demo

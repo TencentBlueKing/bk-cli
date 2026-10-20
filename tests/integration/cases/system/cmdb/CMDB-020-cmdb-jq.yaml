@@ -1,0 +1,36 @@
+id: CMDB-020
+name: jq runs after complete precise CMDB aggregation
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: project complete aggregate with distinct integer IDs
+    command: [cmdb, list_biz_hosts_all, --bk_biz_id, "2", --page_limit, "2", --header, "X-Mock-Scenario:CMDB-007", --jq, '{count:.data.count,ids:(.data.info|map(.bk_host_id|tostring))}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: count
+          equals: 3
+        - path: ids.0
+          equals: "9007199254740992"
+        - path: ids.1
+          equals: "9007199254740993"
+        - path: ids.2
+          equals: "9223372036854775807"
+  - name: failed result bypasses empty projection
+    command: [cmdb, delete_host, --bk_host_ids, "101", --header, "X-Mock-Scenario:CMDB-NEG-002", --jq, empty]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: false
+        - path: status
+          equals: 400

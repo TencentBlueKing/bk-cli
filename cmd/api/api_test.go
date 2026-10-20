@@ -35,7 +35,7 @@ import (
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 )
 
-var _ = Describe("runAPI", func() {
+var _ = Describe("executeAPI", func() {
 	var tmpDir string
 
 	BeforeEach(func() {
@@ -60,8 +60,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("rejects an invalid timeout override before any request", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -85,8 +84,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("rejects an invalid raw API gateway name before URL generation", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bad_gateway",
 			"GET",
 			"/api/v1/resources/",
@@ -162,8 +160,7 @@ var _ = Describe("runAPI", func() {
 		}
 		Expect(cfg.Save(config.ConfigPath("default"))).To(Succeed())
 
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -195,8 +192,7 @@ var _ = Describe("runAPI", func() {
 		}
 		Expect(cfg.Save(config.ConfigPath("default"))).To(Succeed())
 
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -220,8 +216,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("returns a local error for invalid --query JSON during dry-run", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -245,8 +240,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("returns a local error for invalid --body JSON during dry-run", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"POST",
 			"/api/v1/resources/",
@@ -270,8 +264,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("returns a local error for malformed --header during dry-run", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -309,9 +302,7 @@ var _ = Describe("runAPI", func() {
 		}
 		Expect(cfg.Save(config.ConfigPath("default"))).To(Succeed())
 
-		stdout := &bytes.Buffer{}
-		err = runAPI(
-			stdout,
+		envelope, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -332,7 +323,9 @@ var _ = Describe("runAPI", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		var env map[string]any
-		Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
+		encoded, err := json.Marshal(envelope)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(json.Unmarshal(encoded, &env)).To(Succeed())
 		request := env["request"].(map[string]any)
 		headers := request["headers"].(map[string]any)
 		Expect(headers).To(HaveKeyWithValue("X-Bkapi-Authorization", "{...redacted...}"))
@@ -340,8 +333,7 @@ var _ = Describe("runAPI", func() {
 	})
 
 	It("rejects content-type overrides when a body is provided", func() {
-		err := runAPI(
-			bytes.NewBuffer(nil),
+		_, err := executeAPI(
 			"bk-apigateway",
 			"POST",
 			"/api/v1/resources/",
@@ -378,9 +370,7 @@ var _ = Describe("runAPI", func() {
 		}
 		Expect(cfg.Save(config.ConfigPath("default"))).To(Succeed())
 
-		stdout := &bytes.Buffer{}
-		err = runAPI(
-			stdout,
+		envelope, err := executeAPI(
 			"bk-apigateway",
 			"GET",
 			"/api/v1/resources/",
@@ -398,7 +388,9 @@ var _ = Describe("runAPI", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		var env map[string]any
-		Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
+		encoded, err := json.Marshal(envelope)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(json.Unmarshal(encoded, &env)).To(Succeed())
 		request := env["request"].(map[string]any)
 		headers := request["headers"].(map[string]any)
 		Expect(headers).To(HaveKeyWithValue("X-Bk-Tenant-Id", "context-tenant"))

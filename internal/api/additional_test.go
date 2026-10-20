@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	json "github.com/goccy/go-json"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -93,7 +94,7 @@ var _ = Describe("additional api coverage", func() {
 		jsonResp := &http.Response{Body: io.NopCloser(strings.NewReader(`{"value":1}`))}
 		parsed, err := api.ParseResponse(jsonResp)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(parsed).To(Equal(map[string]any{"value": float64(1)}))
+		Expect(parsed).To(Equal(map[string]any{"value": json.Number("1")}))
 
 		textResp := &http.Response{Body: io.NopCloser(strings.NewReader("plain-text"))}
 		parsed, err = api.ParseResponse(textResp)
@@ -175,7 +176,7 @@ var _ = Describe("additional api coverage", func() {
 	})
 
 	It("returns auth header errors for incomplete credentials", func() {
-		_, err := api.BuildAuthHeader(&credential.Credential{
+		_, err := api.BuildAuthHeaders(&credential.Credential{
 			Type:        credential.TypeAppUser,
 			BkAppSecret: "secret",
 			BkToken:     "token",
@@ -183,7 +184,7 @@ var _ = Describe("additional api coverage", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("bk_app_code is required"))
 
-		_, err = api.BuildAuthHeader(&credential.Credential{
+		_, err = api.BuildAuthHeaders(&credential.Credential{
 			Type: credential.TypeAccessToken,
 		}, &api.AuthRequirements{AppVerifiedRequired: true})
 		Expect(err).To(HaveOccurred())

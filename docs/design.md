@@ -183,6 +183,7 @@ flowchart TD
 1. `app_user + bk_token`
 2. `app_user + bk_ticket`
 3. `access_token`
+4. `personal_token`
 
 加密设计目标不是"替代操作系统钥匙串"，而是在单二进制、零运行时依赖的约束下，避免凭据明文落盘。
 
@@ -193,7 +194,7 @@ flowchart TD
 职责包括：
 
 - 根据 `bk_api_url_tmpl`、`gateway_name`、`stage` 和 `path` 构造最终 URL。
-- 构造 `X-Bkapi-Authorization` 认证头。
+- 按凭据模式构造 `X-Bkapi-Authorization` 或 `Authorization` 认证头。
 - 注入 `X-Bk-Tenant-Id` 等上下文相关请求头。
 - 处理 `--path`（路径占位符替换）、`--query`（查询参数）、`--body`（请求体）、额外 header。
 - 解析 HTTP 响应并转为统一 envelope。
@@ -368,6 +369,7 @@ CLI 级错误不混入 stdout，而是输出到 stderr，格式固定为：
 - `headers` 默认只保留高价值且紧凑的响应头，使用原始 HTTP 头名，例如 `X-Request-Id`、`X-Bkapi-*`。
 - `headers` 在相关时再附带基础调试头，例如非 2xx 响应时补充 `Traceparent`，或 `Content-Type` / `Content-Length` 提供额外诊断信息时。
 - `data` 保存响应主体；若响应不是 JSON，也应尽量原样保留可消费内容。
+- JSON 响应中的数字必须保留原始字面量，包括嵌套对象、数组、大整数、小数和指数；解码时使用 `UseNumber()`，禁止经 `float64` 中转后再输出。响应消费者需要整数时必须显式解析 `json.Number` 并检查范围；完整响应不是单个有效 JSON 值时保留原始文本。
 
 ### 7.3 CLI 错误输出
 
@@ -421,12 +423,27 @@ CLI 级错误输出到 stderr：
 
 - `params` 和 `body` 应保持解析后的 JSON 值，而不是再嵌套一层 JSON 字符串。
 - 如果请求体存在，dry-run 的 `headers` 应体现实际会发送的 `Content-Type`。JSON 请求体统一为 `application/json`；Go-implemented action 如需发送 multipart/form-data 等非 JSON 载荷，必须通过共享请求层的 raw body 能力传入 body reader 与对应 content type。
-- dry-run 中的 `X-Bkapi-Authorization` 无论来自 CLI 自动生成还是用户显式 `--header`，都必须脱敏展示。
+- dry-run 中的 `Authorization` 和 `X-Bkapi-Authorization` 无论来自 CLI 自动生成还是用户显式 `--header`，都按头名忽略大小写脱敏展示。
+- verbose 请求/响应日志以及默认响应 envelope 中的认证头均脱敏；非法 header 的错误只说明格式原因，不回显输入。响应正文仍原样返回。
 - dry-run 中展示的 `request.params` 与 `request.body` 必须尽量保留输入 JSON number 的原始字面量，禁止经 `float64` 中转后再输出，以避免大整数被显示为科学计数法或发生精度失真。
 - Go-implemented action 可以在同一个 envelope 里额外放入本地编排产生的 `data`，但 `dry_run` 与 `request` 字段的含义必须保持稳定。
 - 如果 Go-implemented action 会做多次上游调用编排，例如分页聚合，则 dry-run 至少要稳定展示第一跳请求，并可在 `data` 中补充分页或编排元数据。
 
-### 7.5 输入契约的一致性
+### 7.5 内置 `--jq` 结果投影
+
+`api`、YAML action、Go action 和 `cmdb list_biz_hosts_all` 支持独立的本地 `--jq '<expression>'`。该 flag 只在支持的执行命令注册，不是 root persistent flag；context、auth、doctor、version、update、skills 等命令显式使用时返回 unknown flag。帮助仍走原帮助路径，不执行请求。
+
+- 根输入为完整最终 envelope（包括 `.ok`、`.status`、`.headers`、`.data` 或 `.request`），聚合结束后执行一次。未传 flag 时保持原有输出与退出判定。
+- 每个结果输出一行紧凑 JSON，字符串带引号并转义，多个结果形成 JSON Lines；`null` / `false` 不改变原命令退出码，`empty` 不输出字节。不提供外部 jq 的 `-r` / `-e` 或命令行选项。
+- `internal/output.AddJQFlag` 在参数解析的 `Set` 中 Parse/Compile 一次，早于认证、body 文件/stdin 读取和远端执行。空白、语法错误或未知函数以命令输入错误退出 1。`WriteCommandEnvelope` 复用编译结果，供 raw API、YAML runner、Go executor 和最终聚合共用；中间请求不投影。
+- 先遵循当前结果判定：`ok:false` 的完整 envelope 绕过投影，CLI 错误仍沿原路径输出。当前 legacy HTTP 失败 envelope 的退出行为保持原样；分层业务/异步结果判定及通用 `--paginate` 由独立需求管理，本功能不新增这些能力。
+- 执行错误或调用方取消返回 `jq_execution_error`；时间、结果数或输出字节超限返回 `jq_limit_exceeded`，退出 2。stdout 回退为完整原 envelope，stderr 给出结构化错误；真实请求完成后明确说明展示失败不代表请求未执行。禁止自动重发；应先检查原结果中的任务/资源 ID。
+- 全部结果在有限缓冲区中完成后才写 stdout，预算固定为 **2 秒、10,000 个结果、16 MiB 编码输出（含换行）**。恰好达到上限允许；超限丢弃部分投影。stdout 写入错误或短写向上传播，已经开始写入后不追加回退 envelope。进程内解释器的单次分配、输入转换和原响应体不受该输出缓冲上限严格隔离；不承诺进程级内存隔离或所有内置运算均可被实时抢占。
+- 采用 MIT 的 `gojq v0.12.19`，完整 envelope 经标准库 JSON 编码及 `Decoder.UseNumber()` 适配为解释器 JSON 值，保留整数精度（包含超出 int64 的整数与整数运算）。小数、指数及浮点运算按 gojq 语义，不能承诺任意精度小数或保留数字原字面量；默认未开启 jq 的响应保真契约不变。
+- 不配置环境变量 loader、文件 module loader 或 input iterator：`env` / `$ENV` 为空对象，`input` / `inputs` 和文件模块在编译时拒绝。body stdin 与 jq 不争用输入。dry-run 先由共享请求层脱敏，再供表达式读取。
+- 正常 `halt` 终止投影并保留此前结果；`halt_error`（包括 null 值、退出码 0 和 try/catch 包裹）均按投影错误处理，不能接管 CLI 退出码。普通 jq `error` 可由表达式自身的 try/catch 处理。
+
+### 7.6 输入契约的一致性
 
 除了统一输出，bk-cli 还强调统一输入模式：
 
@@ -474,15 +491,29 @@ timeout: 60s
 
 凭据按 context 独立保存在 `credentials.enc` 中，明文 JSON 在写入前会被 AES-256-GCM 加密。
 
-三种典型凭据形态：
+四种典型凭据形态：
 
 ```json
 {"type":"app_user","bk_app_code":"x","bk_app_secret":"y","bk_token":"z"}
 {"type":"app_user","bk_app_code":"x","bk_app_secret":"y","bk_ticket":"z"}
 {"type":"access_token","access_token":"z"}
+{"type":"personal_token","personal_token":"<personal-token>"}
 ```
 
-### 8.4 context 解析规则
+### 8.4 登录输入规则
+
+`auth login` 的六个凭据 flags 默认值始终为空，帮助不得包含环境中的凭据值。环境回退在命令执行时读取：`bk_app_code`、`bk_app_secret`、`bk_token`、`bk_ticket`、`access_token`、`personal_token` 分别对应 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET`、`BK_CLI_ACCESS_TOKEN`、`BK_CLI_PERSONAL_TOKEN`。
+
+- 使用 `Flags().Changed` 区分未传入与显式空值；任一显式空凭据值返回 `invalid_credentials`。
+- 所选模式实际采用的环境值若包含首尾空白（包括换行）则返回 `invalid_credentials`，只提示变量名，不自动裁剪。显式 flags 和未采用的环境值不受此检查影响。
+- `--personal_token` 与其他凭据 flags 互斥，即使其他 flag 显式传空值也返回 `invalid_credentials`；单独显式个人模式忽略所有环境值。显式旧模式忽略个人 token 环境值。个人 token 复用 `Credential.Validate` 的单个 Bearer token 格式校验。
+- 显式非空 access token 选独立模式；否则显式 ticket / token 选应用模式并沿用 ticket 优先的现有顺序。环境仅补齐所选模式的缺失字段，不引入其他模式的用户票据或 access token。
+- 只显式传应用 code / secret 时，从环境寻找唯一的 token 或 ticket；二者共存报冲突，只有 access token 不能切换模式。
+- 没有显式凭据 flags 时由环境选择模式。个人 token 与任一其他凭据字段共存、access token 与任一应用模式字段共存，或 token 与 ticket 同时非空，返回 `invalid_credentials`。
+- 部分输入缺少必填字段返回 `invalid_credentials`；两种来源均无输入时保留设备码占位错误 `not_implemented`，退出码 1。
+- 输入解析后复用 context 解析、`Credential.Validate` 和加密保存；错误不回显凭据值，失败不覆盖已有凭据。登录不自动读取 stdin 或从已有凭据补齐。
+
+### 8.5 context 解析规则
 
 命令执行时的 context 来源优先级通常为：
 
@@ -535,15 +566,20 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
 - 当目标 `gateway_name` 是 `bk-aidev`，且 `bk_api_url_tmpl` 命中同样的
   兼容模板时，实际网关名会从 `bk-aidev` 兼容映射为 `bkaidev`
 
-### 9.2 `X-Bkapi-Authorization` 构造
+### 9.2 认证头构造
 
-认证头本质上是一个 JSON 字符串，取决于凭据类型：
+应用/用户及 access token 模式使用 `X-Bkapi-Authorization` JSON；个人 token 模式使用 `Authorization`，共享 `BuildAuthHeaders` 一次只生成一种协议：
 
-| 凭据类型 | Header JSON |
+| 凭据类型 | 认证值 |
 |---------|-------------|
 | `app_user + bk_token` | `{"bk_app_code":"x","bk_app_secret":"y","bk_token":"z"}` |
 | `app_user + bk_ticket` | `{"bk_app_code":"x","bk_app_secret":"y","bk_ticket":"z"}` |
-| `access_token` | `{"access_token":"z"}` |
+| `access_token` | `X-Bkapi-Authorization: {"access_token":"z"}` |
+| `personal_token` | `Authorization: Bearer <personal-token>` |
+
+`personal_token` 使用独立的 `--personal_token` 登录 flag，与其他五个凭据 flags 按显式出现互斥（包括显式空值）。输入必须符合 RFC 6750 §2.1 的单个 Bearer token 字符语法，不添加前缀、不裁剪原值。非法输入返回 `invalid_credentials` 且不回显原值，也不替换已有凭据。复用 AES-GCM 存储和 context 隔离，不改变旧凭据格式；存储读取后，在生成个人认证头前再次校验。
+
+个人模式不套用应用/用户字段拼装；默认要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。`apigateway apply_gateway_permission` 需要应用身份，因此在命令内通过 `runtime.EnsureCredential()` 加载或复用凭据，拒绝个人凭据及显式 Bearer header，返回 `unsupported_credential_type`，dry-run 同样拒绝。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
 
 YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪些认证维度：
 
@@ -555,7 +591,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 
 如果 context 设置了 `tenant_id`，则注入该值；如果 context 未设置 tenant，则 CLI 默认不再生成 `X-Bk-Tenant-Id`。
 
-如果调用者通过 `--header` 显式提供 `X-Bkapi-Authorization` 或 `X-Bk-Tenant-Id`，则用户值优先，覆盖 CLI 基于 credential/context 生成的对应 header。该能力是刻意保留的，便于 Agent 在特殊场景下直接传入自定义认证头或租户头。
+如果调用者通过 `--header` 显式提供 `Authorization`、`X-Bkapi-Authorization` 或 `X-Bk-Tenant-Id`，则用户值优先，覆盖 CLI 基于 credential/context 生成的对应 header。头名忽略大小写，同名重复 flags 按最后一个值生效。个人模式生成 Bearer 头时，如同时显式提供 `X-Bkapi-Authorization`，返回本地 `request_error`，避免混用两种身份。该能力是刻意保留的，便于 Agent 在特殊场景下直接传入自定义认证头或租户头。
 
 ### 9.3 请求参数处理原则
 
@@ -697,7 +733,7 @@ YAML action 参数不得使用 `in: body`。请求级输入通过命令 flags �
 - 每个 YAML action 都必须显式配置 `authConfig`；缺失时 YAML 加载失败。
 - `resourcePermissionRequired: true` 必须同时设置 `appVerifiedRequired: true`。
 - 如果同一个 action 在 `path` 与 `query` 中复用了同名 param，或与保留 flag 名冲突，命令注册阶段会跳过该 action 并输出 warning。
-- 为避免与内建 flags 冲突，YAML 里的 `path`/`query` param 名不能使用 `body`、`body-schema`、`header`、`stage`、`help`、`context`、`dry-run`、`format`、`verbose`、`insecure`。
+- 为避免与内建 flags 冲突，YAML 里的 `path`/`query` param 名不能使用 `body`、`body-schema`、`header`、`stage`、`help`、`context`、`dry-run`、`format`、`jq`、`verbose`、`insecure`。
 
 ### 11.2 YAML action 如何变成命令
 

@@ -136,6 +136,59 @@ var _ = Describe("cmdb list_biz_hosts_all", func() {
 		}))
 	})
 
+	It("preserves distinct large host IDs while deduplicating across pages", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			Expect(err).NotTo(HaveOccurred())
+			var payload map[string]any
+			Expect(json.Unmarshal(body, &payload)).To(Succeed())
+			page := payload["page"].(map[string]any)
+			w.Header().Set("Content-Type", "application/json")
+			switch int(page["start"].(float64)) {
+			case 0:
+				_, _ = w.Write(
+					[]byte(
+						`{"count":4,"info":[{"bk_host_id":9007199254740992},{"bk_host_id":9007199254740993}]}`,
+					),
+				)
+			case 2:
+				_, _ = w.Write(
+					[]byte(
+						`{"count":4,"info":[{"bk_host_id":9007199254740993},{"bk_host_id":9223372036854775807}]}`,
+					),
+				)
+			case 4:
+				_, _ = w.Write([]byte(`{"count":4,"info":[]}`))
+			default:
+				Fail("unexpected page start")
+			}
+		}))
+		DeferCleanup(server.Close)
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		cmd := newListBizHostsAllCmd(systemtest.BuildDeps(false))
+		Expect(cmd.Flags().Set("bk_biz_id", "2")).To(Succeed())
+		Expect(cmd.Flags().Set("page_limit", "2")).To(Succeed())
+		stdout, err := systemtest.CaptureCommandStdout(func() error {
+			return cmd.RunE(cmd, nil)
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		var env struct {
+			Data struct {
+				Count int `json:"count"`
+				Info  []struct {
+					HostID json.Number `json:"bk_host_id"`
+				} `json:"info"`
+			} `json:"data"`
+		}
+		Expect(json.Unmarshal([]byte(stdout), &env)).To(Succeed())
+		Expect(env.Data.Count).To(Equal(3))
+		Expect(env.Data.Info).To(HaveLen(3))
+		Expect(env.Data.Info[0].HostID.String()).To(Equal("9007199254740992"))
+		Expect(env.Data.Info[1].HostID.String()).To(Equal("9007199254740993"))
+		Expect(env.Data.Info[2].HostID.String()).To(Equal("9223372036854775807"))
+	})
+
 	It("fails when a page adds no new hosts", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
@@ -205,7 +258,7 @@ var _ = Describe("cmdb list_biz_hosts_all", func() {
 
 	It("parses the paged response payload", func() {
 		count, info, err := parsePagedInfoResponse("list_biz_hosts_all", map[string]any{
-			"count": float64(2),
+			"count": json.Number("2"),
 			"info": []any{
 				map[string]any{"bk_host_id": float64(1)},
 				map[string]any{"bk_host_id": float64(2)},
@@ -229,4 +282,27 @@ var _ = Describe("cmdb list_biz_hosts_all", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing numeric count"))
 	})
+
+	DescribeTable("rejects invalid integer counts without truncating them",
+		func(raw string) {
+			_, _, err := parsePagedInfoResponse("list_biz_hosts_all", map[string]any{
+				"count": json.Number(raw),
+				"info":  []any{},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid integer count"))
+		},
+		Entry("fractional count", "1.5"),
+		Entry("out-of-range count", "18446744073709551616"),
+	)
+
+	DescribeTable("rejects invalid host IDs without rounding them",
+		func(raw string) {
+			_, err := parseHostID("list_biz_hosts_all", map[string]any{"bk_host_id": json.Number(raw)})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bk_host_id is not a valid int64 integer"))
+		},
+		Entry("fractional ID", "1.5"),
+		Entry("out-of-range ID", "9223372036854775808"),
+	)
 })

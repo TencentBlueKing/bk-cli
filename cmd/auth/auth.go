@@ -30,13 +30,13 @@ func NewAuthCmd() *cobra.Command {
 
 Examples:
   # First-run setup
-  bk-cli context init --bk_api_url_tmpl="https://bkapi.example.com/api/{gateway_name}/"
+  bk-cli context init --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/'
 
   # Login with app credentials and user token
-  bk-cli auth login --bk_app_code="app" --bk_app_secret="secret" --bk_token="tok"
+  bk-cli auth login --bk_app_code='app' --bk_app_secret='secret' --bk_token='tok'
 
   # Login with access token
-  bk-cli auth login --access_token="my_token"
+  bk-cli auth login --access_token='my_token'
 
   # Check credential status
   bk-cli auth status

@@ -92,8 +92,8 @@ The new context is created without changing the active context.
 Use "bk-cli context use <name>" when you want to switch.
 
 Examples:
-  bk-cli context create clouds --bk_api_url_tmpl="https://bkapi.clouds.example.com/api/{gateway_name}/"
-  bk-cli context create dev --bk_api_url_tmpl="https://bkapi.dev.example.com/api/{gateway_name}/" --tenant_id=mytenant`,
+  bk-cli context create clouds --bk_api_url_tmpl='https://bkapi.clouds.example.com/api/{gateway_name}/'
+  bk-cli context create dev --bk_api_url_tmpl='https://bkapi.dev.example.com/api/{gateway_name}/' --tenant_id=mytenant`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]

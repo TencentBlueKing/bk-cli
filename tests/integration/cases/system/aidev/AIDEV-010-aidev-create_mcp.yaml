@@ -31,7 +31,7 @@ steps:
   - aidev
   - create_mcp
   - --body
-  - '{"space_id":"demo-space","mcp_name":"demo-mcp_name","mcp_code":"demo-mcp","url":"bkrepo://demo.zip","protocol":"stdio","credential_type":"api_key","description":"demo
+  - '{"space_id":"demo-space","mcp_name":"demo-mcp_name","mcp_code":"demo-mcp","url":"bkrepo://demo.zip","protocol":"stdio","credential_type":"custom","description":"demo
     description"}'
   expect:
     exit_code: 0

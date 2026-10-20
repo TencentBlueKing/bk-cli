@@ -21,11 +21,13 @@ package systemcmd
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 )
 
 // AddCommonRequestFlags registers the shared request flags used by Go-implemented system actions.
 func AddCommonRequestFlags(cmd *cobra.Command, stage, body *string, headers *[]string) {
+	output.AddJQFlag(cmd)
 	cmd.Flags().StringVar(
 		stage,
 		syslib.ActionStageFlagName,
@@ -48,6 +50,7 @@ func AddCommonRequestFlags(cmd *cobra.Command, stage, body *string, headers *[]s
 
 // AddCommonRequestFlagsWithoutBody registers the shared request flags for actions without --body.
 func AddCommonRequestFlagsWithoutBody(cmd *cobra.Command, stage *string, headers *[]string) {
+	output.AddJQFlag(cmd)
 	cmd.Flags().StringVar(
 		stage,
 		syslib.ActionStageFlagName,
