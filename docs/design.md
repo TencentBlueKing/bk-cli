@@ -368,6 +368,7 @@ CLI 级错误不混入 stdout，而是输出到 stderr，格式固定为：
 - `headers` 默认只保留高价值且紧凑的响应头，使用原始 HTTP 头名，例如 `X-Request-Id`、`X-Bkapi-*`。
 - `headers` 在相关时再附带基础调试头，例如非 2xx 响应时补充 `Traceparent`，或 `Content-Type` / `Content-Length` 提供额外诊断信息时。
 - `data` 保存响应主体；若响应不是 JSON，也应尽量原样保留可消费内容。
+- JSON 响应中的数字必须保留原始字面量，包括嵌套对象、数组、大整数、小数和指数；解码时使用 `UseNumber()`，禁止经 `float64` 中转后再输出。响应消费者需要整数时必须显式解析 `json.Number` 并检查范围；完整响应不是单个有效 JSON 值时保留原始文本。
 
 ### 7.3 CLI 错误输出
 
