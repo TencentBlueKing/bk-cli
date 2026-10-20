@@ -105,6 +105,22 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 - `bk-cli auth login --bk_app_code=X --bk_app_secret=Y --bk_ticket=Z`
 - `bk-cli auth login --access_token=Z`
 
+也可以由秘密管理工具或 CI 注入 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET` 或 `BK_CLI_ACCESS_TOKEN`，再执行 `bk-cli auth login`（可加 `--context <name>`）。CLI 直接读取环境值，避免把凭据展开到 flags 后暴露在进程命令行参数中。只注入完整的一种登录形态；显式凭据 flags 先选择模式并优先于同名环境值，环境只补齐该模式的缺失字段。显式空值、冲突的环境模式，以及实际采用的环境值含首尾空白时，都会报 `invalid_credentials`。
+
+下面是仅在登录命令作用域内注入 access token 的占位示例；实际值应由秘密管理工具或 CI 提供：
+
+```bash
+BK_CLI_ACCESS_TOKEN='your_token' bk-cli auth login
+```
+
+若变量已注入当前 shell，登录后应清理，避免后续命令及其子进程继承明文凭据；后续请求使用 context 中已加密保存的凭据：
+
+```bash
+unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN
+```
+
+环境输入仍可能被有权限的进程、shell 调试输出或 CI 日志读取。模式选择、冲突示例及安全边界见[用户指南：通过环境变量登录](../../docs/user-guide.md#通过环境变量登录)。
+
 排查认证问题时，优先记住下面几点：
 
 - `bk-cli auth status` 适合做“当前 context 有没有凭据”的检查。
