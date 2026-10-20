@@ -335,6 +335,17 @@ bk-cli api bk-iam POST /api/v2/systems/ --body '{"id":"demo","name":"Demo"}' --d
 
 ## Pipeline 示例
 
+可直接使用内置 `--jq` 提取完整 envelope 中的字段，无需安装外部 jq：
+
+```bash
+bk-cli apigateway list_gateways --jq '.data'
+bk-cli apigateway list_gateways --jq '{ok, status, data}'
+```
+
+JSON Lines 输出、失败保留原结果及重试规则见[共享 skill 的内置 `--jq` 说明](../bk-cli-shared/SKILL.md#内置---jq-结果投影)。投影失败不表示请求未执行，尤其不能据此自动重发权限申请。
+
+需要外部 jq 的选项（例如 `-r` 输出无引号字符串）时，仍可使用以下 pipeline：
+
 ```bash
 # 提取 data
 bk-cli apigateway list_gateways | jq '.data'

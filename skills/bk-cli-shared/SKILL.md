@@ -1,6 +1,6 @@
 ---
 name: bk-cli-shared
-description: 当任务涉及 bk-cli 的通用使用规则时使用，尤其是认证、context 切换、stage/timeout、header/body、tenant、dry-run、verbose，或当用户在 `bk-cli api`、`apigateway`、`cmdb` 与后续 system 之间拿不准该怎么发请求、为什么请求失败、哪些输入是共享行为时，都应先使用这个 skill。
+description: 当任务涉及 bk-cli 的通用使用规则时使用，尤其是认证、context 切换、stage/timeout、header/body、tenant、dry-run、verbose、内置 --jq 结果投影，或当用户在 `bk-cli api`、`apigateway`、`cmdb` 与后续 system 之间拿不准该怎么发请求、为什么请求失败、哪些输入是共享行为时，都应先使用这个 skill。
 ---
 
 # bk-cli shared — 通用使用规则与排障入口
@@ -52,6 +52,7 @@ bk-cli doctor --offline
 | `--header 'Key:Value'` | 请求类命令，可重复 | 传入额外请求头；header name 和 value 会在本地校验 |
 | `--body '<json>'` | 支持 body 的请求类命令 | 传入 JSON body，CLI 管理 `Content-Type: application/json` |
 | `--timeout <duration>` | `bk-cli api` | 单次覆盖 context timeout，例如 `180s` |
+| `--jq '<expression>'` | `api` 和系统 action | 对完整最终 envelope 做本地投影，输出 JSON Lines，无需安装外部 jq |
 
 ## 多 Context 管理
 
@@ -82,7 +83,7 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 
 ## 通用请求规则
 
-- stdout 输出结构化 JSON envelope；CLI 级错误和 verbose 信息输出到 stderr。
+- 默认 stdout 输出结构化 JSON envelope；使用 `--jq` 时按下文投影规则输出。CLI 级错误和 verbose 信息输出到 stderr。
 - `--dry-run` 适合先确认 URL、query、body、headers 是否正确。
 - `--verbose` 对请求类命令生效，请求/响应细节会输出到 stderr。
 - `--insecure` 类似 `curl --insecure`，只影响真实 HTTPS 请求；临时调试自签名证书或测试环境时再使用。
@@ -92,6 +93,27 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 - 传入 `--body` 时仍不能手动覆盖 `Content-Type`，该 header 由 CLI 管理。
 - dry-run / verbose 会对 `Authorization` 和 `X-Bkapi-Authorization` 做脱敏显示，即使该 header 是调用方显式覆盖的；响应 envelope 的这两个 header 也会脱敏。
 - 路径占位符值会被当作单个 URL path segment 转义，不能依赖它注入 `/`、`?` 等路径结构。
+
+## 内置 `--jq` 结果投影
+
+`api` 和系统 action 支持 `--jq '<expression>'`，不需要外部 jq。表达式的根输入是完整的最终 envelope，可读取 `.ok`、`.status`、`.headers`、`.data`；`--dry-run` 则可读取已脱敏的 `.request`。`cmdb list_biz_hosts_all` 在全部分页聚合完成后投影一次。
+
+```bash
+# 提取响应 data
+bk-cli apigateway list_gateways --jq '.data'
+
+# 保留状态和响应数据
+bk-cli apigateway list_gateways --jq '{ok, status, data}'
+
+# 查看预览中的请求 URL，不发送请求
+bk-cli api bk-apigateway GET /api/v2/open/gateways/ --dry-run --jq '.request.url'
+```
+
+- 每个投影结果占一行 JSON（JSON Lines）；字符串保留引号，多个结果输出多行，`empty` 不输出内容。内置选项不提供外部 jq 的 `-r` / `-e`；需要无引号字符串时仍可使用外部 jq。
+- 空白、语法错误或未知函数在读取 body、认证及发请求前拒绝，退出码为 1。`context`、`auth`、`doctor`、`version`、`update`、`skills` 等非请求命令不支持 `--jq`。
+- `ok:false` 的 envelope 绕过投影，完整输出原结果，并保留原退出行为。投影不会新增业务成功或异步任务完成判断；`null`、`false`、`empty` 也不代表业务成功或失败。
+- 投影执行失败返回 `jq_execution_error`，超出时间、结果数或输出大小预算返回 `jq_limit_exceeded`，退出码为 2。输出通道可写时，stdout 保留完整原 envelope，stderr 输出结构化错误，不输出部分投影。**真实请求此时已经执行，禁止因投影失败自动重发；先检查原结果中的任务、资源或申请单 ID，再判断下一步。** dry-run 不会提交请求。
+- 投影预算为 2 秒、10,000 个结果、16 MiB 编码输出。整数及整数运算保持精度；小数、指数和浮点运算遵循 gojq 语义，不保证任意精度或保留原数字字面量。需要原始数字字面量时省略 `--jq`。
 
 ## 超时规则
 
