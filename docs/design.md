@@ -250,6 +250,7 @@ flowchart TD
 - 允许顶层 system 注册一层 subsystem；当前不开放多层 subsystem，但 `SystemSpec` 抽象保留了未来放开递归注册的口子。
 - 提供 `ResolveRuntime` 统一解析 context、dry-run、verbose、insecure。
 - 提供 `ExecuteRequest` 作为单次请求 action 的标准执行路径。
+- Go action 可通过 `RequestSpec.ValidateBody` 校验共享层解析后的 body 原文；回调在文件/stdin 读取后、凭据加载和预览/发送前调用一次，失败返回 `request_error`。回调只校验，不改写 body；未设置回调的请求保持原行为。
 - 提供 flag 注册（`AddCommonRequestFlags`）、校验（`Validate*`）、序列化（`MarshalJSON`）和 JSON 解析（`ParseJSONObjectFlag`）等共享 helper。
 - 提供 `EnsureEnvelope` 防御空 envelope。
 

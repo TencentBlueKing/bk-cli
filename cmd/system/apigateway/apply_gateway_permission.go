@@ -20,8 +20,9 @@ package apigateway
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
+	json "github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
 	"github.com/TencentBlueKing/bk-cli/internal/output"
@@ -51,7 +52,13 @@ Batch required resource_names into one request per gateway to avoid excessive
 application records. Do not retry automatically: a retry can create another record.
 Use --dry-run to preview without confirmation or submitting an application.
 
-The required --body accepts JSON, @file or - for stdin:
+The required --body accepts JSON, @file or - for stdin.
+Before preview or submission, the CLI validates the JSON object, required strings,
+grant dimension, resource list and expiry. Invalid fields return request_error.
+The original body is sent unchanged; the server checks applicant format, caller
+identity, resource existence and whether an application is allowed.
+
+Body fields:
   target_app_code: required; application requesting permission, matching the caller
   grant_dimension: required; gateway (all APIs) or resource (selected APIs)
   resource_names: required for resource; array of API names to apply for together
@@ -62,8 +69,9 @@ The required --body accepts JSON, @file or - for stdin:
 The JSON output preserves the complete upstream response, including record_id
 and any approval links or approvers the server returns. Agents must present these
 returned details to the user. Submission does not mean permission is granted.
-The current API contract only guarantees record_id; do not invent approval links
-or approvers, and do not assume the CLI knows the approval status.`,
+record_id is a positive integer, preserved without rounding even for large IDs.
+The API may also return itsm_ticket_id and itsm_ticket_url (possibly empty).
+Do not invent approval links or approvers, or assume the CLI knows approval status.`,
 		Example: `  # Preview a batch, then ask the user to confirm this exact request
   bk-cli apigateway apply_gateway_permission --gateway_name bk-iam --body @permission.json --dry-run
   # Only after explicit user confirmation
@@ -101,12 +109,13 @@ or approvers, and do not assume the CLI knows the approval status.`,
 				return err
 			}
 			return systemcmd.ExecuteRequest(cmd, runtime, "apply_gateway_permission", syslib.RequestSpec{
-				GatewayName: "bk-apigateway",
-				Method:      "POST",
-				Path:        "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
-				BodyJSON:    body,
-				Headers:     headers,
-				Stage:       stage,
+				GatewayName:  "bk-apigateway",
+				Method:       "POST",
+				Path:         "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
+				BodyJSON:     body,
+				ValidateBody: validatePermissionApplicationBody,
+				Headers:      headers,
+				Stage:        stage,
 				AuthConfig: &syslib.AuthConfig{
 					AppVerifiedRequired:        true,
 					UserVerifiedRequired:       false,
@@ -125,9 +134,6 @@ or approvers, and do not assume the CLI knows the approval status.`,
 					return nil
 				}
 				if recordID, ok := data["record_id"]; ok {
-					if numericID, ok := recordID.(float64); ok {
-						recordID = strconv.FormatFloat(numericID, 'f', -1, 64)
-					}
 					env.Message = fmt.Sprintf(
 						"Permission application submitted (record_id: %v); ",
 						recordID,
@@ -148,4 +154,43 @@ or approvers, and do not assume the CLI knows the approval status.`,
 	)
 	systemcmd.AddCommonRequestFlags(cmd, &stage, &body, &headers)
 	return cmd
+}
+
+func validatePermissionApplicationBody(body string) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &fields); err != nil || fields == nil {
+		return fmt.Errorf("--body must be a JSON object")
+	}
+	for _, name := range []string{"target_app_code", "applicant"} {
+		var value string
+		if err := json.Unmarshal(fields[name], &value); err != nil || strings.TrimSpace(value) == "" {
+			return fmt.Errorf("--body %s must be a non-empty string", name)
+		}
+	}
+	var dimension string
+	if err := json.Unmarshal(fields["grant_dimension"], &dimension); err != nil ||
+		(dimension != "gateway" && dimension != "resource") {
+		return fmt.Errorf("--body grant_dimension must be gateway or resource")
+	}
+	if dimension == "resource" {
+		var names []string
+		if err := json.Unmarshal(fields["resource_names"], &names); err != nil || len(names) == 0 {
+			return fmt.Errorf("--body resource_names must be a non-empty array of non-empty strings")
+		}
+		for _, name := range names {
+			if strings.TrimSpace(name) == "" {
+				return fmt.Errorf(
+					"--body resource_names must be a non-empty array of non-empty strings",
+				)
+			}
+		}
+	}
+	if raw, present := fields["expire_days"]; present {
+		var days *int
+		if err := json.Unmarshal(raw, &days); err != nil || days == nil ||
+			(*days != 0 && *days != 180 && *days != 360) {
+			return fmt.Errorf("--body expire_days must be an integer: 0, 180 or 360")
+		}
+	}
+	return nil
 }

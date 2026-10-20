@@ -225,6 +225,144 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	)
 
 	DescribeTable(
+		"rejects malformed permission fields before sending an application",
+		func(input string) {
+			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			cmd := newCommand(false)
+			Expect(
+				cmd.ParseFlags([]string{"--confirmed", "--gateway_name", "bk-iam", "--body", input}),
+			).To(
+				Succeed(),
+			)
+			Expect(cmd.RunE(cmd, nil)).To(MatchError(ContainSubstring("request_error")))
+			Expect(requests.Load()).To(BeZero())
+		},
+		Entry("array body", `[]`),
+		Entry("null body", `null`),
+		Entry("missing required fields", `{}`),
+		Entry(
+			"blank target application",
+			`{"target_app_code":" ","grant_dimension":"gateway","applicant":"developer"}`,
+		),
+		Entry(
+			"numeric target application",
+			`{"target_app_code":12,"grant_dimension":"gateway","applicant":"developer"}`,
+		),
+		Entry("blank applicant", `{"target_app_code":"my-app","grant_dimension":"gateway","applicant":" "}`),
+		Entry("null applicant", `{"target_app_code":"my-app","grant_dimension":"gateway","applicant":null}`),
+		Entry(
+			"unknown dimension",
+			`{"target_app_code":"my-app","grant_dimension":"resouce","applicant":"developer"}`,
+		),
+		Entry(
+			"missing resources",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer"}`,
+		),
+		Entry(
+			"empty resources",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[]}`,
+		),
+		Entry(
+			"string resources",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":"api"}`,
+		),
+		Entry(
+			"blank resource",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[" "]}`,
+		),
+		Entry(
+			"null resource",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[null]}`,
+		),
+		Entry(
+			"numeric resource",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[1]}`,
+		),
+		Entry(
+			"invalid expiry",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer","expire_days":90}`,
+		),
+		Entry(
+			"fractional expiry",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer","expire_days":180.5}`,
+		),
+		Entry(
+			"string expiry",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer","expire_days":"180"}`,
+		),
+		Entry(
+			"null expiry",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer","expire_days":null}`,
+		),
+	)
+
+	DescribeTable("validates resolved file and stdin bodies during preview and submission",
+		func(source string, dryRun bool) {
+			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			input := `{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","resource_names":[]}`
+			bodyInput := input
+			if source == "file" {
+				path := filepath.Join(GinkgoT().TempDir(), "body.json")
+				Expect(os.WriteFile(path, []byte(input), 0o600)).To(Succeed())
+				bodyInput = "@" + path
+			} else if source == "stdin" {
+				r, w, err := os.Pipe()
+				Expect(err).NotTo(HaveOccurred())
+				original := os.Stdin
+				os.Stdin = r
+				DeferCleanup(func() { os.Stdin = original; Expect(r.Close()).To(Succeed()) })
+				_, err = w.WriteString(input)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(w.Close()).To(Succeed())
+				bodyInput = "-"
+			}
+			cmd := newCommand(dryRun)
+			Expect(
+				cmd.ParseFlags(
+					[]string{"--confirmed", "--gateway_name", "bk-iam", "--body", bodyInput},
+				),
+			).To(
+				Succeed(),
+			)
+			Expect(cmd.RunE(cmd, nil)).To(MatchError(ContainSubstring("resource_names")))
+			Expect(requests.Load()).To(BeZero())
+		},
+		Entry("inline preview", "inline", true),
+		Entry("file submission", "file", false),
+		Entry("stdin submission", "stdin", false),
+		Entry("file preview", "file", true),
+		Entry("stdin preview", "stdin", true),
+	)
+
+	DescribeTable(
+		"keeps valid gateway and batch application bodies unchanged",
+		func(input string) {
+			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			cmd := newCommand(false)
+			Expect(
+				cmd.ParseFlags([]string{"--confirmed", "--gateway_name", "bk-iam", "--body", input}),
+			).To(
+				Succeed(),
+			)
+			Expect(cmd.RunE(cmd, nil)).To(Succeed())
+			Expect(requests.Load()).To(Equal(int32(1)))
+			Expect(capturedBody).To(Equal(input))
+		},
+		Entry(
+			"gateway with omitted expiry",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}`,
+		),
+		Entry(
+			"permanent gateway",
+			`{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer","expire_days":0}`,
+		),
+		Entry(
+			"twelve month batch with extra upstream field",
+			`{"target_app_code":"my-app","grant_dimension":"resource","applicant":"developer","expire_days":360,"resource_names":["api1","api2"],"extra":{"id":9007199254740993}}`,
+		),
+	)
+
+	DescribeTable(
 		"only reports submission when the upstream returns an application record",
 		func(upstream, recordID string) {
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
@@ -242,6 +380,19 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
 			if recordID != "" {
 				Expect(env.Message).To(ContainSubstring("record_id: " + recordID + ")"))
+				if upstream == `{"data":{"record_id":9007199254740993}}` ||
+					upstream == `{"data":{"record_id":18446744073709551617}}` {
+					var raw struct {
+						Data struct {
+							Data struct {
+								RecordID json.RawMessage `json:"record_id"`
+							} `json:"data"`
+						} `json:"data"`
+					}
+					Expect(json.Unmarshal(stdout.Bytes(), &raw)).To(Succeed())
+					Expect(string(raw.Data.Data.RecordID)).To(Equal(recordID))
+				}
+
 			} else {
 				Expect(env.Message).To(BeEmpty())
 			}
@@ -257,6 +408,16 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			"string record ID preserved verbatim",
 			`{"data":{"record_id":"9007199254740993"}}`,
 			"9007199254740993",
+		),
+		Entry(
+			"numeric ID beyond float64 integer precision",
+			`{"data":{"record_id":9007199254740993}}`,
+			"9007199254740993",
+		),
+		Entry(
+			"numeric ID beyond int64 range",
+			`{"data":{"record_id":18446744073709551617}}`,
+			"18446744073709551617",
 		),
 		Entry("business error returned with HTTP 200", `{"code":1,"message":"Rejected"}`, ""),
 		Entry("unexpected response shape", `[]`, ""),

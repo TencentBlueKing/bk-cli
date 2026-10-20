@@ -38,6 +38,24 @@ steps:
           contains: /bk-apigateway/prod/api/v2/open/gateways/bk-iam/permissions/apply/
         - path: request.body.resource_names
           equals: [user_query, user_create]
+  - name: reject an invalid confirmed batch locally
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"resource","resource_names":[],"applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: request_error
+        - path: error.message
+          contains: resource_names
   - name: submit the batch after explicit user confirmation
     command:
       - apigateway
@@ -55,11 +73,11 @@ steps:
         - path: status
           equals: 200
         - path: message
-          contains: 'record_id: 1234567)'
+          contains: 'record_id: 9007199254740993)'
         - path: data.data.record_id
-          equals: 1234567
+          equals: 9007199254740993
         - path: data.data.approval_url
-          equals: https://approval.example.com/records/1234567
+          equals: https://approval.example.com/records/9007199254740993
         - path: data.data.approvers
           equals: [gateway-admin]
         - path: data.data.gateway_name

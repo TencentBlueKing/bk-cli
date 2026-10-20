@@ -66,6 +66,8 @@ type RequestSpec struct {
 	Stage       string
 	Timeout     string
 	AuthConfig  api.AuthPolicy
+	// ValidateBody checks the resolved body before credentials, preview or submission.
+	ValidateBody func(string) error
 }
 
 // RequestResult contains the envelope produced by a single API request.
@@ -165,6 +167,15 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 		)
 	}
 	spec.BodyJSON = bodyJSON
+	if spec.ValidateBody != nil {
+		if err := spec.ValidateBody(bodyJSON); err != nil {
+			return nil, output.UserError(
+				"request_error",
+				err.Error(),
+				"Check --body fields against the action help",
+			)
+		}
+	}
 
 	headerMap, err := api.ParseHeaderFlags(spec.Headers)
 	if err != nil {

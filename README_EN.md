@@ -30,7 +30,7 @@ For users:
 
 Bash examples wrap URL templates and credentials in single quotes. Replace the values inside the quotes to preserve literal `$` characters and command substitutions.
 
-When gateway permissions are missing, use `bk-cli apigateway apply_gateway_permission` to apply for a batch of APIs. Before every submission, agents must ask the user to confirm the gateway, application, resources, expiry, and reason; pass `--confirmed` only after explicit consent. Submission creates a record and triggers notifications and approval. Preview with `--dry-run` first; see the [permission application example](docs/user-guide.md#申请网关或接口权限) for request bodies and returned details.
+When gateway permissions are missing, use `bk-cli apigateway apply_gateway_permission` to apply for a batch of APIs. Before every submission, agents must ask the user to confirm the gateway, application, resources, expiry, and reason; pass `--confirmed` only after explicit consent. Submission creates a record and triggers notifications and approval. Preview with `--dry-run` first; both preview and submission validate application fields. see the [permission application example](docs/user-guide.md#申请网关或接口权限) for request bodies and returned details.
 
 For developers:
 

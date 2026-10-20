@@ -377,9 +377,11 @@ bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
   --body @permission.json --confirmed
 ```
 
+预览和提交都会先做轻量校验：body 必须是 JSON object；`target_app_code`、`applicant` 必须为非空字符串；`grant_dimension` 必须为 `gateway` 或 `resource`；按资源申请时 `resource_names` 必须是非空字符串数组；`expire_days` 若提供，必须是整数 `0`、`180` 或 `360`。无效输入返回 `request_error`，不会发送请求。原始 body 保持不变；申请人格式、调用应用是否匹配、资源是否存在及是否允许申请仍由网关校验。修正申请内容后，应重新预览并向用户确认。
+
 `--body` 也支持内联 JSON 或 `--body -` 从 stdin 读取。`--confirmed` 表示用户已明确确认本次申请内容，不能代替向用户询问；不传该参数或传 `--confirmed=false` 时，实际提交在本地返回 `confirmation_required`，不会发起请求。
 
-返回值保持 JSON envelope 和完整上游响应；`message` 展示申请单号，`data.data.record_id` 是上游申请记录 ID。**提交成功不表示权限已获批。** Agent 应向用户展示申请单号，以及响应中实际返回的审批链接、审批人等信息，方便联系审批。当前上游契约只保证 `record_id`，没有链接或审批人时不要猜测，也不要把申请单号当作审批完成状态。
+返回值保持 JSON envelope 和完整上游响应；`message` 展示申请单号，`data.data.record_id` 是上游申请记录 ID。**提交成功不表示权限已获批。** Agent 应向用户展示申请单号，以及响应中实际返回的审批链接、审批人等信息，方便联系审批。`record_id` 为正整数，大单号在响应和 `message` 中保持原值。响应还可能包含 `itsm_ticket_id` 和 `itsm_ticket_url`；非空时应展示对应工单和链接。没有链接或审批人时不要猜测，也不要把申请单号当作审批完成状态。
 
 ### 使用 system 子命令
 

@@ -240,6 +240,73 @@ var _ = Describe("requestexec", func() {
 		)
 	})
 
+	Describe("resolved body validation", func() {
+		It("rejects the body before loading credentials or sending a request", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
+			runtime, err := ResolveRuntime("", false, false)
+			Expect(err).NotTo(HaveOccurred())
+			calls := 0
+			_, err = ExecuteRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway",
+				Method:      http.MethodPost,
+				Path:        "/api/v1/demo/",
+				BodyJSON:    `{"invalid":true}`,
+				AuthConfig:  &api.AuthRequirements{AppVerifiedRequired: true},
+				ValidateBody: func(body string) error {
+					calls++
+					Expect(body).To(Equal(`{"invalid":true}`))
+					return errors.New("application fields are invalid")
+				},
+			})
+			expectCLIError(err, "request_error")
+			Expect(err.Error()).To(ContainSubstring("application fields are invalid"))
+			Expect(calls).To(Equal(1))
+			Expect(runtime.Credential).To(BeNil())
+		})
+
+		It("validates stdin exactly once and previews the same resolved body", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
+			r, w, err := os.Pipe()
+			Expect(err).NotTo(HaveOccurred())
+			original := os.Stdin
+			os.Stdin = r
+			DeferCleanup(func() { os.Stdin = original; Expect(r.Close()).To(Succeed()) })
+			input := `{"name":"from-stdin","id":9007199254740993}`
+			_, err = w.WriteString(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(w.Close()).To(Succeed())
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+			calls := 0
+			result, err := ExecuteRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/api/v1/demo/",
+				BodyJSON: "-", AuthConfig: &api.AuthRequirements{},
+				ValidateBody: func(body string) error {
+					calls++
+					Expect(body).To(Equal(input))
+					return nil
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(calls).To(Equal(1))
+			Expect(result.DryRunRequest.Body).To(HaveKeyWithValue("id", json.Number("9007199254740993")))
+		})
+
+		It("does not validate when the body source cannot be read", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+			calls := 0
+			_, err = ExecuteRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/api/v1/demo/",
+				BodyJSON: "@" + tmpDir + "/missing.json", AuthConfig: &api.AuthRequirements{},
+				ValidateBody: func(_ string) error { calls++; return nil },
+			})
+			expectCLIError(err, "request_error")
+			Expect(calls).To(BeZero())
+		})
+	})
+
 	Describe("ExecuteRequest", func() {
 		It("requires authConfig for system actions", func() {
 			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
