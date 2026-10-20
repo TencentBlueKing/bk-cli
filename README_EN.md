@@ -14,11 +14,12 @@ For the full design contract, see [docs/design.md](docs/design.md).
 
 - **Three layers of invocation**: raw API calls, system subcommands, and shortcuts (planned)
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
-- **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity
-- **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes
+- **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity, with credential values masked
+- **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes; API responses preserve JSON number precision
 - **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
 - **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
+- **Personal token login**: `bk-cli auth login --personal_token='<personal-token>'` uses a token from the personal center to call APIs that support Bearer authentication
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
 
@@ -30,7 +31,7 @@ For users:
 
 Bash examples wrap URL templates and credentials in single quotes. Replace the values inside the quotes to preserve literal `$` characters and command substitutions.
 
-`auth login` can read `BK_CLI_BK_APP_CODE`, `BK_CLI_BK_APP_SECRET`, `BK_CLI_BK_TOKEN`, `BK_CLI_BK_TICKET`, or `BK_CLI_ACCESS_TOKEN` directly. Inject one complete credential mode through your secret manager or CI, then run `bk-cli auth login` (optionally with `--context <name>`) to keep credential values out of command-line arguments. Explicit credential flags take precedence; see the [User Guide](docs/user-guide.md#通过环境变量登录) for mode selection, conflicts, and security boundaries.
+`auth login` can read `BK_CLI_BK_APP_CODE`, `BK_CLI_BK_APP_SECRET`, `BK_CLI_BK_TOKEN`, `BK_CLI_BK_TICKET`, `BK_CLI_ACCESS_TOKEN`, or `BK_CLI_PERSONAL_TOKEN` directly. Inject one complete credential mode through your secret manager or CI, then run `bk-cli auth login` (optionally with `--context <name>`) to keep credential values out of command-line arguments. Explicit credential flags take precedence; personal tokens use an exclusive mode and environment modes cannot be mixed. See the [User Guide](docs/user-guide.md#通过环境变量登录) for mode selection, conflicts, and security boundaries.
 
 If a selected environment credential contains leading or trailing whitespace (including newlines), login returns `invalid_credentials` and identifies the variable by name. Correct the injected value and retry.
 

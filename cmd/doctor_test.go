@@ -120,6 +120,78 @@ var _ = Describe("doctor command", func() {
 		Expect(gotPath).To(Equal("/api/bk-apigateway/prod/"))
 		Expect(findDoctorCheck(data["checks"].([]any), "connectivity")["status"]).To(Equal("pass"))
 	})
+
+	It("reports valid personal credentials as ready without leaking the token", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		DeferCleanup(server.Close)
+		Expect((&config.Config{
+			BkAPIURLTmpl: server.URL + "/api/{gateway_name}/",
+		}).Save(config.ConfigPath("default"))).To(Succeed())
+		Expect(config.SetActiveContext("default")).To(Succeed())
+		saveDoctorTestCredential("default", &credential.Credential{
+			Type:          credential.TypePersonalToken,
+			PersonalToken: "personal-token-abcdef",
+		})
+
+		out, err := executeDoctorCmd(func() string { return "" })
+		Expect(err).NotTo(HaveOccurred())
+		data := decodeDoctorData(out)
+		Expect(data["ok"]).To(BeTrue())
+		check := findDoctorCheck(data["checks"].([]any), "selected_credentials")
+		Expect(check["status"]).To(Equal("pass"))
+		Expect(check["message"]).To(Equal("personal_token"))
+		ctx := findDoctorContext(data["contexts"].([]any), "default")
+		Expect(ctx["has_credentials"]).To(BeTrue())
+		cred := ctx["credential"].(map[string]any)
+		Expect(cred["type"]).To(Equal("personal_token"))
+		Expect(cred["personal_token"]).To(Equal("pers***cdef"))
+		Expect(out).NotTo(ContainSubstring("personal-token-abcdef"))
+	})
+
+	DescribeTable("rejects invalid stored credentials without leaking their contents",
+		func(cred credential.Credential, message string) {
+			// Persist without Save's validation to exercise doctor's read boundary.
+			Expect((&config.Config{
+				BkAPIURLTmpl: "https://bkapi.example.com/api/{gateway_name}/",
+			}).Save(config.ConfigPath("default"))).To(Succeed())
+			Expect(config.SetActiveContext("default")).To(Succeed())
+			key, err := credential.DeriveKey()
+			Expect(err).NotTo(HaveOccurred())
+			raw, err := cred.Marshal()
+			Expect(err).NotTo(HaveOccurred())
+			encoded, err := credential.Encrypt(raw, key)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(config.CredentialsPath("default"), []byte(encoded), 0o600)).To(Succeed())
+
+			out, err := executeDoctorCmd(func() string { return "" }, "--offline")
+			Expect(err).To(HaveOccurred())
+			data := decodeDoctorData(out)
+			Expect(data["ok"]).To(BeFalse())
+			check := findDoctorCheck(data["checks"].([]any), "selected_credentials")
+			Expect(check["status"]).To(Equal("fail"))
+			Expect(check["message"]).To(Equal(message))
+			ctx := findDoctorContext(data["contexts"].([]any), "default")
+			Expect(ctx).NotTo(HaveKey("credential"))
+			Expect(out).NotTo(ContainSubstring("private-value"))
+		},
+		Entry("empty personal token", credential.Credential{Type: credential.TypePersonalToken},
+			"personal_token must be a non-empty single Bearer token"),
+		Entry("malformed personal token", credential.Credential{
+			Type: credential.TypePersonalToken, PersonalToken: "private-value\n",
+		}, "personal_token must be a non-empty single Bearer token"),
+		Entry("mixed personal credentials", credential.Credential{
+			Type: credential.TypePersonalToken, PersonalToken: "private-value", AccessToken: "other-value",
+		}, "personal_token cannot be combined with other credential fields"),
+		Entry("incomplete app credentials", credential.Credential{
+			Type: credential.TypeAppUser, BkAppCode: "private-value",
+		}, "bk_app_secret is required for app_user credential"),
+		Entry("empty access token", credential.Credential{Type: credential.TypeAccessToken},
+			"access_token is required for access_token credential"),
+		Entry("unknown credential type", credential.Credential{Type: "unsupported"},
+			`unknown credential type: "unsupported"`),
+	)
 })
 
 func executeDoctorCmd(contextGetter func() string, args ...string) (string, error) {

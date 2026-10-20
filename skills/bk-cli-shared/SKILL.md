@@ -32,6 +32,9 @@ bk-cli auth login --bk_app_code="your_app" --bk_app_secret="your_secret" --bk_ti
 # 登录：access_token
 bk-cli auth login --access_token="your_token"
 
+# 登录：个人 token（独立使用，不需要应用凭据）
+bk-cli auth login --personal_token='<personal-token>'
+
 # 环境自检
 bk-cli doctor
 bk-cli doctor --offline
@@ -84,9 +87,10 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 - `--verbose` 对请求类命令生效，请求/响应细节会输出到 stderr。
 - `--insecure` 类似 `curl --insecure`，只影响真实 HTTPS 请求；临时调试自签名证书或测试环境时再使用。
 - `--header` 必须包含 `:`，且 header name 不能为空；非法 header 不会进入网络请求阶段。
-- `--header` 可以显式覆盖 `X-Bkapi-Authorization` 与 `X-Bk-Tenant-Id`。
+- `--header` 可以显式覆盖同名请求头，名称匹配不区分大小写；旧凭据模式可覆盖 `X-Bkapi-Authorization`，个人 token 模式可覆盖 `Authorization`，也可覆盖 `X-Bk-Tenant-Id`。
+- 个人 token 模式下，原始 `api` 和要求认证的系统命令不能再叠加 `--header 'X-Bkapi-Authorization:<json>'`，否则会在本地报错。
 - 传入 `--body` 时仍不能手动覆盖 `Content-Type`，该 header 由 CLI 管理。
-- dry-run / verbose 会对 `X-Bkapi-Authorization` 做脱敏显示，即使该 header 是调用方显式覆盖的。
+- dry-run / verbose 会对 `Authorization` 和 `X-Bkapi-Authorization` 做脱敏显示，即使该 header 是调用方显式覆盖的；响应 envelope 的这两个 header 也会脱敏。
 - 路径占位符值会被当作单个 URL path segment 转义，不能依赖它注入 `/`、`?` 等路径结构。
 
 ## 超时规则
@@ -99,24 +103,31 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 
 多数情况下，你不需要关心 CLI 内部如何组装认证头，只需要确保目标 context 已经登录到匹配的身份。
 
-当前 bk-cli 公开支持三种登录形态：
+当前 bk-cli 公开支持四种登录形态：
 
 - `bk-cli auth login --bk_app_code=X --bk_app_secret=Y --bk_token=Z`
 - `bk-cli auth login --bk_app_code=X --bk_app_secret=Y --bk_ticket=Z`
 - `bk-cli auth login --access_token=Z`
+- `bk-cli auth login --personal_token='<personal-token>'`
 
-也可以由秘密管理工具或 CI 注入 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET` 或 `BK_CLI_ACCESS_TOKEN`，再执行 `bk-cli auth login`（可加 `--context <name>`）。CLI 直接读取环境值，避免把凭据展开到 flags 后暴露在进程命令行参数中。只注入完整的一种登录形态；显式凭据 flags 先选择模式并优先于同名环境值，环境只补齐该模式的缺失字段。显式空值、冲突的环境模式，以及实际采用的环境值含首尾空白时，都会报 `invalid_credentials`。
+个人 token 来自个人中心。`--personal_token` 与 `--bk_app_code`、`--bk_app_secret`、`--bk_token`、`--bk_ticket`、`--access_token` 互斥，其他凭据 flag 即使显式传空值也不能混用。token 不应带 `Bearer ` 前缀，不能是空值或包含空白、控制字符；非法输入不会替换已有凭据，也不会在错误中回显原值。同一 context 再次成功登录会替换原凭据，凭据仍加密保存。
 
-下面是仅在登录命令作用域内注入 access token 的占位示例；实际值应由秘密管理工具或 CI 提供：
+使用个人 token 登录后，原始 `api` 和要求认证的系统命令使用 `Authorization: Bearer <personal-token>`，无需额外提供应用或用户凭据；明确无需认证的系统命令不会自动携带 token。部署是否支持个人 token、token 有效期和接口权限由服务端判定。
+
+也可以由秘密管理工具或 CI 注入 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET`、`BK_CLI_ACCESS_TOKEN` 或 `BK_CLI_PERSONAL_TOKEN`，再执行 `bk-cli auth login`（可加 `--context <name>`）。CLI 直接读取环境值，避免把凭据展开到 flags 后暴露在进程命令行参数中。只注入完整的一种登录形态；显式凭据 flags 先选择模式并优先于同名环境值，环境只补齐该模式的缺失字段。`--personal_token` 与其他凭据 flags 互斥；单独显式选择个人模式会忽略旧环境凭据，显式选择旧模式会忽略 `BK_CLI_PERSONAL_TOKEN`。仅使用环境时，个人 token 不能与其他非空凭据变量共存。显式空值、冲突的环境模式，以及实际采用的环境值含首尾空白时，都会报 `invalid_credentials`。
+
+下面是仅在登录命令作用域内注入独立 token 的占位示例；实际值应由秘密管理工具或 CI 提供：
 
 ```bash
 BK_CLI_ACCESS_TOKEN='your_token' bk-cli auth login
+# 或只注入个人 token，不带 Bearer 前缀
+BK_CLI_PERSONAL_TOKEN='your_personal_token' bk-cli auth login
 ```
 
 若变量已注入当前 shell，登录后应清理，避免后续命令及其子进程继承明文凭据；后续请求使用 context 中已加密保存的凭据：
 
 ```bash
-unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN
+unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN BK_CLI_PERSONAL_TOKEN
 ```
 
 环境输入仍可能被有权限的进程、shell 调试输出或 CI 日志读取。模式选择、冲突示例及安全边界见[用户指南：通过环境变量登录](../../docs/user-guide.md#通过环境变量登录)。
@@ -126,7 +137,8 @@ unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET B
 - `bk-cli auth status` 适合做“当前 context 有没有凭据”的检查。
 - `bk-cli auth status` 在“没有凭据”时仍返回 `ok: true`，要看 `data.has_credentials` 是否为 `true`。
 - `bk-cli auth check` 更适合脚本和 CI；目标 context 没有凭据时，会返回 `ok: false`、`error.code: no_credentials`，并以 exit code 1 结束。
-- 如果你需要临时覆盖 CLI 自动生成的认证头，可以显式传 `--header 'X-Bkapi-Authorization:<json>'`；dry-run / verbose 仍会做脱敏显示。
+- 个人 token 登录后，`auth status/check` 显示 `credential_type: personal_token`，不显示 token；`doctor --offline` 会检查凭据格式并显示脱敏摘要。这些本地检查不验证远端有效期或权限。
+- 如果你需要临时覆盖 CLI 自动生成的认证头，旧凭据模式使用 `--header 'X-Bkapi-Authorization:<json>'`，个人 token 模式使用 `--header 'Authorization:Bearer <personal-token>'`；dry-run / verbose 仍会做脱敏显示。
 
 ## 与系统专属 Skill 的关系
 

@@ -37,10 +37,11 @@ func newLoginCmd() *cobra.Command {
 Initialize a context first with:
   bk-cli context init --bk_api_url_tmpl='https://bkapi.your-domain.com/api/{gateway_name}/'
 
-Three credential modes are supported:
+Four credential modes are supported:
   1. App + token:   --bk_app_code + --bk_app_secret + --bk_token
   2. App + ticket:  --bk_app_code + --bk_app_secret + --bk_ticket
   3. Access token:  --access_token
+  4. Personal token: --personal_token (exclusive; sent as Bearer authentication)
 
 Environment fallbacks (read directly by the CLI):
   --bk_app_code   -> BK_CLI_BK_APP_CODE
@@ -48,9 +49,13 @@ Environment fallbacks (read directly by the CLI):
   --bk_token      -> BK_CLI_BK_TOKEN
   --bk_ticket     -> BK_CLI_BK_TICKET
   --access_token  -> BK_CLI_ACCESS_TOKEN
+  --personal_token -> BK_CLI_PERSONAL_TOKEN
 
 Explicit credential flags select the mode and take precedence; environment values
 only fill missing fields in that mode. Explicit empty values are rejected.
+--personal_token cannot be combined with any other credential flag, even an empty one.
+Explicit flags for other modes ignore BK_CLI_PERSONAL_TOKEN; environment-only
+personal login requires BK_CLI_PERSONAL_TOKEN without other credential variables.
 Selected environment values with leading or trailing whitespace are rejected.
 Without credential flags, the environment must contain only one credential mode.
 With no credentials in either source, device flow remains unimplemented.
@@ -69,21 +74,34 @@ Examples:
   bk-cli auth login --context dev
   bk-cli auth login --bk_app_code='app' --bk_app_secret='secret' --bk_token='tok'
   bk-cli auth login --access_token='my_token'
+  bk-cli auth login --personal_token='<personal-token>'
   bk-cli context create dev --bk_api_url_tmpl='https://bkapi.example.com/api/{gateway_name}/' --tenant_id='t1'
   bk-cli context use dev
   bk-cli auth login --access_token='my_token'
   bk-cli auth login --context dev --access_token='my_token'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Personal mode is exclusive even when a legacy flag is explicitly empty.
+			if cmd.Flags().Changed("personal_token") {
+				for _, name := range []string{"bk_app_code", "bk_app_secret", "bk_token", "bk_ticket", "access_token"} {
+					if cmd.Flags().Changed(name) {
+						return output.UserError("invalid_credentials",
+							"--personal_token cannot be combined with --"+name,
+							"Use --personal_token alone. See: bk-cli auth login --help")
+					}
+				}
+			}
+
 			input, err := resolveLoginInput(cmd)
 			if err != nil {
 				return err
 			}
 			bkAppCode, bkAppSecret := input.BkAppCode, input.BkAppSecret
 			bkToken, bkTicket, accessToken := input.BkToken, input.BkTicket, input.AccessToken
+			personalToken := input.PersonalToken
 
 			// No credential input → placeholder for device flow
 			if bkAppCode == "" && bkAppSecret == "" && bkToken == "" && bkTicket == "" &&
-				accessToken == "" {
+				accessToken == "" && personalToken == "" {
 				return output.UserError(
 					"not_implemented",
 					"OAuth2 device flow not yet implemented",
@@ -104,12 +122,18 @@ Examples:
 
 			// Build credential
 			var cred *credential.Credential
-			if accessToken != "" {
+			switch {
+			case personalToken != "":
+				cred = &credential.Credential{
+					Type:          credential.TypePersonalToken,
+					PersonalToken: personalToken,
+				}
+			case accessToken != "":
 				cred = &credential.Credential{
 					Type:        credential.TypeAccessToken,
 					AccessToken: accessToken,
 				}
-			} else {
+			default:
 				// Determine which user key to set based on config.UserKey
 				userKey := cfg.UserKey
 				if userKey == "" {
@@ -191,6 +215,8 @@ Examples:
 		"",
 		"Access token (standalone mode; env: BK_CLI_ACCESS_TOKEN)",
 	)
+
+	cmd.Flags().String("personal_token", "", "Personal token (exclusive Bearer mode; env: BK_CLI_PERSONAL_TOKEN)")
 
 	return cmd
 }

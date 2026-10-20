@@ -43,6 +43,7 @@ func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 		{"bk_token", &input.BkToken},
 		{"bk_ticket", &input.BkTicket},
 		{"access_token", &input.AccessToken},
+		{"personal_token", &input.PersonalToken},
 	}
 	for _, field := range fields {
 		*field.value, _ = cmd.Flags().GetString(field.name)
@@ -56,12 +57,13 @@ func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 		}
 	}
 
-	// Preserve access-token precedence for existing nonempty credential flags.
-	if input.AccessToken != "" {
+	// Explicit standalone modes ignore environment credentials for every other mode.
+	if input.PersonalToken != "" || input.AccessToken != "" {
 		return input, nil
 	}
 	if !hasFlags {
 		input.AccessToken = os.Getenv("BK_CLI_ACCESS_TOKEN")
+		input.PersonalToken = os.Getenv("BK_CLI_PERSONAL_TOKEN")
 	}
 	if input.BkAppCode == "" {
 		input.BkAppCode = os.Getenv("BK_CLI_BK_APP_CODE")
@@ -80,6 +82,12 @@ func resolveLoginInput(cmd *cobra.Command) (credential.Credential, error) {
 				"Keep one user credential environment variable or select --bk_token or --bk_ticket explicitly.",
 			)
 		}
+	}
+	if input.PersonalToken != "" && (input.AccessToken != "" || input.BkAppCode != "" ||
+		input.BkAppSecret != "" || input.BkToken != "" || input.BkTicket != "") {
+		return input, output.UserError("invalid_credentials",
+			"BK_CLI_PERSONAL_TOKEN conflicts with other credential environment variables",
+			"Keep one credential mode in the environment or select a mode with explicit credential flags.")
 	}
 	if input.AccessToken != "" && (input.BkAppCode != "" || input.BkAppSecret != "" ||
 		input.BkToken != "" || input.BkTicket != "") {

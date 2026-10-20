@@ -54,8 +54,8 @@ func BuildDryRunEnvelope(req *Request) *output.Envelope {
 	if req.BodyJSON != "" {
 		headers["Content-Type"] = "application/json"
 	}
-	if req.AuthHeader != "" {
-		headers["X-Bkapi-Authorization"] = "{...redacted...}"
+	for key := range req.AuthHeaders {
+		headers[key] = "{...redacted...}"
 	}
 	if req.TenantID != "" {
 		headers["X-Bk-Tenant-Id"] = req.TenantID
@@ -66,7 +66,7 @@ func BuildDryRunEnvelope(req *Request) *output.Envelope {
 				delete(headers, existingKey)
 			}
 		}
-		if strings.EqualFold(key, "X-Bkapi-Authorization") {
+		if IsAuthHeader(key) {
 			headers[key] = "{...redacted...}"
 			continue
 		}
@@ -101,4 +101,9 @@ func parseDryRunJSON(raw string) any {
 		return raw
 	}
 	return value
+}
+
+// IsAuthHeader reports whether a header contains authentication material.
+func IsAuthHeader(name string) bool {
+	return strings.EqualFold(name, "Authorization") || strings.EqualFold(name, "X-Bkapi-Authorization")
 }

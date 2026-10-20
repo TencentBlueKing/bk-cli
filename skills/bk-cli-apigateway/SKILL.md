@@ -85,7 +85,9 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - `user_verified_required: true`：调用方需要带用户身份。
 - `resource_perm_required: true`：除了有应用身份外，应用通常还需要先申请该 API 的资源权限。
 
-对 agent 来说，推荐这样解读：
+如果当前 context 使用个人 token，CLI 使用 `Authorization: Bearer <personal-token>`，无需补充应用或用户凭据。应结合目标部署对个人 token 的支持情况和服务端返回，判断 token 是否有效及是否具有接口权限；不能再叠加 `X-Bkapi-Authorization`。共享登录、互斥和脱敏规则见 `../bk-cli-shared/SKILL.md`。
+
+对使用 app+user 或 `access_token` 的 agent 来说，推荐这样解读：
 
 - 仅 `app_verified_required: true`：优先确认当前登录票据里有应用身份，或使用可满足要求的 `access_token`。
 - 同时 `app_verified_required: true` 且 `user_verified_required: true`：优先确认当前登录票据同时具备应用身份和用户身份，或使用可满足要求的 `access_token`。
@@ -97,10 +99,11 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 
 优先按下面的思路提示：
 
-- 当接口要求应用认证，但当前登录方式没有应用身份时，提示用户检查 `bk_app_code` / `bk_app_secret`，或改用满足条件的 `access_token`。
-- 当接口要求用户认证，但当前登录方式没有用户身份时，提示用户检查 `bk_token` / `bk_ticket`，或改用满足条件的 `access_token`。
-- 当接口要求资源权限，且报错表现像“无权限访问 / permission denied / forbidden”时，明确提示“这不一定只是登录票据问题，也可能是应用尚未申请该 API 权限”。
-- 当接口既要求应用身份又要求资源权限时，不要只给单一结论；应同时告诉用户检查“登录身份是否完整”以及“应用是否已申请 API 权限”。
+- 当前使用个人 token 时，先检查部署是否支持 Bearer 鉴权、token 是否有效及是否有该接口权限；本地 `auth check` 成功只说明凭据已保存。不要仅因接口要求应用或用户认证就要求追加旧凭据或 `X-Bkapi-Authorization`。
+- 使用 app+user 或 `access_token` 时，当接口要求应用认证，但当前登录方式没有应用身份，提示用户检查 `bk_app_code` / `bk_app_secret`，或改用满足条件的 `access_token`。
+- 使用 app+user 或 `access_token` 时，当接口要求用户认证，但当前登录方式没有用户身份，提示用户检查 `bk_token` / `bk_ticket`，或改用满足条件的 `access_token`。
+- 当接口要求资源权限，且报错表现像“无权限访问 / permission denied / forbidden”时，按当前登录模式检查个人 token 的接口权限，或应用是否已申请该 API 权限。
+- 使用 app+user 或 `access_token` 时，当接口既要求应用身份又要求资源权限，不要只给单一结论；应同时告诉用户检查“登录身份是否完整”以及“应用是否已申请 API 权限”。
 
 推荐输出风格：
 
@@ -113,6 +116,9 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 ```bash
 # 1. 认证
 bk-cli auth login --bk_app_code="your_app" --bk_app_secret="your_secret" --bk_token="your_token"
+
+# 或在支持个人 token 的部署中独立登录
+bk-cli auth login --personal_token='<personal-token>'
 
 # 2. 列出网关
 bk-cli apigateway list_gateways
