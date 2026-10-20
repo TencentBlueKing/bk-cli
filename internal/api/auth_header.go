@@ -70,7 +70,7 @@ func (c *AuthRequirements) RequiresUserVerification() bool {
 	return c.UserVerifiedRequired
 }
 
-// BuildAuthHeader constructs the X-Bkapi-Authorization header value
+// BuildAuthHeaders constructs the authentication headers
 // from the given credential.
 //
 // for `bk-cli api`, the authConfig is nil
@@ -87,17 +87,25 @@ func (c *AuthRequirements) RequiresUserVerification() bool {
 //	app_user (bk_ticket): {"bk_app_code":"x","bk_app_secret":"y","bk_ticket":"z"}
 //	app_user (app-only):  {"bk_app_code":"x","bk_app_secret":"y"}
 //	access_token:         {"access_token":"z"}
-func BuildAuthHeader(cred *credential.Credential, authConfig AuthPolicy) (string, error) {
+//	personal_token:       Authorization: Bearer <personal-token>
+func BuildAuthHeaders(cred *credential.Credential, authConfig AuthPolicy) (map[string]string, error) {
 	if authConfig != nil && !authConfig.RequiresAuth() {
-		return "", nil
+		return nil, nil
 	}
 
 	if authConfig != nil && authConfig.RequiresAuth() && cred == nil {
-		return "", fmt.Errorf("credential is required for configured authentication")
+		return nil, fmt.Errorf("credential is required for configured authentication")
 	}
 
 	if cred == nil {
-		return "", nil
+		return nil, nil
+	}
+
+	if cred.Type == credential.TypePersonalToken {
+		if err := cred.Validate(); err != nil {
+			return nil, err
+		}
+		return map[string]string{"Authorization": "Bearer " + cred.PersonalToken}, nil
 	}
 
 	authMap := make(map[string]string)
@@ -106,17 +114,17 @@ func BuildAuthHeader(cred *credential.Credential, authConfig AuthPolicy) (string
 	case credential.TypeAppUser:
 		if authConfig == nil || authConfig.RequiresAppVerification() {
 			if cred.BkAppCode == "" {
-				return "", fmt.Errorf("bk_app_code is required for configured app verification")
+				return nil, fmt.Errorf("bk_app_code is required for configured app verification")
 			}
 			if cred.BkAppSecret == "" {
-				return "", fmt.Errorf("bk_app_secret is required for configured app verification")
+				return nil, fmt.Errorf("bk_app_secret is required for configured app verification")
 			}
 			authMap["bk_app_code"] = cred.BkAppCode
 			authMap["bk_app_secret"] = cred.BkAppSecret
 		}
 		if authConfig == nil || authConfig.RequiresUserVerification() {
 			if cred.BkToken == "" && cred.BkTicket == "" && authConfig != nil {
-				return "", fmt.Errorf(
+				return nil, fmt.Errorf(
 					"bk_token or bk_ticket is required for configured user verification",
 				)
 			}
@@ -129,15 +137,15 @@ func BuildAuthHeader(cred *credential.Credential, authConfig AuthPolicy) (string
 		}
 	case credential.TypeAccessToken:
 		if cred.AccessToken == "" && authConfig != nil {
-			return "", fmt.Errorf("access_token is required for configured authentication")
+			return nil, fmt.Errorf("access_token is required for configured authentication")
 		}
 		authMap["access_token"] = cred.AccessToken
 	}
 
 	data, err := json.Marshal(authMap)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(data), nil
+	return map[string]string{"X-Bkapi-Authorization": string(data)}, nil
 }

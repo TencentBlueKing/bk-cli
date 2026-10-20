@@ -14,11 +14,12 @@ For the full design contract, see [docs/design.md](docs/design.md).
 
 - **Three layers of invocation**: raw API calls, system subcommands, and shortcuts (planned)
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
-- **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity
+- **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity, with credential values masked
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes; API responses preserve JSON number precision
 - **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
 - **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
+- **Personal token login**: `bk-cli auth login --personal_token='<personal-token>'` uses a token from the personal center to call APIs that support Bearer authentication
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
 

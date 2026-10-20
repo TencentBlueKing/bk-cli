@@ -21,6 +21,7 @@ package credential
 
 import (
 	"fmt"
+	"regexp"
 
 	json "github.com/goccy/go-json"
 )
@@ -29,19 +30,24 @@ import (
 type CredentialType string
 
 const (
-	TypeAppUser     CredentialType = "app_user"
-	TypeAccessToken CredentialType = "access_token"
+	TypeAppUser       CredentialType = "app_user"
+	TypeAccessToken   CredentialType = "access_token"
+	TypePersonalToken CredentialType = "personal_token"
 )
 
 // Credential represents stored authentication data.
 type Credential struct {
-	Type        CredentialType `json:"type"`
-	BkAppCode   string         `json:"bk_app_code,omitempty"`
-	BkAppSecret string         `json:"bk_app_secret,omitempty"`
-	BkToken     string         `json:"bk_token,omitempty"`
-	BkTicket    string         `json:"bk_ticket,omitempty"`
-	AccessToken string         `json:"access_token,omitempty"`
+	Type          CredentialType `json:"type"`
+	BkAppCode     string         `json:"bk_app_code,omitempty"`
+	BkAppSecret   string         `json:"bk_app_secret,omitempty"`
+	BkToken       string         `json:"bk_token,omitempty"`
+	BkTicket      string         `json:"bk_ticket,omitempty"`
+	AccessToken   string         `json:"access_token,omitempty"`
+	PersonalToken string         `json:"personal_token,omitempty"`
 }
+
+// personalTokenRe follows the single-token grammar in RFC 6750 section 2.1.
+var personalTokenRe = regexp.MustCompile(`^[A-Za-z0-9._~+/-]+=*$`)
 
 // Validate checks that the credential has all required fields.
 func (c *Credential) Validate() error {
@@ -55,6 +61,14 @@ func (c *Credential) Validate() error {
 		}
 		if c.BkToken == "" && c.BkTicket == "" {
 			return fmt.Errorf("bk_token or bk_ticket is required for app_user credential")
+		}
+	case TypePersonalToken:
+		if !personalTokenRe.MatchString(c.PersonalToken) {
+			return fmt.Errorf("personal_token must be a non-empty single Bearer token")
+		}
+		if c.BkAppCode != "" || c.BkAppSecret != "" || c.BkToken != "" || c.BkTicket != "" ||
+			c.AccessToken != "" {
+			return fmt.Errorf("personal_token cannot be combined with other credential fields")
 		}
 	case TypeAccessToken:
 		if c.AccessToken == "" {

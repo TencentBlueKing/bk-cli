@@ -28,10 +28,10 @@ import (
 	"github.com/TencentBlueKing/bk-cli/internal/credential"
 )
 
-var _ = Describe("BuildAuthHeader", func() {
-	parseHeader := func(header string) map[string]string {
+var _ = Describe("BuildAuthHeaders", func() {
+	parseHeader := func(headers map[string]string) map[string]string {
 		var m map[string]string
-		Expect(json.Unmarshal([]byte(header), &m)).To(Succeed())
+		Expect(json.Unmarshal([]byte(headers["X-Bkapi-Authorization"]), &m)).To(Succeed())
 		return m
 	}
 
@@ -43,12 +43,12 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkAppSecret: "mysecret",
 				BkToken:     "mytoken",
 			}
-			header, err := api.BuildAuthHeader(cred, nil)
+			headers, err := api.BuildAuthHeaders(cred, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(header).NotTo(BeEmpty())
+			Expect(headers).NotTo(BeEmpty())
 
 			var m map[string]string
-			Expect(json.Unmarshal([]byte(header), &m)).To(Succeed())
+			Expect(json.Unmarshal([]byte(headers["X-Bkapi-Authorization"]), &m)).To(Succeed())
 			Expect(m).To(HaveKeyWithValue("bk_app_code", "mycode"))
 			Expect(m).To(HaveKeyWithValue("bk_app_secret", "mysecret"))
 			Expect(m).To(HaveKeyWithValue("bk_token", "mytoken"))
@@ -65,11 +65,11 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkAppSecret: "mysecret",
 				BkTicket:    "myticket",
 			}
-			header, err := api.BuildAuthHeader(cred, nil)
+			headers, err := api.BuildAuthHeaders(cred, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			var m map[string]string
-			Expect(json.Unmarshal([]byte(header), &m)).To(Succeed())
+			Expect(json.Unmarshal([]byte(headers["X-Bkapi-Authorization"]), &m)).To(Succeed())
 			Expect(m).To(HaveKeyWithValue("bk_app_code", "mycode"))
 			Expect(m).To(HaveKeyWithValue("bk_app_secret", "mysecret"))
 			Expect(m).To(HaveKeyWithValue("bk_ticket", "myticket"))
@@ -84,11 +84,11 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkAppCode:   "mycode",
 				BkAppSecret: "mysecret",
 			}
-			header, err := api.BuildAuthHeader(cred, nil)
+			headers, err := api.BuildAuthHeaders(cred, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			var m map[string]string
-			Expect(json.Unmarshal([]byte(header), &m)).To(Succeed())
+			Expect(json.Unmarshal([]byte(headers["X-Bkapi-Authorization"]), &m)).To(Succeed())
 			Expect(m).To(HaveKeyWithValue("bk_app_code", "mycode"))
 			Expect(m).To(HaveKeyWithValue("bk_app_secret", "mysecret"))
 			Expect(m).NotTo(HaveKey("bk_token"))
@@ -102,11 +102,11 @@ var _ = Describe("BuildAuthHeader", func() {
 				Type:        credential.TypeAccessToken,
 				AccessToken: "tok123",
 			}
-			header, err := api.BuildAuthHeader(cred, nil)
+			headers, err := api.BuildAuthHeaders(cred, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			var m map[string]string
-			Expect(json.Unmarshal([]byte(header), &m)).To(Succeed())
+			Expect(json.Unmarshal([]byte(headers["X-Bkapi-Authorization"]), &m)).To(Succeed())
 			Expect(m).To(HaveKeyWithValue("access_token", "tok123"))
 			Expect(m).NotTo(HaveKey("bk_app_code"))
 		})
@@ -114,9 +114,9 @@ var _ = Describe("BuildAuthHeader", func() {
 
 	Context("nil credential", func() {
 		It("returns empty string without error", func() {
-			header, err := api.BuildAuthHeader(nil, nil)
+			headers, err := api.BuildAuthHeaders(nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(header).To(BeEmpty())
+			Expect(headers).To(BeEmpty())
 		})
 	})
 
@@ -129,13 +129,13 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkToken:     "mytoken",
 			}
 
-			header, err := api.BuildAuthHeader(cred, &api.AuthRequirements{
+			headers, err := api.BuildAuthHeaders(cred, &api.AuthRequirements{
 				AppVerifiedRequired:  true,
 				UserVerifiedRequired: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			m := parseHeader(header)
+			m := parseHeader(headers)
 			Expect(m).To(HaveKeyWithValue("bk_app_code", "mycode"))
 			Expect(m).To(HaveKeyWithValue("bk_app_secret", "mysecret"))
 			Expect(m).To(HaveKeyWithValue("bk_token", "mytoken"))
@@ -149,12 +149,12 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkToken:     "mytoken",
 			}
 
-			header, err := api.BuildAuthHeader(cred, &api.AuthRequirements{
+			headers, err := api.BuildAuthHeaders(cred, &api.AuthRequirements{
 				AppVerifiedRequired: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			m := parseHeader(header)
+			m := parseHeader(headers)
 			Expect(m).To(HaveKeyWithValue("bk_app_code", "mycode"))
 			Expect(m).To(HaveKeyWithValue("bk_app_secret", "mysecret"))
 			Expect(m).NotTo(HaveKey("bk_token"))
@@ -169,12 +169,12 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkTicket:    "myticket",
 			}
 
-			header, err := api.BuildAuthHeader(cred, &api.AuthRequirements{
+			headers, err := api.BuildAuthHeaders(cred, &api.AuthRequirements{
 				UserVerifiedRequired: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			m := parseHeader(header)
+			m := parseHeader(headers)
 			Expect(m).To(HaveKeyWithValue("bk_ticket", "myticket"))
 			Expect(m).NotTo(HaveKey("bk_app_code"))
 			Expect(m).NotTo(HaveKey("bk_app_secret"))
@@ -191,10 +191,10 @@ var _ = Describe("BuildAuthHeader", func() {
 				{UserVerifiedRequired: true},
 				{AppVerifiedRequired: true, UserVerifiedRequired: true},
 			} {
-				header, err := api.BuildAuthHeader(cred, &authConfig)
+				headers, err := api.BuildAuthHeaders(cred, &authConfig)
 				Expect(err).NotTo(HaveOccurred())
 
-				m := parseHeader(header)
+				m := parseHeader(headers)
 				Expect(m).To(HaveKeyWithValue("access_token", "tok123"))
 				Expect(m).NotTo(HaveKey("bk_app_code"))
 				Expect(m).NotTo(HaveKey("bk_token"))
@@ -209,9 +209,9 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkToken:     "mytoken",
 			}
 
-			header, err := api.BuildAuthHeader(cred, &api.AuthRequirements{})
+			headers, err := api.BuildAuthHeaders(cred, &api.AuthRequirements{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(header).To(BeEmpty())
+			Expect(headers).To(BeEmpty())
 		})
 
 		It("treats auth requirements as identity-only configuration", func() {
@@ -222,9 +222,31 @@ var _ = Describe("BuildAuthHeader", func() {
 				BkToken:     "mytoken",
 			}
 
-			header, err := api.BuildAuthHeader(cred, &api.AuthRequirements{})
+			headers, err := api.BuildAuthHeaders(cred, &api.AuthRequirements{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(header).To(BeEmpty())
+			Expect(headers).To(BeEmpty())
 		})
+	})
+})
+
+var _ = Describe("personal BuildAuthHeaders", func() {
+	It("validates decrypted personal credentials before sending them", func() {
+		for _, token := range []string{"", " ", "secret\nvalue"} {
+			_, err := api.BuildAuthHeaders(
+				&credential.Credential{Type: credential.TypePersonalToken, PersonalToken: token},
+				nil,
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).NotTo(ContainSubstring("secret"))
+		}
+	})
+	It("sends only Bearer and suppresses cached personal credentials for anonymous actions", func() {
+		cred := &credential.Credential{Type: credential.TypePersonalToken, PersonalToken: "bkp_valid._~+/-=="}
+		headers, err := api.BuildAuthHeaders(cred, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(headers).To(Equal(map[string]string{"Authorization": "Bearer bkp_valid._~+/-=="}))
+		headers, err = api.BuildAuthHeaders(cred, &api.AuthRequirements{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(headers).To(BeEmpty())
 	})
 })

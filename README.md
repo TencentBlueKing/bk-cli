@@ -14,11 +14,12 @@
 
 - **三层调用方式**: 原始 API 调用、系统子命令，以及快捷指令（未来）
 - **多上下文支持**: 管理多个 BlueKing 部署的凭据
-- **环境自检**: 使用 `bk-cli doctor` 检查 context、凭据、URL 渲染和网关连通性
+- **环境自检**: 使用 `bk-cli doctor` 检查 context、凭据、URL 渲染和网关连通性，凭据值脱敏显示
 - **自动化友好的输出**: 带 `ok` 字段的 JSON 信封、机器可读错误、可预测的退出码；API 响应保留 JSON 数字精度
 - **灵活请求体输入**: `--body` 支持内联 JSON、`@file` 文件读取和 stdin 输入
 - **丰富的系统命令**: 内置多个 BlueKing system 子命令，也保留原始 `api` 调用作为兜底能力
 - **内置 Agent Skills**: 可通过 `bk-cli skills list` 和 `bk-cli skills read <name>` 查看随当前版本打包的使用指引，`skills read --raw` 可输出原始 Markdown
+- **个人 token 登录**: `bk-cli auth login --personal_token='<personal-token>'`，使用个人中心生成的 token 调用支持 Bearer 鉴权的 API
 - **加密凭据存储**: 每个上下文使用 AES-256-GCM 加密
 - **单一二进制文件**: 无运行时依赖
 
