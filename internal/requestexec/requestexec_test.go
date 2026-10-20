@@ -85,6 +85,23 @@ var _ = Describe("requestexec", func() {
 	})
 
 	Describe("personal token", func() {
+		It("rejects preloaded personal credentials for an action requiring application identity", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+			runtime.Credential = &credential.Credential{
+				Type: credential.TypePersonalToken, PersonalToken: "preloaded-personal",
+			}
+			result, err := ExecuteRequest(runtime, RequestSpec{
+				GatewayName: "bk-apigateway", Method: http.MethodPost, Path: "/permissions/apply/",
+				AuthConfig:            &api.AuthRequirements{AppVerifiedRequired: true},
+				DisallowPersonalToken: true,
+			})
+			cliErr := expectCLIError(err, "unsupported_credential_type")
+			Expect(cliErr.Message).To(ContainSubstring("application identity"))
+			Expect(result).To(BeNil())
+		})
+
 		It(
 			"sends Bearer for raw API and every required policy, with overrides and anonymous runtime reuse",
 			func() {
@@ -271,6 +288,31 @@ var _ = Describe("requestexec", func() {
 	})
 
 	Describe("helper functions", func() {
+		DescribeTable("validates personal token restrictions without requiring credentials for anonymous calls",
+			func(credType credential.CredentialType, headers map[string]string, rejected bool) {
+				var cred *credential.Credential
+				if credType != "" {
+					cred = &credential.Credential{Type: credType}
+				}
+				err := validatePersonalTokenAuth(cred, headers)
+				if rejected {
+					expectCLIError(err, "unsupported_credential_type")
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			},
+			Entry("anonymous without headers", credential.CredentialType(""), nil, false),
+			Entry("application credentials", credential.TypeAppUser, nil, false),
+			Entry("access token credentials", credential.TypeAccessToken, nil, false),
+			Entry("cached personal credentials", credential.TypePersonalToken, nil, true),
+			Entry("explicit Bearer header without stored credentials", credential.CredentialType(""),
+				map[string]string{"aUtHoRiZaTiOn": " bEaReR personal"}, true),
+			Entry("non-Bearer header", credential.TypeAccessToken,
+				map[string]string{"Authorization": "Basic example"}, false),
+			Entry("empty header", credential.TypeAccessToken,
+				map[string]string{"Authorization": ""}, false),
+		)
+
 		It("rejects a Content-Type override when a JSON body is present", func() {
 			err := validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, `{"ok":true}`)
 

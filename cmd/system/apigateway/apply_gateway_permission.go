@@ -52,6 +52,12 @@ Batch required resource_names into one request per gateway to avoid excessive
 application records. Do not retry automatically: a retry can create another record.
 Use --dry-run to preview without confirmation or submitting an application.
 
+This API requires application identity and does not support personal_token.
+Personal-token contexts and explicit Authorization: Bearer headers are rejected
+locally with unsupported_credential_type, including during --dry-run. Select an
+application credential context or log in with app credentials or a suitable
+access_token before previewing or submitting.
+
 The required --body accepts JSON, @file or - for stdin.
 Before preview or submission, the CLI validates the JSON object, required strings,
 grant dimension, resource list and expiry. Invalid fields return request_error.
@@ -109,13 +115,14 @@ Do not invent approval links or approvers, or assume the CLI knows approval stat
 				return err
 			}
 			return systemcmd.ExecuteRequest(cmd, runtime, "apply_gateway_permission", syslib.RequestSpec{
-				GatewayName:  "bk-apigateway",
-				Method:       "POST",
-				Path:         "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
-				BodyJSON:     body,
-				ValidateBody: validatePermissionApplicationBody,
-				Headers:      headers,
-				Stage:        stage,
+				GatewayName:           "bk-apigateway",
+				Method:                "POST",
+				Path:                  "/api/v2/open/gateways/" + gatewayName + "/permissions/apply/",
+				BodyJSON:              body,
+				ValidateBody:          validatePermissionApplicationBody,
+				DisallowPersonalToken: true,
+				Headers:               headers,
+				Stage:                 stage,
 				AuthConfig: &syslib.AuthConfig{
 					AppVerifiedRequired:        true,
 					UserVerifiedRequired:       false,

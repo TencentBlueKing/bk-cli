@@ -33,6 +33,8 @@ import (
 	"github.com/spf13/cobra"
 
 	systemtest "github.com/TencentBlueKing/bk-cli/cmd/system/testutil"
+	"github.com/TencentBlueKing/bk-cli/internal/config"
+	"github.com/TencentBlueKing/bk-cli/internal/credential"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 )
 
@@ -145,6 +147,44 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 		Expect(env.Request.Body).To(HaveKeyWithValue("resource_names", []any{"user_query", "user_create"}))
 		Expect(requests.Load()).To(BeZero())
 	})
+
+	DescribeTable("rejects personal token authentication before preview or submission",
+		func(dryRun, personalContext bool, headers []string) {
+			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			if personalContext {
+				key, err := credential.DeriveKey()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(credential.Save(config.CredentialsPath("default"), &credential.Credential{
+					Type: credential.TypePersonalToken, PersonalToken: "test-personal-token",
+				}, key)).To(Succeed())
+			}
+			cmd := newCommand(dryRun)
+			args := []string{"--gateway_name", "bk-iam", "--body", body}
+			if !dryRun {
+				args = append(args, "--confirmed")
+			}
+			for _, header := range headers {
+				args = append(args, "--header", header)
+			}
+			Expect(cmd.ParseFlags(args)).To(Succeed())
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			err := cmd.RunE(cmd, nil)
+			Expect(err).To(MatchError(ContainSubstring("unsupported_credential_type")))
+			Expect(err.Error()).To(ContainSubstring("application identity"))
+			Expect(err.Error()).NotTo(ContainSubstring("test-personal-token"))
+			Expect(stdout.String()).To(BeEmpty())
+			Expect(requests.Load()).To(BeZero())
+		},
+		Entry("personal context submission", false, true, nil),
+		Entry("personal context preview", true, true, nil),
+		Entry("personal context with app header override", false, true,
+			[]string{`x-bkapi-authorization:{"access_token":"app-token"}`}),
+		Entry("app context with Bearer header submission", false, false,
+			[]string{"authorization:bEaReR test-personal-token"}),
+		Entry("app context with Bearer header preview", true, false,
+			[]string{"Authorization:Bearer test-personal-token"}),
+	)
 
 	DescribeTable("submits exactly one batch and preserves all returned approval details",
 		func(input string) {

@@ -68,6 +68,8 @@ type RequestSpec struct {
 	AuthConfig  api.AuthPolicy
 	// ValidateBody checks the resolved body before credentials, preview or submission.
 	ValidateBody func(string) error
+	// DisallowPersonalToken rejects personal credentials and explicit Bearer headers.
+	DisallowPersonalToken bool
 }
 
 // RequestResult contains the envelope produced by a single API request.
@@ -200,6 +202,11 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 			return nil, err
 		}
 	}
+	if spec.DisallowPersonalToken {
+		if err := validatePersonalTokenAuth(runtime.Credential, headerMap); err != nil {
+			return nil, err
+		}
+	}
 
 	timeout, err := resolveTimeout(runtime.Config.Timeout, spec.Timeout, timeoutErrorLabel)
 	if err != nil {
@@ -293,6 +300,26 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 	}
 
 	return &RequestResult{Envelope: envelope}, nil
+}
+
+func validatePersonalTokenAuth(cred *credential.Credential, headers map[string]string) error {
+	personalAuth := cred != nil && cred.Type == credential.TypePersonalToken
+	for name, value := range headers {
+		if strings.EqualFold(name, "Authorization") {
+			parts := strings.Fields(value)
+			personalAuth = personalAuth || (len(parts) > 0 && strings.EqualFold(parts[0], "Bearer"))
+		}
+	}
+	if personalAuth {
+		return output.UserError(
+			"unsupported_credential_type",
+			"personal_token authentication is not supported for this action; application identity is required",
+			"Select an application credential context using --context, or run bk-cli auth login with "+
+				"--bk_app_code/--bk_app_secret and --bk_token/--bk_ticket, or a suitable --access_token; "+
+				"remove any Authorization: Bearer override before previewing or submitting.",
+		)
+	}
+	return nil
 }
 
 func validateUserHeaders(headers map[string]string, bodyJSON string) error {

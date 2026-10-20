@@ -398,7 +398,7 @@ bk-cli api bk-iam GET /api/v2/systems/
 
 ### 申请网关或接口权限
 
-遇到网关 API 权限不足（例如错误码 `1640301`）时，可以使用 `bk-cli apigateway apply_gateway_permission` 调用 `v2_open_apply_gateway_permission` 发起申请。该接口需要应用身份；`target_app_code` 应与请求使用的应用一致。业务系统自身的权限不足需按对应系统流程处理。
+遇到网关 API 权限不足（例如错误码 `1640301`）时，可以使用 `bk-cli apigateway apply_gateway_permission` 调用 `v2_open_apply_gateway_permission` 发起申请。该接口需要应用身份；`target_app_code` 应与请求使用的应用一致。不支持 `personal_token`：个人 token context 或显式 `Authorization: Bearer` header 在预览和提交时均返回 `unsupported_credential_type`，不会发送请求。请使用应用凭据（`bk_app_code` / `bk_app_secret` 加 `bk_token` / `bk_ticket`）或满足要求的 `access_token`，也可通过 `--context` 切换到应用 context；移除 Bearer header 后重新预览。业务系统自身的权限不足需按对应系统流程处理。
 
 **Agent 每次提交前必须询问用户，确认具体网关、申请应用、资源范围、有效期和原因；暂不允许跳过询问。** 申请会创建单据，触发通知和审批流程，成本较高。先汇总同一网关中需要的接口，将多个接口放入一个 `resource_names` 数组；只有用户明确同意整网关范围时才使用 `grant_dimension: gateway`。不要自动重试，避免重复申请单。
 
