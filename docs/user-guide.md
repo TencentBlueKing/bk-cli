@@ -210,7 +210,7 @@ bk-cli api httpbin GET /anything
 
 #### 通过环境变量登录
 
-为了避免票据出现在 `ps` 等进程命令行信息中，可以让秘密管理工具或 CI 注入环境变量，由 CLI 直接读取，不要再将变量展开到凭据 flags。
+为了避免票据出现在 `ps` 等进程命令行信息中，可以让 secrets 管理工具或 CI 注入环境变量，由 CLI 直接读取，不要再将变量展开到凭据 flags。
 
 | 凭据字段 | 环境变量 |
 | --- | --- |
@@ -234,7 +234,7 @@ bk-cli auth login --context dev
 
 显式空值（如 `--bk_token=''`）报 `invalid_credentials`，不会回退到环境。无凭据 flags 时，个人 token 与任一其他凭据环境值共存、access token 与任一应用模式字段共存、或 token 与 ticket 同时非空，都会报 `invalid_credentials`；只传应用 code / secret 时，环境 token 与 ticket 同时非空也会报错。缺少模式必填字段同样失败，需补齐或清理环境后重试。
 
-实际采用的环境值若含首尾空格、制表符或换行，会返回 `invalid_credentials` 并提示变量名；CLI 不自动裁剪原值。请修正秘密管理工具或 CI 注入的值后重试。被显式 flags 覆盖或属于未选模式的环境值不参与此检查。仅注入应用 code + secret 而缺少用户票据时，可以补充 `BK_CLI_BK_TOKEN` 或 `BK_CLI_BK_TICKET`，然后再次执行 `bk-cli auth login`。
+实际采用的环境值若含首尾空格、制表符或换行，会返回 `invalid_credentials` 并提示变量名；CLI 不自动裁剪原值。请修正 secrets 管理工具或 CI 注入的值后重试。被显式 flags 覆盖或属于未选模式的环境值不参与此检查。仅注入应用 code + secret 而缺少用户票据时，可以补充 `BK_CLI_BK_TOKEN` 或 `BK_CLI_BK_TICKET`，然后再次执行 `bk-cli auth login`。
 
 个人 token 的环境值同样不能含 `Bearer ` 前缀、内部空白或非法 token 字符；使用与 flag 输入相同的格式校验。
 

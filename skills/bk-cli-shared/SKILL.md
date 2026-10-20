@@ -114,9 +114,11 @@ bk-cli api bk-iam GET /api/v2/systems/ --context devops
 
 使用个人 token 登录后，原始 `api` 和要求认证的系统命令使用 `Authorization: Bearer <personal-token>`，无需额外提供应用或用户凭据；明确无需认证的系统命令不会自动携带 token。部署是否支持个人 token、token 有效期和接口权限由服务端判定。
 
-也可以由秘密管理工具或 CI 注入 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET`、`BK_CLI_ACCESS_TOKEN` 或 `BK_CLI_PERSONAL_TOKEN`，再执行 `bk-cli auth login`（可加 `--context <name>`）。CLI 直接读取环境值，避免把凭据展开到 flags 后暴露在进程命令行参数中。只注入完整的一种登录形态；显式凭据 flags 先选择模式并优先于同名环境值，环境只补齐该模式的缺失字段。`--personal_token` 与其他凭据 flags 互斥；单独显式选择个人模式会忽略旧环境凭据，显式选择旧模式会忽略 `BK_CLI_PERSONAL_TOKEN`。仅使用环境时，个人 token 不能与其他非空凭据变量共存。显式空值、冲突的环境模式，以及实际采用的环境值含首尾空白时，都会报 `invalid_credentials`。
+也可以由 secrets 管理工具或 CI 注入 `BK_CLI_BK_APP_CODE`、`BK_CLI_BK_APP_SECRET`、`BK_CLI_BK_TOKEN`、`BK_CLI_BK_TICKET`、`BK_CLI_ACCESS_TOKEN` 或 `BK_CLI_PERSONAL_TOKEN`，再执行 `bk-cli auth login`（可加 `--context <name>`）。CLI 直接读取环境值，避免把凭据展开到 flags 后暴露在进程命令行参数中。只注入完整的一种登录形态；显式凭据 flags 先选择模式并优先于同名环境值，环境只补齐该模式的缺失字段。`--personal_token` 与其他凭据 flags 互斥；单独显式选择个人模式会忽略旧环境凭据，显式选择旧模式会忽略 `BK_CLI_PERSONAL_TOKEN`。仅使用环境时，个人 token 不能与其他非空凭据变量共存。显式空值、冲突的环境模式，以及实际采用的环境值含首尾空白时，都会报 `invalid_credentials`。
 
-下面是仅在登录命令作用域内注入独立 token 的占位示例；实际值应由秘密管理工具或 CI 提供：
+仅使用环境登录时，access token 不能与应用凭据变量共存，`BK_CLI_BK_TOKEN` 与 `BK_CLI_BK_TICKET` 也不能同时非空。只显式传应用 code 或 secret 时，环境必须提供唯一的 token 或 ticket，不能改用 access token 或个人 token；缺少所选模式的必填字段会报 `invalid_credentials`。
+
+下面是仅在登录命令作用域内注入独立 token 的占位示例；实际值应由 secrets 管理工具或 CI 提供：
 
 ```bash
 BK_CLI_ACCESS_TOKEN='your_token' bk-cli auth login
@@ -130,7 +132,7 @@ BK_CLI_PERSONAL_TOKEN='your_personal_token' bk-cli auth login
 unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN BK_CLI_PERSONAL_TOKEN
 ```
 
-环境输入仍可能被有权限的进程、shell 调试输出或 CI 日志读取。模式选择、冲突示例及安全边界见[用户指南：通过环境变量登录](../../docs/user-guide.md#通过环境变量登录)。
+环境输入仍可能被有权限的进程、shell 调试输出或 CI 日志读取。登录凭据只支持 flags 和环境变量；`--body -` 用于 API 请求体，不能导入登录凭据。
 
 排查认证问题时，优先记住下面几点：
 
