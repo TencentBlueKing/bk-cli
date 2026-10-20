@@ -183,13 +183,13 @@ var _ = Describe("ExtractGatewayHeaders", func() {
 var _ = Describe("BuildDryRunEnvelope", func() {
 	It("creates dry-run envelope with request details", func() {
 		req := &api.Request{
-			Method:     "POST",
-			URL:        "https://example.com/api/v1/test",
-			AuthHeader: `{"bk_app_code":"secret"}`,
-			TenantID:   "t1",
-			Headers:    map[string]string{"X-Custom": "val"},
-			ParamsJSON: `{"a":"1"}`,
-			BodyJSON:   `{"key":"value"}`,
+			Method:      "POST",
+			URL:         "https://example.com/api/v1/test",
+			AuthHeaders: map[string]string{"X-Bkapi-Authorization": `{"bk_app_code":"secret"}`},
+			TenantID:    "t1",
+			Headers:     map[string]string{"X-Custom": "val"},
+			ParamsJSON:  `{"a":"1"}`,
+			BodyJSON:    `{"key":"value"}`,
 		}
 		env := api.BuildDryRunEnvelope(req)
 		Expect(env.OK).To(BeTrue())
@@ -212,9 +212,11 @@ var _ = Describe("BuildDryRunEnvelope", func() {
 
 	It("redacts auth header", func() {
 		req := &api.Request{
-			Method:     "GET",
-			URL:        "https://example.com/api",
-			AuthHeader: `{"bk_app_code":"secret","bk_app_secret":"topsecret"}`,
+			Method: "GET",
+			URL:    "https://example.com/api",
+			AuthHeaders: map[string]string{
+				"X-Bkapi-Authorization": `{"bk_app_code":"secret","bk_app_secret":"topsecret"}`,
+			},
 		}
 		env := api.BuildDryRunEnvelope(req)
 		Expect(env.Request.Headers).To(HaveKeyWithValue("X-Bkapi-Authorization", "{...redacted...}"))
@@ -258,5 +260,42 @@ var _ = Describe("BuildDryRunEnvelope", func() {
 		Expect(env.WriteJSON(&out)).To(Succeed())
 		Expect(out.String()).To(ContainSubstring(`"job_instance_id": 9007199254740993`))
 		Expect(out.String()).To(ContainSubstring(`"id": 9007199254740993`))
+	})
+})
+
+var _ = Describe("personal authentication redaction", func() {
+	It("masks explicit Bearer headers in dry-run", func() {
+		env := api.BuildDryRunEnvelope(
+			&api.Request{
+				Method:  "GET",
+				URL:     "https://example.com",
+				Headers: map[string]string{"aUtHoRiZaTiOn": "Bearer private-token"},
+			},
+		)
+		Expect(env.Request.Headers).To(HaveKeyWithValue("aUtHoRiZaTiOn", "{...redacted...}"))
+	})
+	It("never echoes invalid authentication header values", func() {
+		for _, value := range []string{"Authorization:Bearer private-token\r\ninvalid", "X-Bkapi-Authorization:private-token\n", "Authorization Bearer private-token"} {
+			_, err := api.ParseHeaderFlags([]string{value})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).NotTo(ContainSubstring("private-token"))
+		}
+	})
+})
+
+var _ = Describe("response authentication redaction", func() {
+	It("masks legacy auth in response envelopes while preserving trace headers", func() {
+		resp := &http.Response{
+			Header: http.Header{
+				"X-Bkapi-Authorization": []string{"private-response"},
+				"X-Bkapi-Request-Id":    []string{"trace"},
+			},
+		}
+		Expect(
+			api.ExtractGatewayHeaders(resp),
+		).To(
+			HaveKeyWithValue("X-Bkapi-Authorization", "{...redacted...}"),
+		)
+		Expect(api.ExtractGatewayHeaders(resp)).To(HaveKeyWithValue("X-Bkapi-Request-Id", "trace"))
 	})
 })

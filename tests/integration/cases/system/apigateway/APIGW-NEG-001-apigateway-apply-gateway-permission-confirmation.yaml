@@ -1,0 +1,120 @@
+id: APIGW-NEG-001
+name: apigateway permission application requires explicit confirmation
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: reject unconfirmed submission before context or credentials are needed
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: confirmation_required
+        - path: error.hint
+          contains: Ask the user to confirm
+  - name: explicit refusal also prevents submission
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed=false
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: confirmation_required
+  - name: init context for personal token rejection
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - "${MOCK_API_BASE_URL}/{gateway_name}"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login personal token
+    command:
+      - auth
+      - login
+      - --personal_token
+      - integration-personal
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: reject confirmed application with personal token
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: unsupported_credential_type
+        - path: error.message
+          contains: application identity
+        - path: error.hint
+          contains: --access_token
+  - name: reject personal token preview
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --dry-run
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: unsupported_credential_type
+  - name: login application access token
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: reject explicit Bearer header with application credentials
+    command:
+      - apigateway
+      - apply_gateway_permission
+      - --gateway_name
+      - bk-iam
+      - --confirmed
+      - --header
+      - 'authorization:Bearer integration-personal'
+      - --body
+      - '{"target_app_code":"my-app","grant_dimension":"gateway","applicant":"developer"}'
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: unsupported_credential_type

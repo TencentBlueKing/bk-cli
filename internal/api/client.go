@@ -211,6 +211,11 @@ func ExtractGatewayHeaders(resp *http.Response) map[string]string {
 			continue
 		}
 
+		if IsAuthHeader(key) {
+			headers[key] = "{...redacted...}"
+			continue
+		}
+
 		lower := strings.ToLower(key)
 		if lower == "x-request-id" || strings.HasPrefix(lower, "x-bkapi-") {
 			headers[key] = values[0]

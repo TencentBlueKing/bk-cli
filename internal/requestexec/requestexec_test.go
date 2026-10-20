@@ -84,6 +84,120 @@ var _ = Describe("requestexec", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
+	Describe("personal token", func() {
+		It(
+			"sends Bearer for raw API and every required policy, with overrides and anonymous runtime reuse",
+			func() {
+				var requests []*http.Request
+				server := httptest.NewServer(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						requests = append(requests, r.Clone(r.Context()))
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(`{"ok":true}`))
+					}),
+				)
+				DeferCleanup(server.Close)
+				writeRequestExecContext("default", server.URL, false)
+				cred, err := credential.Unmarshal(
+					[]byte(`{"type":"personal_token","personal_token":"bkp_test-personal"}`),
+				)
+				Expect(err).NotTo(HaveOccurred())
+				key, err := credential.DeriveKey()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(credential.Save(config.CredentialsPath("default"), cred, key)).To(Succeed())
+				runtime, err := ResolveRuntime("", false, false)
+				Expect(err).NotTo(HaveOccurred())
+				spec := RequestSpec{GatewayName: "bk-demo", Method: http.MethodGet, Path: "/demo/"}
+				_, err = ExecuteRawAPIRequest(runtime, spec)
+				Expect(err).NotTo(HaveOccurred())
+				for _, policy := range []*api.AuthRequirements{
+					{AppVerifiedRequired: true},
+					{UserVerifiedRequired: true},
+					{AppVerifiedRequired: true, UserVerifiedRequired: true},
+				} {
+					spec.AuthConfig = policy
+					_, err = ExecuteRequest(runtime, spec)
+					Expect(err).NotTo(HaveOccurred())
+				}
+				for _, request := range requests {
+					Expect(
+						request.Header.Get("Authorization"),
+					).To(
+						Equal("Bearer bkp_test-personal"),
+					)
+					Expect(request.Header.Get("X-Bkapi-Authorization")).To(BeEmpty())
+					Expect(request.Header.Get("X-Bk-Tenant-Id")).To(Equal("tenant-from-context"))
+				}
+				spec.Headers = []string{
+					"authorization:Bearer explicit",
+					"x-bk-tenant-id:explicit-tenant",
+				}
+				_, err = ExecuteRequest(runtime, spec)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(
+					requests[len(requests)-1].Header.Values("Authorization"),
+				).To(
+					Equal([]string{"Bearer explicit"}),
+				)
+				Expect(
+					requests[len(requests)-1].Header.Get("X-Bk-Tenant-Id"),
+				).To(
+					Equal("explicit-tenant"),
+				)
+				spec.Headers = []string{"x-bKapi-auThorization:secret-legacy"}
+				_, err = ExecuteRequest(runtime, spec)
+				cliErr := expectCLIError(err, "request_error")
+				Expect(cliErr.Message).NotTo(ContainSubstring("secret-legacy"))
+				Expect(requests).To(HaveLen(5))
+				spec.Headers = nil
+				spec.AuthConfig = &api.AuthRequirements{}
+				_, err = ExecuteRequest(runtime, spec)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requests[len(requests)-1].Header.Get("Authorization")).To(BeEmpty())
+				Expect(requests[len(requests)-1].Header.Get("X-Bkapi-Authorization")).To(BeEmpty())
+				Expect(credential.Delete(config.CredentialsPath("default"))).To(Succeed())
+				anonymous, err := ResolveRuntime("", false, false)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = ExecuteRequest(anonymous, spec)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(anonymous.Credential).To(BeNil())
+				Expect(requests[len(requests)-1].Header.Get("Authorization")).To(BeEmpty())
+				runtime.DryRun = true
+				spec.AuthConfig = &api.AuthRequirements{UserVerifiedRequired: true}
+				result, err := ExecuteRequest(runtime, spec)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(
+					result.DryRunRequest.Headers,
+				).To(
+					HaveKeyWithValue("Authorization", "{...redacted...}"),
+				)
+				Expect(result.DryRunRequest.Headers).NotTo(HaveKey("X-Bkapi-Authorization"))
+				Expect(requests).To(HaveLen(7))
+			},
+		)
+
+		It("redacts explicit and response authentication headers in verbose logs", func() {
+			request, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+			Expect(err).NotTo(HaveOccurred())
+			request.Header["aUtHoRiZaTiOn"] = []string{"Bearer private-value"}
+			request.Header.Set("X-Bkapi-Authorization", "private-legacy")
+			response := &http.Response{StatusCode: 200, Status: "200 OK", Header: request.Header}
+			orig := os.Stderr
+			r, w, err := os.Pipe()
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() { os.Stderr = orig; _ = r.Close(); _ = w.Close() })
+			os.Stderr = w
+			logVerboseRequest(request)
+			logVerboseResponse(response)
+			Expect(w.Close()).To(Succeed())
+			os.Stderr = orig
+			logged, err := io.ReadAll(r)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(logged)).NotTo(ContainSubstring("private-"))
+			Expect(strings.Count(string(logged), "{redacted}")).To(Equal(4))
+		})
+	})
+
 	Describe("ResolveRuntime", func() {
 		It("loads the active context config without requiring credentials", func() {
 			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
@@ -123,7 +237,7 @@ var _ = Describe("requestexec", func() {
 		})
 	})
 
-	Describe("ensureRuntimeCredential", func() {
+	Describe("Runtime.EnsureCredential", func() {
 		It("does nothing when the credential is already present", func() {
 			preloaded := &credential.Credential{
 				Type:        credential.TypeAccessToken,
@@ -134,13 +248,13 @@ var _ = Describe("requestexec", func() {
 				Credential:  preloaded,
 			}
 
-			err := ensureRuntimeCredential(runtime)
+			err := runtime.EnsureCredential()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(runtime.Credential).To(BeIdenticalTo(preloaded))
 		})
 
 		It("requires a context name when loading lazily", func() {
-			err := ensureRuntimeCredential(&Runtime{})
+			err := (&Runtime{}).EnsureCredential()
 
 			Expect(err).To(MatchError("runtime context name is required when credential is not preloaded"))
 		})
@@ -149,7 +263,7 @@ var _ = Describe("requestexec", func() {
 			writeRequestExecContext("default", "https://bkapi.example.com/api", true)
 			runtime := &Runtime{ContextName: "default"}
 
-			err := ensureRuntimeCredential(runtime)
+			err := runtime.EnsureCredential()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(runtime.Credential).NotTo(BeNil())
 			Expect(runtime.Credential.AccessToken).To(Equal("token-123"))

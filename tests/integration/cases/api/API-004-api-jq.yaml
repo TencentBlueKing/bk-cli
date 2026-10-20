@@ -1,4 +1,4 @@
-id: API-003
+id: API-004
 name: raw API jq projection and local validation
 tags:
   - coverage-api

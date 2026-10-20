@@ -1,4 +1,4 @@
-id: APIGW-006
+id: APIGW-009
 name: YAML and Go actions share final jq output
 tags:
   - coverage-system_yaml

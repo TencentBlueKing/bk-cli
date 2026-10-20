@@ -193,6 +193,55 @@ bk-cli auth login \
 bk-cli auth login --access_token='your_access_token'
 ```
 
+如果你的部署支持个人 token，可在个人中心生成 token、配置可调用的 API/MCP 权限，再单独登录：
+
+```bash
+bk-cli auth login --personal_token='<personal-token>'
+# 或保存到指定 context
+bk-cli auth login --context prod --personal_token='<personal-token>'
+bk-cli api httpbin GET /anything
+```
+
+`--personal_token` 与其他登录凭据 flags 互斥，不能传入 `Bearer ` 前缀、空值、空白或控制字符。同一 context 再次登录会替换原凭据，凭据仍加密保存。原始 `api` 和要求认证的系统 action 使用 Bearer 鉴权，不需要同时提供应用凭据；明确无需认证的 action 不自动携带 token。token 有效期、权限和部署支持情况由服务端判断，CLI 不管理 MCP 权限列表。
+
+`auth status/check` 显示 `credential_type=personal_token`，不显示 token；登录和 `check` 只检查本地保存状态，不验证远端权限。`logout` 删除该 context 的凭据。`--dry-run` 与 `--verbose` 的认证头均脱敏；远端响应正文仍按原样返回，服务端若回显敏感信息需自行处理。
+
+单次覆盖 Bearer 认证值可用 `--header 'Authorization:Bearer <personal-token>'`，头名忽略大小写；个人模式不能同时显式提供 `X-Bkapi-Authorization`。租户来自 context 或显式 `X-Bk-Tenant-Id`。
+
+#### 通过环境变量登录
+
+为了避免票据出现在 `ps` 等进程命令行信息中，可以让 secrets 管理工具或 CI 注入环境变量，由 CLI 直接读取，不要再将变量展开到凭据 flags。
+
+| 凭据字段 | 环境变量 |
+| --- | --- |
+| `bk_app_code` | `BK_CLI_BK_APP_CODE` |
+| `bk_app_secret` | `BK_CLI_BK_APP_SECRET` |
+| `bk_token` | `BK_CLI_BK_TOKEN` |
+| `bk_ticket` | `BK_CLI_BK_TICKET` |
+| `access_token` | `BK_CLI_ACCESS_TOKEN` |
+| `personal_token` | `BK_CLI_PERSONAL_TOKEN` |
+
+只注入完整的一种模式：应用 code + secret + token、应用 code + secret + ticket，独立 access token，或独立个人 token。注入后执行：
+
+```bash
+bk-cli auth login
+bk-cli auth login --context dev
+```
+
+登录完成后，应在注入变量的 shell 或 CI 步骤中执行 `unset BK_CLI_BK_APP_CODE BK_CLI_BK_APP_SECRET BK_CLI_BK_TOKEN BK_CLI_BK_TICKET BK_CLI_ACCESS_TOKEN BK_CLI_PERSONAL_TOKEN`，或只在 `auth login` 这一步的作用域内注入这些变量，避免后续命令及其子进程（包括第三方插件）继承明文凭据。后续 API 请求可使用已加密保存到 context 的凭据。
+
+显式凭据 flags 先确定模式，并优先于同名环境字段。环境只补齐选中模式内未显式传入的字段。例如 `--bk_token` 选择应用 + token，即使环境中还有 ticket 或 access token，也不会切换身份；只传应用 code 或 secret 时，从环境选择唯一的 token 或 ticket，不能改用 access token。旧模式的多个非空凭据 flags 仍沿用原顺序：access token 优先，其次 ticket，再其次 token。`--personal_token` 与其他凭据 flags 互斥，即使其他 flag 显式传空值也会报错；单独传 `--personal_token` 会忽略所有环境凭据。显式选择旧模式时忽略 `BK_CLI_PERSONAL_TOKEN`，不能用它补齐旧模式。
+
+显式空值（如 `--bk_token=''`）报 `invalid_credentials`，不会回退到环境。无凭据 flags 时，个人 token 与任一其他凭据环境值共存、access token 与任一应用模式字段共存、或 token 与 ticket 同时非空，都会报 `invalid_credentials`；只传应用 code / secret 时，环境 token 与 ticket 同时非空也会报错。缺少模式必填字段同样失败，需补齐或清理环境后重试。
+
+实际采用的环境值若含首尾空格、制表符或换行，会返回 `invalid_credentials` 并提示变量名；CLI 不自动裁剪原值。请修正 secrets 管理工具或 CI 注入的值后重试。被显式 flags 覆盖或属于未选模式的环境值不参与此检查。仅注入应用 code + secret 而缺少用户票据时，可以补充 `BK_CLI_BK_TOKEN` 或 `BK_CLI_BK_TICKET`，然后再次执行 `bk-cli auth login`。
+
+个人 token 的环境值同样不能含 `Bearer ` 前缀、内部空白或非法 token 字符；使用与 flag 输入相同的格式校验。
+
+没有凭据参数、环境也没有值时，仍返回 `not_implemented`（退出码 1）：设备码登录尚未实现，不等待 stdin、不使用或覆盖已有凭据。成功后仍加密保存到选中的 context；失败不覆盖旧凭据。
+
+环境输入避免的是 argv 暴露；有权限的进程仍可能读取环境，shell 调试输出和 CI 日志也可能暴露值。单引号只防止 shell 展开，不隐藏已经传入 flags 的票据。本次登录仅支持 flags 和环境变量；`--body -` 的 stdin 输入用于 API 请求体，不能导入登录凭据。
+
 登录后可以检查状态：
 
 ```
@@ -203,6 +252,7 @@ bk-cli doctor
 
 `auth status` 用来看当前 context 是否已有凭据，`auth check` 更适合脚本里做 fail-fast。
 `doctor` 适合排查当前机器上的 context 列表、选中的 context、凭据类型、脱敏票据、URL 模板渲染结果和网关连通性。
+个人 token 登录后，`doctor` 会显示 `personal_token` 类型和脱敏值；凭据格式无效时，本地凭据检查失败。使用 `doctor --offline` 可跳过连通性探测；本地检查通过不代表 token 的远端有效期或权限已验证。
 
 ### 第三步：先发一个原始 API 请求
 
@@ -345,6 +395,43 @@ bk-cli api bk-iam GET /api/v2/systems/
 ```
 
 如果你暂时没有现成的 system 子命令，这通常是最稳妥、最高效的探索方式。
+
+### 申请网关或接口权限
+
+遇到网关 API 权限不足（例如错误码 `1640301`）时，可以使用 `bk-cli apigateway apply_gateway_permission` 调用 `v2_open_apply_gateway_permission` 发起申请。该接口需要应用身份；`target_app_code` 应与请求使用的应用一致。不支持 `personal_token`：个人 token context 或显式 `Authorization: Bearer` header 在预览和提交时均返回 `unsupported_credential_type`，不会发送请求。请使用应用凭据（`bk_app_code` / `bk_app_secret` 加 `bk_token` / `bk_ticket`）或满足要求的 `access_token`，也可通过 `--context` 切换到应用 context；移除 Bearer header 后重新预览。业务系统自身的权限不足需按对应系统流程处理。
+
+**Agent 每次提交前必须询问用户，确认具体网关、申请应用、资源范围、有效期和原因；暂不允许跳过询问。** 申请会创建单据，触发通知和审批流程，成本较高。先汇总同一网关中需要的接口，将多个接口放入一个 `resource_names` 数组；只有用户明确同意整网关范围时才使用 `grant_dimension: gateway`。不要自动重试，避免重复申请单。
+
+先准备 `permission.json`（将示例应用、申请人和资源名称替换为实际值）：
+
+```json
+{
+  "target_app_code": "my-app",
+  "grant_dimension": "resource",
+  "resource_names": ["user_query", "user_create"],
+  "applicant": "developer",
+  "expire_days": 180,
+  "reason": "Read and create users for the integration"
+}
+```
+
+`target_app_code`、`grant_dimension`、`applicant` 必填；按资源申请时 `resource_names` 必填。`expire_days` 为 `180` 表示 6 个月、`360` 表示 12 个月，`0` 或省略表示永久；`reason` 可选。按整网关申请时将 `grant_dimension` 设为 `gateway`，无需 `resource_names`。
+
+```bash
+# 预览不会创建申请单，不需要确认
+bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
+  --body @permission.json --dry-run
+
+# 将预览的具体申请内容告知用户并询问；仅在用户明确同意后执行
+bk-cli apigateway apply_gateway_permission --gateway_name bk-iam \
+  --body @permission.json --confirmed
+```
+
+预览和提交都沿用共享请求层的 JSON 语法校验和输入读取规则，支持内联 JSON、`@file` 和 stdin。非法 JSON 返回 `request_error`，不会发送请求。原始 body 保持不变；请求体结构、字段类型、必填字段、申请范围、资源列表、有效期以及是否允许申请均由服务端校验。修正申请内容后，应重新预览并向用户确认。
+
+`--body` 也支持内联 JSON 或 `--body -` 从 stdin 读取。`--confirmed` 表示用户已明确确认本次申请内容，不能代替向用户询问；不传该参数或传 `--confirmed=false` 时，实际提交在本地返回 `confirmation_required`，不会发起请求。
+
+返回值保持 JSON envelope 和完整上游响应；`message` 展示申请单号，`data.data.record_id` 是上游申请记录 ID。**提交成功不表示权限已获批。** Agent 应向用户展示申请单号，以及响应中实际返回的审批链接、审批人等信息，方便联系审批。`record_id` 为正整数，大单号在响应和 `message` 中保持原值。响应还可能包含 `itsm_ticket_id` 和 `itsm_ticket_url`；非空时应展示对应工单和链接。没有链接或审批人时不要猜测，也不要把申请单号当作审批完成状态。
 
 ### 使用 system 子命令
 

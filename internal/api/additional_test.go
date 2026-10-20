@@ -176,7 +176,7 @@ var _ = Describe("additional api coverage", func() {
 	})
 
 	It("returns auth header errors for incomplete credentials", func() {
-		_, err := api.BuildAuthHeader(&credential.Credential{
+		_, err := api.BuildAuthHeaders(&credential.Credential{
 			Type:        credential.TypeAppUser,
 			BkAppSecret: "secret",
 			BkToken:     "token",
@@ -184,7 +184,7 @@ var _ = Describe("additional api coverage", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("bk_app_code is required"))
 
-		_, err = api.BuildAuthHeader(&credential.Credential{
+		_, err = api.BuildAuthHeaders(&credential.Credential{
 			Type: credential.TypeAccessToken,
 		}, &api.AuthRequirements{AppVerifiedRequired: true})
 		Expect(err).To(HaveOccurred())

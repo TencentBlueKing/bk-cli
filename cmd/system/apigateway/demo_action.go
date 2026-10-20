@@ -24,6 +24,7 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
+	"github.com/TencentBlueKing/bk-cli/internal/api"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
@@ -55,19 +56,20 @@ it performs local logic, keeps local-only flags, and then calls shared lower-lay
 				return err
 			}
 
-			// Local header echoes must be redacted before final output or jq sees them.
-			receivedHeaders := append([]string(nil), headers...)
-			for i, header := range receivedHeaders {
-				key, _, found := strings.Cut(header, ":")
-				if found && strings.EqualFold(strings.TrimSpace(key), "X-Bkapi-Authorization") {
-					receivedHeaders[i] = key + ":{...redacted...}"
+			// The sample echoes local inputs, so redact its separate header copy too.
+			displayHeaders := append([]string(nil), headers...)
+			for i, header := range displayHeaders {
+				name, _, _ := strings.Cut(header, ":")
+				if api.IsAuthHeader(strings.TrimSpace(name)) {
+					displayHeaders[i] = name + ":{...redacted...}"
 				}
 			}
+
 			received := map[string]any{
 				"name":    name,
 				"public":  public,
 				"body":    body,
-				"headers": receivedHeaders,
+				"headers": displayHeaders,
 				"stage":   stage,
 			}
 

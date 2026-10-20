@@ -1,0 +1,74 @@
+id: APIGW-006
+name: personal token YAML and Go actions
+tags:
+  - suite-integration
+  - personal-token
+steps:
+  - name: init context
+    command:
+      - "context"
+      - "init"
+      - "--bk_api_url_tmpl"
+      - "${MOCK_API_BASE_URL}/{gateway_name}"
+      - "--tenant_id"
+      - "personal-tenant"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login personal token
+    command:
+      - "auth"
+      - "login"
+      - "--personal_token"
+      - "integration-personal"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: yaml action
+    command:
+      - "apigateway"
+      - "list_gateways"
+      - "--name"
+      - "integration"
+      - "--header"
+      - "X-Mock-Scenario:PERSONAL-TOKEN"
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 200
+        - path: data.items.0.name
+          equals: "integration"
+  - name: go action
+    command:
+      - "apigateway"
+      - "demo_action"
+      - "--name"
+      - "demo"
+      - "--header"
+      - "X-Mock-Scenario:PERSONAL-TOKEN"
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 200
+        - path: data.upstream.items.0.name
+          equals: "demo"
+  - name: go preview with explicit personal header
+    command:
+      - apigateway
+      - demo_action
+      - --dry-run
+      - --header
+      - "authorization:Bearer integration-personal"
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.received.headers.0
+          equals: "authorization:{...redacted...}"
+        - path: request.headers.authorization
+          equals: "{...redacted...}"

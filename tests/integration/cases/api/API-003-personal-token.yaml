@@ -1,0 +1,73 @@
+id: API-003
+name: personal token raw api request and preview
+tags:
+  - suite-integration
+  - personal-token
+steps:
+  - name: init context
+    command:
+      - "context"
+      - "init"
+      - "--bk_api_url_tmpl"
+      - "${MOCK_API_BASE_URL}/{gateway_name}"
+      - "--tenant_id"
+      - "personal-tenant"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login personal token
+    command:
+      - "auth"
+      - "login"
+      - "--personal_token"
+      - "integration-personal"
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: send authenticated request
+    command:
+      - "api"
+      - "demo"
+      - "GET"
+      - "/echo"
+      - "--header"
+      - "X-Mock-Scenario:PERSONAL-TOKEN"
+    expect:
+      exit_code: 0
+      checks:
+        - path: status
+          equals: 200
+        - path: data.scenario
+          equals: "PERSONAL-TOKEN"
+  - name: preview bearer
+    command:
+      - "api"
+      - "demo"
+      - "GET"
+      - "/echo"
+      - "--dry-run"
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.headers.Authorization
+          equals: "{...redacted...}"
+  - name: preview explicit bearer
+    command:
+      - "api"
+      - "demo"
+      - "GET"
+      - "/echo"
+      - "--dry-run"
+      - "--header"
+      - "authorization:Bearer explicit-test"
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.headers.authorization
+          equals: "{...redacted...}"
