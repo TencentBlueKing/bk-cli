@@ -31,7 +31,7 @@ steps:
   - aidev
   - import_knowledge_archive
   - --body
-  - '{"space_id":"demo-space","url":"bkrepo://demo.zip","file_name":"demo","file_type":"zip","anchor_path":"/"}'
+  - '{"space_id":"demo-space","url":"bkrepo://demo.zip","file_name":"demo","file_type":"zip","anchor_path":"/1"}'
   expect:
     exit_code: 0
     checks:
@@ -43,3 +43,5 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/knowledges/archive/import/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.anchor_path
+      equals: "/1"

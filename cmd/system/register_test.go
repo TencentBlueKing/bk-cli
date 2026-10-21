@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing/fstest"
@@ -31,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 
+	systemtest "github.com/TencentBlueKing/bk-cli/cmd/system/testutil"
 	"github.com/TencentBlueKing/bk-cli/internal/output"
 	syslib "github.com/TencentBlueKing/bk-cli/internal/system"
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
@@ -1189,7 +1192,7 @@ actions:
 			},
 			"create_credential": {
 				`"credential_type":"custom"`,
-				`"credential_detail":{"key":"demo-value"}`,
+				`"credential_detail":{"key":"demo-key","value":"demo-value"}`,
 			},
 			"bind_credential": {
 				`"resource_type":"mcp"`,
@@ -1199,7 +1202,7 @@ actions:
 			},
 			"update_credential": {
 				`"credential_type":"custom"`,
-				`"credential_detail":{"key":"demo-value"}`,
+				`"credential_detail":{"key":"demo-key","value":"demo-value"}`,
 			},
 		}
 		for actionName, expectedFragments := range expectedHelpExamples {
@@ -1291,6 +1294,69 @@ actions:
 		Expect(tags.Short).To(Equal("获取当前租户指定范围的全量标签树，供智能体配置时选择标签；无需指定空间或智能体。"))
 		Expect(upload.Short).To(ContainSubstring("返回上传成功不等于资源已同步"))
 	})
+
+	DescribeTable("requires an AIDev DELETE body before resolving credentials", func(name, flag string) {
+		GinkgoT().Setenv("BK_CLI_CONFIG_DIR", GinkgoT().TempDir())
+		root := &cobra.Command{Use: "bk-cli", SilenceUsage: true, SilenceErrors: true}
+		Expect(registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)).To(Succeed())
+		root.SetArgs([]string{"aidev", name, "--" + flag, "1"})
+		err := root.Execute()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("required parameter --body is missing"))
+	},
+		Entry("archive_skill", "archive_skill", "skill_id"),
+		Entry("archive_agent", "archive_agent", "agent_id"),
+		Entry("delete_knowledgebase", "delete_knowledgebase", "id"),
+		Entry("delete_knowledge", "delete_knowledge", "id"),
+		Entry("delete_credential", "delete_credential", "credential_id"),
+	)
+
+	DescribeTable("sends space_id in the AIDev DELETE JSON body", func(name, flag, path string) {
+		GinkgoT().Setenv("BK_CLI_CONFIG_DIR", GinkgoT().TempDir())
+		var received bool
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			received = true
+			Expect(r.Method).To(Equal(http.MethodDelete))
+			Expect(r.URL.Path).To(Equal("/bk-aidev/prod/openapi/aidev/private/v1/" + path + "/1/"))
+			Expect(r.URL.RawQuery).To(BeEmpty())
+			Expect(r.Header.Get("Content-Type")).To(Equal("application/json"))
+			var body map[string]any
+			Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+			Expect(body).To(Equal(map[string]any{"space_id": "demo-space"}))
+			_, _ = w.Write([]byte(`{"deleted":true}`))
+		}))
+		DeferCleanup(server.Close)
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		root := &cobra.Command{Use: "bk-cli"}
+		Expect(registerSystemSpecs(root, systemCatalog(), testBuildDeps(nil), actionsFS)).To(Succeed())
+		root.SetArgs([]string{"aidev", name, "--" + flag, "1", "--body", `{"space_id":"demo-space"}`})
+		_, err := systemtest.CaptureCommandStdout(root.Execute)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(received).To(BeTrue())
+		action, _, err := root.Find([]string{"aidev", name})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(action.Flag("body").Usage).To(ContainSubstring("[Required]"))
+		var out bytes.Buffer
+		action.SetOut(&out)
+		root.SetArgs([]string{"aidev", name, "-h", "--body-schema"})
+		Expect(root.Execute()).To(Succeed())
+		var schema struct {
+			Required []string `json:"required"`
+		}
+		Expect(
+			json.Unmarshal([]byte(strings.TrimPrefix(out.String(), "Request body schema:\n")), &schema),
+		).To(
+			Succeed(),
+		)
+		Expect(schema.Required).To(ContainElement("space_id"))
+	},
+		Entry("archive_skill", "archive_skill", "skill_id", "skills"),
+		Entry("archive_agent", "archive_agent", "agent_id", "agents"),
+		Entry("delete_knowledgebase", "delete_knowledgebase", "id", "knowledgebase"),
+		Entry("delete_knowledge", "delete_knowledge", "id", "knowledges"),
+		Entry("delete_credential", "delete_credential", "credential_id", "credentials"),
+	)
 
 	It("shows the updated AIDev knowledge request schema", func() {
 		root := &cobra.Command{Use: "bk-cli"}

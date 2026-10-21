@@ -15,6 +15,17 @@ steps:
     checks:
     - path: ok
       equals: true
+- name: reject missing DELETE body before login
+  command:
+  - aidev
+  - delete_knowledge
+  - --id
+  - '1'
+  expect:
+    exit_code: 1
+    checks:
+    - path: error.code
+      equals: missing_param
 - name: login
   command:
   - auth
@@ -32,6 +43,8 @@ steps:
   - delete_knowledge
   - --id
   - '1'
+  - --body
+  - '{"space_id":"demo-space"}'
   expect:
     exit_code: 0
     checks:
@@ -41,3 +54,5 @@ steps:
       equals: DELETE
     - path: data.path
       contains: /bk-aidev/prod/openapi/aidev/private/v1/knowledges/1/
+    - path: data.body.space_id
+      equals: "demo-space"

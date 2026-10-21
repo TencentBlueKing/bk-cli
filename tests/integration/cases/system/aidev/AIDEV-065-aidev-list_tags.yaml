@@ -31,7 +31,7 @@ steps:
   - aidev
   - list_tags
   - --scope_name
-  - agent
+  - BUSINESS
   expect:
     exit_code: 0
     checks:
@@ -42,4 +42,4 @@ steps:
     - path: data.path
       contains: /bk-aidev/prod/openapi/aidev/private/v1/tags/
     - path: data.query.scope_name
-      equals: agent
+      equals: BUSINESS

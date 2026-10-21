@@ -31,7 +31,7 @@ steps:
   - aidev
   - trigger_knowledge_update
   - --body
-  - '{"space_id":"demo-space"}'
+  - '{"space_id":"demo-space","id":1}'
   expect:
     exit_code: 0
     checks:
@@ -43,3 +43,5 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/knowledges/trigger/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.id
+      equals: 1

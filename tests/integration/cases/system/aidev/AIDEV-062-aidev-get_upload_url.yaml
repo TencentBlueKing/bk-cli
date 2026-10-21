@@ -31,7 +31,7 @@ steps:
   - aidev
   - get_upload_url
   - --body
-  - '{"space_id":"demo-space","file_name":"demo.md"}'
+  - '{"space_id":"demo-space","file_name":"demo.zip","module":"skill"}'
   expect:
     exit_code: 0
     checks:
@@ -43,3 +43,5 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/upload/url/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.module
+      equals: "skill"

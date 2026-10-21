@@ -31,8 +31,7 @@ steps:
   - aidev
   - create_mcp
   - --body
-  - '{"space_id":"demo-space","mcp_name":"demo-mcp_name","mcp_code":"demo-mcp","url":"bkrepo://demo.zip","protocol":"stdio","credential_type":"custom","description":"demo
-    description"}'
+  - '{"space_id":"demo-space","mcp_name":"Demo MCP","mcp_code":"demo-mcp","url":"https://mcp.example.com/mcp","protocol":"streamable_http","credential_type":"custom","description":"demo description","credential_id":1}'
   expect:
     exit_code: 0
     checks:
@@ -44,3 +43,7 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/mcps/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.url
+      equals: "https://mcp.example.com/mcp"
+    - path: data.body.credential_id
+      equals: 1

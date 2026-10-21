@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"strings"
 	"testing/fstest"
 
 	json "github.com/goccy/go-json"
@@ -95,6 +96,84 @@ description: 共享规则
 			Expect(action.Parent()).To(Equal(aidev), "skill example: %s", match[0])
 		}
 	})
+
+	DescribeTable("keeps AIDev examples actionable in CLI help and the usage skill", func(name string) {
+		content, err := os.ReadFile("../skills/bk-cli-aidev/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		root := newRootCmd()
+		bodyPattern := regexp.MustCompile(`--body '([^']+)'`)
+		action, _, findErr := root.Find([]string{"aidev", name})
+		Expect(findErr).NotTo(HaveOccurred())
+		_, section, found := strings.Cut(string(content), "#### `"+name+"`")
+		Expect(found).To(BeTrue())
+		section, _, _ = strings.Cut(section, "\n#### ")
+		for source, example := range map[string]string{"help": action.Example, "skill": section} {
+			bodies := bodyPattern.FindAllStringSubmatch(example, -1)
+			Expect(bodies).NotTo(BeEmpty(), "%s %s needs a body example", source, name)
+			for _, match := range bodies {
+				var body map[string]any
+				Expect(json.Unmarshal([]byte(match[1]), &body)).To(Succeed())
+				Expect(body["space_id"]).To(Equal("demo-space"), "%s %s", source, name)
+				switch name {
+				case "create_mcp":
+					Expect(body["url"]).To(MatchRegexp(`^https?://[^/]+`))
+					if body["credential_type"] == "custom" {
+						Expect(body["credential_id"]).To(BeNumerically(">", 0))
+					}
+				case "create_knowledge":
+					Expect(body["file_path"]).To(Equal(body["file_name"]))
+					Expect(body["url"]).To(BeAssignableToTypeOf(""))
+					Expect(body["url"]).NotTo(BeEmpty())
+				case "import_knowledge_archive":
+					Expect(body["anchor_path"]).To(MatchRegexp(`^/[0-9]+(/.*)?$`))
+				case "upsert_collection":
+					messages, ok := body["content"].([]any)
+					Expect(ok).To(BeTrue())
+					Expect(messages).NotTo(BeEmpty())
+					Expect(messages[0]).To(HaveKeyWithValue("role", "system"))
+					Expect(messages[0]).To(HaveKeyWithValue("content", Not(BeEmpty())))
+				case "reclean_knowledge", "trigger_knowledge_update":
+					Expect(body["id"]).To(BeNumerically(">", 0))
+				case "append_agent_admins":
+					Expect(body["admins"]).NotTo(BeEmpty())
+				case "get_upload_url":
+					Expect(body["module"]).To(Equal("skill"))
+				case "create_credential", "update_credential":
+					Expect(body["credential_detail"]).To(HaveKeyWithValue("key", Not(BeEmpty())))
+					Expect(body["credential_detail"]).To(HaveKeyWithValue("value", Not(BeEmpty())))
+				case "batch_delete_credentials":
+					Expect(body["credential_ids"]).NotTo(BeEmpty())
+				case "batch_create_knowledges", "batch_update_knowledges":
+					Expect(body["items"]).NotTo(BeEmpty())
+				case "batch_delete_knowledges":
+					Expect(body["ids"]).NotTo(BeEmpty())
+				case "apply_cross_space_resources":
+					Expect(body["resource_ids"]).NotTo(BeEmpty())
+				}
+			}
+		}
+	},
+		Entry("archive_skill", "archive_skill"),
+		Entry("archive_agent", "archive_agent"),
+		Entry("delete_knowledgebase", "delete_knowledgebase"),
+		Entry("delete_knowledge", "delete_knowledge"),
+		Entry("delete_credential", "delete_credential"),
+		Entry("create_mcp", "create_mcp"),
+		Entry("create_knowledge", "create_knowledge"),
+		Entry("import_knowledge_archive", "import_knowledge_archive"),
+		Entry("upsert_collection", "upsert_collection"),
+		Entry("reclean_knowledge", "reclean_knowledge"),
+		Entry("trigger_knowledge_update", "trigger_knowledge_update"),
+		Entry("append_agent_admins", "append_agent_admins"),
+		Entry("get_upload_url", "get_upload_url"),
+		Entry("create_credential", "create_credential"),
+		Entry("update_credential", "update_credential"),
+		Entry("batch_delete_credentials", "batch_delete_credentials"),
+		Entry("batch_create_knowledges", "batch_create_knowledges"),
+		Entry("batch_update_knowledges", "batch_update_knowledges"),
+		Entry("batch_delete_knowledges", "batch_delete_knowledges"),
+		Entry("apply_cross_space_resources", "apply_cross_space_resources"),
+	)
 
 	It("lists embedded skills as structured JSON without machine-only files", func() {
 		cmd := newRootCmd()

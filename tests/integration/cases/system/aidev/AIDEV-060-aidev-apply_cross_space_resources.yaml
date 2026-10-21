@@ -31,7 +31,7 @@ steps:
   - aidev
   - apply_cross_space_resources
   - --body
-  - '{"space_id":"demo-space","resource_type":"skill","resource_ids":[]}'
+  - '{"space_id":"demo-space","resource_type":"skill","resource_ids":[1]}'
   expect:
     exit_code: 0
     checks:
@@ -43,3 +43,5 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/space_manage/apply_resources/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.resource_ids.0
+      equals: 1
