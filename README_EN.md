@@ -18,6 +18,7 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Automation-friendly output**: JSON envelopes with an `ok` field, machine-readable errors, and predictable exit codes; API responses preserve JSON number precision
 - **Built-in result filtering**: `api` and system actions accept `--jq '<expression>'` over the complete final envelope, emitting one JSON value per line without an external jq installation
 - **Flexible request body input**: `--body` supports inline JSON, `@file` file reads, and stdin
+- **AIDev archive and delete**: pass a body containing the real space ID, for example `bk-cli aidev archive_skill --skill_id 1 --body '{"space_id":"demo-space"}'`; see the [User Guide](docs/user-guide.md) for more examples
 - **Rich system commands**: built-in BlueKing system subcommands, with raw `api` calls kept as a fallback
 - **Embedded agent skills**: inspect version-matched usage guidance with `bk-cli skills list` and `bk-cli skills read <name>`; use `skills read --raw` for raw Markdown
 - **Personal token login**: `bk-cli auth login --personal_token='<personal-token>'` uses a token from the personal center to call APIs that support Bearer authentication

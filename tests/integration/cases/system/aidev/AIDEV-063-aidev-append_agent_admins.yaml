@@ -33,7 +33,7 @@ steps:
   - --agent_id
   - '1'
   - --body
-  - '{"space_id":"demo-space","agent_id":1}'
+  - '{"space_id":"demo-space","agent_id":1,"admins":["username"]}'
   expect:
     exit_code: 0
     checks:
@@ -45,3 +45,5 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/agents/1/admins/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.admins.0
+      equals: "username"

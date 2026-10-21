@@ -283,7 +283,7 @@ bk-cli api bk-demo POST /api/v2/resources/ \
 ```
 bk-cli apigateway list_gateways --name bk-iam --fuzzy
 bk-cli aidev list_spaces --keyword demo
-bk-cli aidev list_tags --scope_name agent
+bk-cli aidev list_tags
 bk-cli cmdb search_business --bk_biz_id 2
 bk-cli paas create_cloud_native_app -h --body-schema
 ```
@@ -295,6 +295,16 @@ bk-cli aidev upload_file --file ./artifact.zip --space_id demo-space
 ```
 
 文件必须存在且为可读的常规文件，上传时流式读取内容。使用 `--dry-run` 时仍会检查本地文件，预览 body 中的 `size` 表示文件大小（字节），不会读取或上传文件内容。
+
+Skill 直传申请使用 `get_upload_url --body '{"space_id":"demo-space","file_name":"demo.zip","module":"skill"}'`。该接口的 `module` 默认是 `knowledge`，而 `upload_file --module` 默认是 `skill`。返回的 `upload_url` 只用于上传，后续 Skill upsert 或知识导入使用返回的 `url`。
+
+AIDev 的 `archive_skill`、`archive_agent`、`delete_knowledgebase`、`delete_knowledge` 和 `delete_credential` 要求在 DELETE body 中显式传入真实 `space_id`，例如：
+
+```
+bk-cli aidev archive_skill --skill_id 1 --body '{"space_id":"demo-space"}'
+```
+
+缺少 `--body` 会在本地失败。`list_knowledges` 也必须在 body 中传真实空间 ID，不支持 `all`。智能体标签查询省略 `--scope_name` 时使用部署配置的范围（默认 `default`）；业务标签使用 `--scope_name BUSINESS`。
 
 支持 Bearer 鉴权的部署可使用 `auth login --personal_token` 登录后上传。`--dry-run` 会隐藏认证头的 token，同时保留 multipart 类型和文件元数据。
 

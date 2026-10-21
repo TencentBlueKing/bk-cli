@@ -31,8 +31,7 @@ steps:
   - aidev
   - upsert_collection
   - --body
-  - '{"space_id":"demo-space","collection_code":"demo-collection","collection_name":"demo
-    collection","content":[]}'
+  - '{"space_id":"demo-space","collection_code":"demo-collection","collection_name":"Demo Collection","content":[{"role":"system","content":"你是示例角色"}]}'
   expect:
     exit_code: 0
     checks:
@@ -44,3 +43,7 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/collections/upsert/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.content.0.role
+      equals: "system"
+    - path: data.body.content.0.content
+      equals: "你是示例角色"

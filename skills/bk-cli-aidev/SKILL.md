@@ -19,7 +19,7 @@ CRITICAL — 开始前 MUST 先读取 `../bk-cli-shared/SKILL.md`。共享 skill
 
 - 调用 AIDev 前，按共享 skill 配置当前 context 的登录凭据，并确保身份具有对应空间和 API 权限。支持 Bearer 鉴权的部署可使用个人 token；使用应用与用户凭据时，需要同时提供两种身份并申请对应 API 权限。
 - CLI flag 名保持上游 OpenAPI 参数名不变，例如 `space_id`、`skill_id`、`mcp_type`、`agent_code`、`page_size`。
-- 列表类命令的 `space_id` 通常可省略或传 `all`，表示查询当前租户内所有有权限空间；传具体 ID 时只查询该空间。
+- `list_skills`、`list_agents` 等 GET 列表的 `space_id` 可省略或传 `all`，表示查询当前租户内所有有权限空间；`list_knowledges` 必须在 body 中传真实空间 ID，不支持 `all`。
 - 带复杂 request body 的 action 统一通过共享 `--body '<json>'` 传入；执行时要求请求体的 action 会在本地校验 `--body` 非空。
 - 查看请求体结构时使用 `bk-cli aidev <action> -h --body-schema`。
 - `upload_file` 是文件上传命令，使用 `--file`、`--space_id` 和可选 `--module` 发送 `multipart/form-data`，不使用 `--body`。
@@ -84,11 +84,11 @@ bk-cli aidev get_skill --skill_id 1 --space_id demo-space --version v1.0.0
 #### `archive_skill`
 
 ```bash
-bk-cli aidev archive_skill --skill_id 1
+bk-cli aidev archive_skill --skill_id 1 --body '{"space_id":"demo-space"}'
 ```
 
 - 归档指定 Skill。先核对目标 ID、版本和 Agent 引用，再执行。
-- 必填：`skill_id`。
+- 必填：`skill_id` 和包含真实 `space_id` 的 DELETE 请求体；通过 `--body` 显式传入空间 ID，不支持 `all`。
 
 #### `get_skill_download_url`
 
@@ -125,10 +125,11 @@ bk-cli aidev list_mcps --space_id all --fuzzy demo --page 1 --page_size 20
 
 ```bash
 bk-cli aidev create_mcp \
-  --body '{"space_id":"demo-space","mcp_name":"Demo MCP","mcp_code":"demo-mcp","url":"bkrepo://demo.zip","protocol":"stdio","credential_type":"custom","description":"demo description"}'
+  --body '{"space_id":"demo-space","mcp_name":"Demo MCP","mcp_code":"demo-mcp","url":"https://mcp.example.com/mcp","protocol":"streamable_http","credential_type":"custom","description":"demo description","credential_id":1}'
 ```
 
 - 在指定空间创建 MCP 配置。适用于确需新建 MCP 时；Agent 引用已有 MCP 应先使用 by-code 精确查询。
+- `url` 必须是 HTTP(S) MCP 服务地址，不能使用上传制品地址。`credential_type` 为 `custom` 时必须同时传 `credential_id`；`null` 不需要凭证 ID，`blueapps` 还要求蓝鲸网关 URL。
 - 请求体结构以 `bk-cli aidev create_mcp -h --body-schema` 为准。
 
 #### `get_mcp`
@@ -236,11 +237,11 @@ bk-cli aidev get_agent --agent_id 1 --space_id demo-space --version v1.0.0
 #### `archive_agent`
 
 ```bash
-bk-cli aidev archive_agent --agent_id 1
+bk-cli aidev archive_agent --agent_id 1 --body '{"space_id":"demo-space"}'
 ```
 
 - 归档指定智能体；已发布的插件应用可能异步下架。适用于明确要移除智能体时，先核对目标 ID 和资源引用。
-- 必填：`agent_id`。
+- 必填：`agent_id` 和包含真实 `space_id` 的 DELETE 请求体；通过 `--body` 显式传入空间 ID，不支持 `all`。
 
 #### `publish_agent`
 
@@ -269,11 +270,11 @@ bk-cli aidev update_agent \
 ```bash
 bk-cli aidev append_agent_admins \
   --agent_id 1 \
-  --body '{"space_id":"demo-space","agent_id":1}'
+  --body '{"space_id":"demo-space","agent_id":1,"admins":["username"]}'
 ```
 
 - 向智能体对应的开发者中心插件追加管理员，保留原有成员；不修改 Agent 使用者或空间权限。适用于 Agent 创建后补充管理员。
-- 必填：`agent_id` 和请求体；调用方需要空间访问和智能体管理权限。
+- 必填：`agent_id` 和请求体；`admins` 必须包含要追加的用户名，省略、`null` 或 `[]` 不会追加任何人。调用方需要空间访问和智能体管理权限。
 
 ### 知识库
 
@@ -307,11 +308,11 @@ bk-cli aidev list_knowledgebases
 #### `delete_knowledgebase`
 
 ```bash
-bk-cli aidev delete_knowledgebase --id 1
+bk-cli aidev delete_knowledgebase --id 1 --body '{"space_id":"demo-space"}'
 ```
 
 - 删除指定知识库。先确认其中知识、Agent 引用及删除影响，再执行。
-- 必填：`id`。
+- 必填：`id` 和包含真实 `space_id` 的 DELETE 请求体；通过 `--body` 显式传入空间 ID，不支持 `all`。
 
 #### `update_knowledgebase`
 
@@ -339,16 +340,17 @@ bk-cli aidev query_knowledgebase --body '{"space_id":"demo-space","query":"hello
 
 ```bash
 bk-cli aidev create_knowledge \
-  --body '{"space_id":"demo-space","knowledge_base_id":1,"knowledge_name":"Demo Knowledge","file_name":"demo.md","file_path":"bkrepo://demo.md"}'
+  --body '{"space_id":"demo-space","knowledge_base_id":1,"knowledge_name":"Demo Knowledge","file_name":"demo.md","file_path":"demo.md","url":"bkrepo://demo.md"}'
 ```
 
 - 在指定知识库中创建一条知识文档。适用于单篇新增；批量或整目录 ZIP 同步应选择相应接口。
+- 上传结果放在 `url`；`file_path` 是知识库内相对路径，文件名必须和 `file_name` 一致，例如 `demo.md`。
 - 请求体结构以 `bk-cli aidev create_knowledge -h --body-schema` 为准。
 
 #### `batch_create_knowledges`
 
 ```bash
-bk-cli aidev batch_create_knowledges --body '{"space_id":"demo-space","items":[]}'
+bk-cli aidev batch_create_knowledges --body '{"space_id":"demo-space","items":[{"knowledge_base_id":1,"knowledge_name":"Demo Knowledge","file_name":"demo.md","file_path":"demo.md","url":"bkrepo://demo.md"}]}'
 ```
 
 - 一次创建多条知识文档。适用于已确认同一批输入的多篇新增；整目录 ZIP 同步使用 archive/import。
@@ -357,7 +359,7 @@ bk-cli aidev batch_create_knowledges --body '{"space_id":"demo-space","items":[]
 #### `batch_update_knowledges`
 
 ```bash
-bk-cli aidev batch_update_knowledges --body '{"space_id":"demo-space","items":[]}'
+bk-cli aidev batch_update_knowledges --body '{"space_id":"demo-space","items":[{"id":1,"knowledge_name":"Updated Knowledge"}]}'
 ```
 
 - 一次更新多条已有知识文档。适用于每条目标 ID 和修改内容均已确认的批量操作。
@@ -366,7 +368,7 @@ bk-cli aidev batch_update_knowledges --body '{"space_id":"demo-space","items":[]
 #### `batch_delete_knowledges`
 
 ```bash
-bk-cli aidev batch_delete_knowledges --body '{"space_id":"demo-space","ids":[]}'
+bk-cli aidev batch_delete_knowledges --body '{"space_id":"demo-space","ids":[1]}'
 ```
 
 - 一次删除多条知识文档。适用于已逐项核对目标 ID 和删除影响的批量清理。
@@ -379,7 +381,7 @@ bk-cli aidev list_knowledges --body '{"space_id":"demo-space"}'
 ```
 
 - 列出指定知识库或目录内的知识文档；这是只读查询，虽然使用 POST。适用于确认导入后的文档范围或定位文档 ID。
-- 该列表接口通过 body 传查询条件。
+- 该列表接口通过 body 传查询条件，`space_id` 必须是真实空间 ID，不能省略或传 `all`。
 
 #### `preview_knowledge_link`
 
@@ -421,7 +423,7 @@ bk-cli aidev preview_knowledge --id 1 --space_id demo-space
 
 ```bash
 bk-cli aidev get_knowledge_status --space_id demo-space
-bk-cli aidev get_knowledge_status --space_id demo-space --anchor_path / --group_type document
+bk-cli aidev get_knowledge_status --space_id demo-space --anchor_path /1 --group_type document
 ```
 
 - 按空间和 anchor_path 查询知识处理状态统计及可见的 ZIP 导入任务。适用于导入前检查是否已有任务，或提交后查询进度；不触发重试。
@@ -430,10 +432,11 @@ bk-cli aidev get_knowledge_status --space_id demo-space --anchor_path / --group_
 #### `trigger_knowledge_update`
 
 ```bash
-bk-cli aidev trigger_knowledge_update --body '{"space_id":"demo-space"}'
+bk-cli aidev trigger_knowledge_update --body '{"space_id":"demo-space","id":1}'
 ```
 
 - 触发已有知识文档的更新任务。适用于明确需要重新抓取或更新时；可能产生后台处理。
+- 不传 `anchor_path` 时必须提供文档 `id`；示例更新知识文档 1。
 - 要求 `--body`，结构以 `bk-cli aidev trigger_knowledge_update -h --body-schema` 为准。
 
 #### `list_knowledge_update_frequencies`
@@ -456,20 +459,21 @@ bk-cli aidev get_knowledge_index_info --id 1 --space_id demo-space
 #### `reclean_knowledge`
 
 ```bash
-bk-cli aidev reclean_knowledge --body '{"space_id":"demo-space"}'
+bk-cli aidev reclean_knowledge --body '{"space_id":"demo-space","id":1}'
 ```
 
 - 按当前或指定导入链路重新清洗并重建知识产物。适用于确认现有产物需重建时；会触发后台处理。
+- 请求体中 `id` 或非空 `ids` 至少提供一个，选定待重新清洗的文档。
 - 要求 `--body`，结构以 `bk-cli aidev reclean_knowledge -h --body-schema` 为准。
 
 #### `delete_knowledge`
 
 ```bash
-bk-cli aidev delete_knowledge --id 1
+bk-cli aidev delete_knowledge --id 1 --body '{"space_id":"demo-space"}'
 ```
 
 - 删除指定知识文档。适用于明确移除单篇文档时，先确认 ID 和影响。
-- 必填：`id`。
+- 必填：`id` 和包含真实 `space_id` 的 DELETE 请求体；通过 `--body` 显式传入空间 ID，不支持 `all`。
 
 #### `update_knowledge`
 
@@ -486,10 +490,11 @@ bk-cli aidev update_knowledge \
 
 ```bash
 bk-cli aidev import_knowledge_archive \
-  --body '{"space_id":"demo-space","url":"bkrepo://demo.zip","file_name":"demo","file_type":"zip","anchor_path":"/"}'
+  --body '{"space_id":"demo-space","url":"bkrepo://demo.zip","file_name":"demo","file_type":"zip","anchor_path":"/1"}'
 ```
 
 - 将已上传或远程 ZIP 异步导入指定 anchor_path，并覆盖目标目录内容。适用于目录化文档同步；返回任务 ID 后用相同 anchor_path 查询 status_info，不应把提交成功当作处理完成。
+- `anchor_path` 必须为 `/<知识库ID>` 或 `/<知识库ID>/<目录>`，不能只传 `/`；示例 `/1` 指知识库 1。
 - 导入进度可用相同 `anchor_path` 调用 `get_knowledge_status` 查询。
 
 ### 凭证
@@ -516,10 +521,11 @@ bk-cli aidev list_credentials --space_id all --credential_name demo --credential
 
 ```bash
 bk-cli aidev create_credential \
-  --body '{"credential_name":"demo-credential","credential_type":"custom","credential_detail":{"key":"demo-value"},"space_id":"demo-space"}'
+  --body '{"credential_name":"demo-credential","credential_type":"custom","credential_detail":{"key":"demo-key","value":"demo-value"},"space_id":"demo-space"}'
 ```
 
 - 在指定空间创建凭证配置，返回凭证 ID。仅在明确需要新凭证且字段已确认时调用；凭证生命周期与绑定关系分开管理。
+- 先用 `list_credential_types` 确认类型字段；`custom` 的 `credential_detail` 需要 `key` 和 `value`。
 - 请求体结构以 `bk-cli aidev create_credential -h --body-schema` 为准。
 
 #### `update_credential`
@@ -527,7 +533,7 @@ bk-cli aidev create_credential \
 ```bash
 bk-cli aidev update_credential \
   --credential_id 1 \
-  --body '{"credential_name":"demo-credential","credential_type":"custom","credential_detail":{"key":"demo-value"},"space_id":"demo-space","credential_id":1}'
+  --body '{"credential_name":"demo-credential","credential_type":"custom","credential_detail":{"key":"demo-key","value":"demo-value"},"space_id":"demo-space","credential_id":1}'
 ```
 
 - 更新指定凭证的配置。适用于已核对凭证 ID、需要变更字段时；可能影响已绑定该凭证的资源。
@@ -536,7 +542,7 @@ bk-cli aidev update_credential \
 #### `batch_delete_credentials`
 
 ```bash
-bk-cli aidev batch_delete_credentials --body '{"space_id":"demo-space","credential_ids":[]}'
+bk-cli aidev batch_delete_credentials --body '{"space_id":"demo-space","credential_ids":[1]}'
 ```
 
 - 批量删除指定凭证；先逐项确认 ID 与引用关系。适用于一次清理多个已确认不再使用的凭证。
@@ -545,11 +551,11 @@ bk-cli aidev batch_delete_credentials --body '{"space_id":"demo-space","credenti
 #### `delete_credential`
 
 ```bash
-bk-cli aidev delete_credential --credential_id 1
+bk-cli aidev delete_credential --credential_id 1 --body '{"space_id":"demo-space"}'
 ```
 
 - 删除指定凭证。先查询引用并确认解绑或影响范围，再执行删除。
-- 必填：`credential_id`。
+- 必填：`credential_id` 和包含真实 `space_id` 的 DELETE 请求体；通过 `--body` 显式传入空间 ID，不支持 `all`。
 
 #### `bind_credential`
 
@@ -583,11 +589,12 @@ bk-cli aidev list_credential_references --credential_id 1 --space_id demo-space
 #### `list_tags`
 
 ```bash
-bk-cli aidev list_tags --scope_name agent
+bk-cli aidev list_tags
+bk-cli aidev list_tags --scope_name BUSINESS
 ```
 
 - 获取当前租户指定范围的全量标签树，供智能体配置时选择标签；无需指定空间或智能体。
-- 可选：`scope_name`，例如 `agent`；省略时使用默认标签范围。
+- 可选：`scope_name`。省略时使用部署配置的智能体标签范围（默认 `default`），业务范围为 `BUSINESS`。`agent` 不是范围名；未识别的值会回退到通用默认范围。
 
 ### 资源引用与资源集合
 
@@ -614,10 +621,11 @@ bk-cli aidev list_collections --space_id all --collection_code demo-collection
 
 ```bash
 bk-cli aidev upsert_collection \
-  --body '{"space_id":"demo-space","collection_code":"demo-collection","collection_name":"Demo Collection","content":[]}'
+  --body '{"space_id":"demo-space","collection_code":"demo-collection","collection_name":"Demo Collection","content":[{"role":"system","content":"你是示例角色"}]}'
 ```
 
 - 按 collection_code 创建或更新角色 Prompt Collection，并返回 collection_id。适用于同步 Agent 所引用的角色指令；已有编码会更新线上内容。
+- `content` 至少包含一条消息，第一条 `role` 必须为 `system`，消息 `content` 不能为空。
 - 请求体结构以 `bk-cli aidev upsert_collection -h --body-schema` 为准。
 
 #### `get_collection`
@@ -633,7 +641,7 @@ bk-cli aidev get_collection --collection_id 1 --space_id demo-space
 
 ```bash
 bk-cli aidev apply_cross_space_resources \
-  --body '{"space_id":"demo-space","resource_type":"skill","resource_ids":[]}'
+  --body '{"space_id":"demo-space","resource_type":"skill","resource_ids":[1]}'
 ```
 
 - 为指定资源发起跨空间使用申请，返回请求 ID 和审批工单信息。适用于目标空间尚无资源使用权限时；提交申请不等于授权已生效。
@@ -655,11 +663,12 @@ bk-cli aidev upload_file --file ./knowledge.zip --space_id demo-space --module k
 #### `get_upload_url`
 
 ```bash
-bk-cli aidev get_upload_url --body '{"space_id":"demo-space","file_name":"demo.md"}'
+bk-cli aidev get_upload_url --body '{"space_id":"demo-space","file_name":"demo.zip","module":"skill"}'
 ```
 
 - 为 Skill 或知识 ZIP 申请限时、一次性的直传地址。适用于大文件直传；取得地址后仍需上传文件并校验状态。
-- 文件直传后再分别调用知识 ZIP 导入或 Skill upsert。
+- `module` 默认 `knowledge`，Skill 直传必须显式指定 `"module":"skill"`；知识 ZIP 使用 `"module":"knowledge"`。
+- 返回的 `upload_url` 只用于一次性上传；上传成功后，用返回的 `url` 调用 Skill upsert、知识 ZIP 导入或 `check_upload_status`。
 
 #### `check_upload_status`
 

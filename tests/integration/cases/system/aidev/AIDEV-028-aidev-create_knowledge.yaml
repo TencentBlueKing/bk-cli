@@ -31,7 +31,7 @@ steps:
   - aidev
   - create_knowledge
   - --body
-  - '{"space_id":"demo-space","knowledge_base_id":1,"knowledge_name":"Demo Knowledge","file_name":"demo.md","file_path":"bkrepo://demo.md"}'
+  - '{"space_id":"demo-space","knowledge_base_id":1,"knowledge_name":"Demo Knowledge","file_name":"demo.md","file_path":"demo.md","url":"bkrepo://demo.md"}'
   expect:
     exit_code: 0
     checks:
@@ -43,3 +43,7 @@ steps:
       contains: /bk-aidev/prod/openapi/aidev/private/v1/knowledges/
     - path: data.body.space_id
       equals: demo-space
+    - path: data.body.file_path
+      equals: "demo.md"
+    - path: data.body.url
+      equals: "bkrepo://demo.md"
