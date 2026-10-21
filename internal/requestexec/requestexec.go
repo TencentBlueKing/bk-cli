@@ -22,6 +22,7 @@ package requestexec
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -61,11 +62,25 @@ type RequestSpec struct {
 	Method      string
 	Path        string
 	ParamsJSON  string
-	BodyJSON    string
-	Headers     []string
-	Stage       string
-	Timeout     string
-	AuthConfig  api.AuthPolicy
+
+	// BodyJSON is the standard JSON request body used by raw API calls and most
+	// system actions. BodyReader is for generic non-JSON payloads such as
+	// multipart/form-data; callers must provide only one body source.
+	BodyJSON   string
+	BodyReader io.Reader
+
+	// ContentType is applied only with BodyReader because JSON bodies always use
+	// application/json. ContentLength sets a known raw body length when positive.
+	// DryRunBody is an optional safe representation of BodyReader payloads for
+	// --dry-run output; it is never sent to the upstream API.
+	ContentType   string
+	ContentLength int64
+	DryRunBody    any
+
+	Headers    []string
+	Stage      string
+	Timeout    string
+	AuthConfig api.AuthPolicy
 }
 
 // RequestResult contains the envelope produced by a single API request.
@@ -175,11 +190,11 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 			"Use repeatable --header key:value entries",
 		)
 	}
-	if err := validateUserHeaders(headerMap, spec.BodyJSON); err != nil {
+	if err := validateUserHeaders(headerMap, spec.BodyJSON, spec.BodyReader); err != nil {
 		return nil, output.UserError(
 			"request_error",
 			err.Error(),
-			"Use repeatable --header key:value entries, and let bk-cli manage JSON content type when --body is provided",
+			"Use repeatable --header key:value entries, and let bk-cli manage the request body Content-Type",
 		)
 	}
 
@@ -232,13 +247,17 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 	}
 
 	reqSpec := &api.Request{
-		Method:      spec.Method,
-		URL:         fullURL,
-		ParamsJSON:  spec.ParamsJSON,
-		BodyJSON:    spec.BodyJSON,
-		Headers:     headerMap,
-		AuthHeaders: authHeaders,
-		TenantID:    resolveTenantID(runtime.Config),
+		Method:        spec.Method,
+		URL:           fullURL,
+		ParamsJSON:    spec.ParamsJSON,
+		BodyJSON:      spec.BodyJSON,
+		BodyReader:    spec.BodyReader,
+		ContentType:   spec.ContentType,
+		ContentLength: spec.ContentLength,
+		DryRunBody:    spec.DryRunBody,
+		Headers:       headerMap,
+		AuthHeaders:   authHeaders,
+		TenantID:      resolveTenantID(runtime.Config),
 	}
 
 	httpReq, err := reqSpec.Build()
@@ -285,10 +304,21 @@ func executeRequest(runtime *Runtime, spec RequestSpec, timeoutErrorLabel string
 	return &RequestResult{Envelope: envelope}, nil
 }
 
-func validateUserHeaders(headers map[string]string, bodyJSON string) error {
+func validateUserHeaders(headers map[string]string, bodyJSON string, body io.Reader) error {
 	for key := range headers {
-		if bodyJSON != "" && strings.EqualFold(key, "Content-Type") {
-			return fmt.Errorf("header %q cannot be overridden when --body is provided", "Content-Type")
+		if strings.EqualFold(key, "Content-Type") {
+			switch {
+			case bodyJSON != "":
+				return fmt.Errorf(
+					"header %q cannot be overridden when --body is provided",
+					"Content-Type",
+				)
+			case body != nil:
+				return fmt.Errorf(
+					"header %q cannot be overridden when a request body is provided",
+					"Content-Type",
+				)
+			}
 		}
 	}
 

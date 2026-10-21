@@ -20,6 +20,8 @@ package cmd
 
 import (
 	"bytes"
+	"os"
+	"regexp"
 	"testing/fstest"
 
 	json "github.com/goccy/go-json"
@@ -62,6 +64,36 @@ description: 共享规则
 
 	AfterEach(func() {
 		SetSkillsFS(nil)
+	})
+
+	It("keeps AIDev skill examples and command sections aligned with registered actions", func() {
+		content, err := os.ReadFile("../skills/bk-cli-aidev/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		root := newRootCmd()
+		aidev, remaining, err := root.Find([]string{"aidev"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(remaining).To(BeEmpty())
+		sections := regexp.MustCompile(
+			"(?m)^#### `([a-z][a-z0-9_]*)`$",
+		).FindAllStringSubmatch(
+			string(content),
+			-1,
+		)
+		documented := make([]string, 0, len(sections))
+		for _, section := range sections {
+			documented = append(documented, section[1])
+		}
+		registered := make([]string, 0, len(aidev.Commands()))
+		for _, action := range aidev.Commands() {
+			registered = append(registered, action.Name())
+		}
+		Expect(documented).To(ConsistOf(registered))
+		for _, match := range regexp.MustCompile(`bk-cli aidev ([a-z][a-z0-9_]*)`).FindAllStringSubmatch(string(content), -1) {
+			action, remaining, err := root.Find([]string{"aidev", match[1]})
+			Expect(err).NotTo(HaveOccurred(), "skill example: %s", match[0])
+			Expect(remaining).To(BeEmpty(), "skill example: %s", match[0])
+			Expect(action.Parent()).To(Equal(aidev), "skill example: %s", match[0])
+		}
 	})
 
 	It("lists embedded skills as structured JSON without machine-only files", func() {

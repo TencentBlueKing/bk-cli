@@ -272,17 +272,33 @@ var _ = Describe("requestexec", func() {
 
 	Describe("helper functions", func() {
 		It("rejects a Content-Type override when a JSON body is present", func() {
-			err := validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, `{"ok":true}`)
+			err := validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, `{"ok":true}`, nil)
 
 			Expect(err).To(MatchError(`header "Content-Type" cannot be overridden when --body is provided`))
 		})
 
 		It("allows non-conflicting user headers", func() {
-			err := validateUserHeaders(map[string]string{"X-Request-Id": "demo"}, `{"ok":true}`)
+			err := validateUserHeaders(map[string]string{"X-Request-Id": "demo"}, `{"ok":true}`, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, "")
+			err = validateUserHeaders(map[string]string{"Content-Type": "text/plain"}, "", nil)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("rejects a Content-Type override when a non-JSON body is present", func() {
+			err := validateUserHeaders(
+				map[string]string{"Content-Type": "text/plain"},
+				"",
+				strings.NewReader("body"),
+			)
+
+			Expect(
+				err,
+			).To(
+				MatchError(
+					`header "Content-Type" cannot be overridden when a request body is provided`,
+				),
+			)
 		})
 
 		It("resolves tenant IDs from config only", func() {
@@ -532,6 +548,27 @@ var _ = Describe("requestexec", func() {
 			))
 		})
 
+		It("rewrites bk-aidev for legacy templates", func() {
+			writeRequestExecContext("default", "https://bkapi.example.com/api", false)
+			restore := config.SetBKTeDomainForTesting("te.example")
+			DeferCleanup(restore)
+
+			runtime, err := ResolveRuntime("", true, false)
+			Expect(err).NotTo(HaveOccurred())
+			runtime.Config.BkAPIURLTmpl = "https://{gateway_name}.apigw.te.example"
+
+			result, err := ExecuteRequest(runtime, RequestSpec{
+				GatewayName: "bk-aidev",
+				Method:      http.MethodGet,
+				Path:        "/openapi/aidev/private/v1/spaces/",
+				AuthConfig:  &api.AuthRequirements{},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.DryRunRequest.URL).To(Equal(
+				"https://bkaidev.apigw.te.example/prod/openapi/aidev/private/v1/spaces/",
+			))
+		})
+
 		It("executes an upstream request and returns the response envelope", func() {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				Expect(r.Method).To(Equal(http.MethodPost))
@@ -573,6 +610,49 @@ var _ = Describe("requestexec", func() {
 			Expect(result.Envelope.Status).To(Equal(http.StatusCreated))
 			Expect(result.Envelope.Headers).To(HaveKeyWithValue("X-Request-Id", "req-123"))
 			Expect(result.Envelope.Data).To(Equal(map[string]any{"created": true}))
+		})
+
+		It("executes a raw non-JSON body through the shared request path", func() {
+			type capturedRequest struct {
+				contentType      string
+				contentLength    int64
+				transferEncoding []string
+				body             string
+			}
+			var captured capturedRequest
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured.contentType = r.Header.Get("Content-Type")
+				captured.contentLength = r.ContentLength
+				captured.transferEncoding = r.TransferEncoding
+				body, err := io.ReadAll(r.Body)
+				Expect(err).NotTo(HaveOccurred())
+				captured.body = string(body)
+
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"ok":true}`))
+			}))
+			DeferCleanup(server.Close)
+
+			writeRequestExecContext("default", server.URL, false)
+
+			runtime, err := ResolveRuntime("", false, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := ExecuteRequest(runtime, RequestSpec{
+				GatewayName:   "bk-apigateway",
+				Method:        http.MethodPost,
+				Path:          "/api/v1/upload/",
+				BodyReader:    strings.NewReader("raw-body"),
+				ContentType:   "application/octet-stream",
+				ContentLength: int64(len("raw-body")),
+				AuthConfig:    &api.AuthRequirements{},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Envelope.OK).To(BeTrue())
+			Expect(captured.contentType).To(Equal("application/octet-stream"))
+			Expect(captured.contentLength).To(Equal(int64(len("raw-body"))))
+			Expect(captured.transferEncoding).To(BeEmpty())
+			Expect(captured.body).To(Equal("raw-body"))
 		})
 
 		It("can execute HTTPS requests with self-signed certificates when insecure is enabled", func() {

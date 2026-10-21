@@ -166,23 +166,32 @@ func stringifyPathValue(raw json.RawMessage) (string, error) {
 
 // Request represents an API request to be built and executed.
 type Request struct {
-	Method      string
-	URL         string
-	ParamsJSON  string            // JSON string for query params
-	BodyJSON    string            // JSON string for request body
-	Headers     map[string]string // Additional headers
-	AuthHeaders map[string]string // Generated authentication headers
-	TenantID    string            // X-Bk-Tenant-Id value
+	Method        string
+	URL           string
+	ParamsJSON    string            // JSON string for query params
+	BodyJSON      string            // JSON string for request body
+	BodyReader    io.Reader         // Raw non-JSON request body; mutually exclusive with BodyJSON.
+	ContentType   string            // Content-Type for BodyReader; ignored when BodyJSON is set.
+	ContentLength int64             // Known BodyReader length; values <= 0 leave length inference unchanged.
+	DryRunBody    any               // Safe dry-run representation for BodyReader; never sent on the wire.
+	Headers       map[string]string // Additional headers
+	AuthHeaders   map[string]string // Generated authentication headers
+	TenantID      string            // X-Bk-Tenant-Id value
 }
 
 // Build creates an http.Request from the API request spec.
 func (r *Request) Build() (*http.Request, error) {
 	var body io.Reader
+	if r.BodyJSON != "" && r.BodyReader != nil {
+		return nil, fmt.Errorf("only one request body source can be provided")
+	}
 	if r.BodyJSON != "" {
 		if !json.Valid([]byte(r.BodyJSON)) {
 			return nil, fmt.Errorf("invalid --body JSON: not valid JSON")
 		}
 		body = strings.NewReader(r.BodyJSON)
+	} else if r.BodyReader != nil {
+		body = r.BodyReader
 	}
 
 	parsedURL, err := parseAndValidateRequestURL(r.URL)
@@ -196,10 +205,16 @@ func (r *Request) Build() (*http.Request, error) {
 	}
 
 	req.Header.Set("User-Agent", userAgent)
+	if r.BodyReader != nil && r.ContentLength > 0 {
+		req.ContentLength = r.ContentLength
+	}
 
-	// Set content type for requests with body
+	// Set content type for requests with body. JSON bodies keep the historical
+	// default; non-JSON body callers provide their exact Content-Type.
 	if r.BodyJSON != "" {
 		req.Header.Set("Content-Type", "application/json")
+	} else if r.BodyReader != nil && r.ContentType != "" {
+		req.Header.Set("Content-Type", r.ContentType)
 	}
 
 	// Set auth header

@@ -38,6 +38,10 @@ var _ = Describe("ResolveGatewayName", func() {
 			"https://{gateway_name}.apigw.te.example",
 			"bkpaas3",
 		)).To(Equal("bkpaas3"))
+		Expect(config.ResolveGatewayName(
+			"https://{gateway_name}.apigw.te.example",
+			"bk-aidev",
+		)).To(Equal("bk-aidev"))
 	})
 
 	It("maps bk-job to jobv3-cloud for the injected subdomain template", func() {
@@ -88,6 +92,26 @@ var _ = Describe("ResolveGatewayName", func() {
 			"https://bkapi.te.example/api/{gateway_name}/",
 			"bkpaas3",
 		)).To(Equal("paasv3"))
+	})
+
+	It("maps bk-aidev to bkaidev for the injected subdomain template", func() {
+		restore := config.SetBKTeDomainForTesting("te.example")
+		DeferCleanup(restore)
+
+		Expect(config.ResolveGatewayName(
+			"https://{gateway_name}.apigw.te.example",
+			"bk-aidev",
+		)).To(Equal("bkaidev"))
+	})
+
+	It("maps bk-aidev to bkaidev for the injected path template with a trailing slash", func() {
+		restore := config.SetBKTeDomainForTesting("te.example")
+		DeferCleanup(restore)
+
+		Expect(config.ResolveGatewayName(
+			"https://bkapi.te.example/api/{gateway_name}/",
+			"bk-aidev",
+		)).To(Equal("bkaidev"))
 	})
 
 	It("does not rewrite other gateway names", func() {

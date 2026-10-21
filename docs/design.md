@@ -422,7 +422,7 @@ CLI 级错误输出到 stderr：
 约定：
 
 - `params` 和 `body` 应保持解析后的 JSON 值，而不是再嵌套一层 JSON 字符串。
-- 如果请求体存在，dry-run 的 `headers` 应体现实际会发送的 `Content-Type: application/json`。
+- 如果请求体存在，dry-run 的 `headers` 应体现实际会发送的 `Content-Type`。JSON 请求体统一为 `application/json`；Go-implemented action 如需发送 multipart/form-data 等非 JSON 载荷，必须通过共享请求层的 raw body 能力传入 body reader 与对应 content type。
 - dry-run 中的 `Authorization` 和 `X-Bkapi-Authorization` 无论来自 CLI 自动生成还是用户显式 `--header`，都按头名忽略大小写脱敏展示。
 - verbose 请求/响应日志以及默认响应 envelope 中的认证头均脱敏；非法 header 的错误只说明格式原因，不回显输入。响应正文仍原样返回。
 - dry-run 中展示的 `request.params` 与 `request.body` 必须尽量保留输入 JSON number 的原始字面量，禁止经 `float64` 中转后再输出，以避免大整数被显示为科学计数法或发生精度失真。
@@ -563,6 +563,8 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
   实际网关名会从 `bk-job` 兼容映射为 `jobv3-cloud`
 - 当目标 `gateway_name` 是 `bkpaas3`，且 `bk_api_url_tmpl` 命中同样的
   兼容模板时，实际网关名会从 `bkpaas3` 兼容映射为 `paasv3`
+- 当目标 `gateway_name` 是 `bk-aidev`，且 `bk_api_url_tmpl` 命中同样的
+  兼容模板时，实际网关名会从 `bk-aidev` 兼容映射为 `bkaidev`
 
 ### 9.2 认证头构造
 
@@ -595,7 +597,7 @@ YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪�
 
 - `--path` 用于替换 api_path 中的 `{placeholder}` 占位符，JSON 格式。
 - `--query` 用于 URL 查询参数，JSON 格式。
-- `POST/PUT/PATCH` 等请求可以通过 `--body` 传递 JSON 请求体，也可以通过 `--body @file` 从本地文件读取 JSON 请求体，或通过 `--body -` 从 stdin 读取。
+- `POST/PUT/PATCH` 等请求可以通过 `--body` 传递 JSON 请求体，也可以通过 `--body @file` 从本地文件读取 JSON 请求体，或通过 `--body -` 从 stdin 读取。少数 Go-implemented action 可使用共享请求层的 raw body 能力发送非 JSON 载荷；该能力与 `--body` / `BodyJSON` 互斥，且由 action 负责提供安全的 dry-run body 摘要。raw body 长度已知时应设置 `ContentLength`，避免 HTTP 客户端改用 chunked 传输；AIDev 文件上传使用 multipart 元数据长度与文件大小计算该值，仍保持文件流式读取。
 - `bk-cli api --timeout <duration>` 可覆盖该次请求超时；共享 timeout 优先级遵循 action/YAML 显式 timeout > 单次请求 override > context timeout > config 默认值。
 - `--insecure` 跳过 HTTPS 证书校验，行为类似 `curl --insecure`；该选项只影响真实网络请求，不改变 `--dry-run` 输出。
 - `--path`、`--query` 和 `--body` 应在本地完成 JSON 有效性校验；`--body @file` / `--body -` 会先读取输入内容再校验 JSON。
