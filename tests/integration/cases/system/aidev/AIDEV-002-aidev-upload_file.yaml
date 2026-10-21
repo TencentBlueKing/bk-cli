@@ -1,0 +1,143 @@
+id: AIDEV-002
+name: aidev upload_file happy path
+tags:
+- coverage-system_go
+- suite-integration
+steps:
+- name: init mock-backed context
+  command:
+  - context
+  - init
+  - --bk_api_url_tmpl
+  - ${MOCK_API_BASE_URL}/{gateway_name}
+  - --tenant_id
+  - personal-tenant
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: login
+  command:
+  - auth
+  - login
+  - --access_token
+  - integration-token
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: upload file
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/aidev-upload.txt
+  - --space_id
+  - demo-space
+  - --module
+  - knowledge
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+    - path: data.method
+      equals: POST
+    - path: data.path
+      contains: /bk-aidev/prod/openapi/aidev/private/v1/upload/
+- name: preview existing file size
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/aidev-upload.txt
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: 0
+    checks:
+    - path: dry_run
+      equals: true
+    - path: request.body.size
+      equals: 12
+    - path: request.body.file
+      equals: aidev-upload.txt
+- name: reject missing file during preview
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/missing-aidev-upload.zip
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: nonzero
+    checks:
+    - path: error.code
+      equals: request_error
+- name: reject directory during preview
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: nonzero
+    checks:
+    - path: error.code
+      equals: request_error
+    - path: error.message
+      contains: regular file
+- name: login personal token
+  command:
+  - auth
+  - login
+  - --personal_token
+  - integration-personal
+  expect:
+    exit_code: 0
+    checks:
+    - path: ok
+      equals: true
+- name: upload with personal token
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/aidev-upload.txt
+  - --space_id
+  - demo-space
+  - --header
+  - X-Mock-Scenario:PERSONAL-TOKEN
+  expect:
+    exit_code: 0
+    checks:
+    - path: status
+      equals: 200
+    - path: data.method
+      equals: POST
+- name: preview multipart with redacted personal token
+  command:
+  - aidev
+  - upload_file
+  - --file
+  - tests/integration/fixtures/files/aidev-upload.txt
+  - --space_id
+  - demo-space
+  - --dry-run
+  expect:
+    exit_code: 0
+    checks:
+    - path: request.headers.Authorization
+      equals: '{...redacted...}'
+    - path: request.headers.Content-Type
+      contains: multipart/form-data
+    - path: request.body.size
+      equals: 12

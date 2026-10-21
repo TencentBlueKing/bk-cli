@@ -62,6 +62,7 @@ Examples:
 
 - `tests/integration/cases/system/devops/`
 - `tests/integration/cases/system/apigateway/`
+- `tests/integration/cases/system/aidev/`
 
 If you add a new public system command to `cmd/system/<system>/`, add
 its integration cases under the matching system folder here.

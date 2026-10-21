@@ -21,8 +21,9 @@ package config
 import "strings"
 
 const (
-	jobLegacyGatewayName  = "jobv3-cloud"
-	paasLegacyGatewayName = "paasv3"
+	jobLegacyGatewayName   = "jobv3-cloud"
+	paasLegacyGatewayName  = "paasv3"
+	aidevLegacyGatewayName = "bkaidev"
 )
 
 // bkTEDomain is injected at build time via:
@@ -32,7 +33,7 @@ var bkTEDomain string
 // ResolveGatewayName returns the effective gateway name under the active
 // context's URL template.
 func ResolveGatewayName(tmpl, gatewayName string) string {
-	if gatewayName != "bk-job" && gatewayName != "bkpaas3" {
+	if gatewayName != "bk-job" && gatewayName != "bkpaas3" && gatewayName != "bk-aidev" {
 		return gatewayName
 	}
 
@@ -48,6 +49,8 @@ func ResolveGatewayName(tmpl, gatewayName string) string {
 			return jobLegacyGatewayName
 		case "bkpaas3":
 			return paasLegacyGatewayName
+		case "bk-aidev":
+			return aidevLegacyGatewayName
 		}
 	}
 
