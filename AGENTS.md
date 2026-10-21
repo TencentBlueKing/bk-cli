@@ -23,7 +23,7 @@ Keep longer-form user and extension guides in:
 
 Keep the detailed design baseline in:
 
-- `docs/design.md` — full design contract and rationale
+- `docs/design.md` — overall architecture, module design decisions, and shared contracts
 
 Keep system-extension workflow guidance in:
 
@@ -361,7 +361,7 @@ Before adding or changing a public system:
 4. decide whether the action should be YAML, Go-implemented, or mixed
 5. add or update integration coverage under `tests/integration/cases/system/<system>/` when the public behavior changes
 6. update or add system skill docs in the same change when the public surface changes
-7. update user-facing docs if command names, flags, or examples changed
+7. apply the Documentation sync rules below to any other docs; ordinary system, subsystem, or action extensions do not require broad user-facing doc updates
 
 Use these repo-specific resources when relevant:
 
@@ -398,6 +398,10 @@ Keep that file focused on:
 - developer-facing extension workflow and preparation steps
 - prompting patterns and repo-specific expectations for agents extending the CLI
 - guardrails for when to stop and raise a proposal instead of changing shared contracts
+
+### What belongs in `docs/design.md`
+
+Keep that file focused on overall architecture, module design proposals and decisions, and shared contracts. Ordinary API/action mappings do not require design-doc updates.
 
 ### What belongs in `skills/*/SKILL.md`
 
@@ -440,16 +444,17 @@ Keep this file focused on:
 
 ### Documentation sync rules
 
-If you change any public command behavior, update the relevant docs in the same change:
+For ordinary system, subsystem, or action additions and command/flag changes, update the corresponding system usage skill under `skills/` and add or update necessary integration cases in the same change. Do not expand README command lists or update the user guide or design doc merely because an API/action was added.
 
-- `README.md`
-- `README_EN.md`
-- `docs/user-guide.md` when longer user workflows, examples, or troubleshooting changed
-- `docs/develop-extension-guide.md` when developer extension workflow or prompting guidance changed
-- `AGENTS.md` when internal guidance also changed
-- `tests/integration/AGENTS.md` when integration-case authoring or layout guidance changed
-- `.agents/skills/create-bk-cli-system/SKILL.md` when system-extension workflow or must-check guidance changed
-- related skill docs under `skills/`
+Update other docs only when the change affects their own scope or makes existing content inaccurate:
+
+- `README.md` / `README_EN.md`: only when a module gains a significant feature of interest to users, or existing overview, installation, quick-start, common usage, or contributor guidance needs correction. A new subsystem or action alone does not trigger an update.
+- `docs/user-guide.md`: leave unchanged by default; update the relevant sections only when the task explicitly calls for a complete user workflow, or the change invalidates an existing workflow, example, or troubleshooting step.
+- `docs/design.md`: leave unchanged by default; update only when overall architecture, module design decisions, or shared contracts change. Ordinary API/action mappings do not trigger an update.
+- `docs/develop-extension-guide.md`: only when developer extension workflow, prompting guidance, or recorded facts change.
+- `AGENTS.md`: only when architecture, internal guidance, or recorded facts such as the public system catalog change.
+- `tests/integration/AGENTS.md`: only when integration-case authoring or layout guidance changes. Adding integration cases alone does not trigger an update.
+- `.agents/skills/create-bk-cli-system/SKILL.md`: only when system-extension workflow or must-check guidance changes; refer to this policy instead of maintaining a separate unconditional documentation checklist.
 
 If `README.md` changes, update `README_EN.md` too.
 
@@ -462,9 +467,9 @@ When finishing a code or CLI-surface change, verify all relevant items:
 - run `make test`
 - run `make test-cover` when coverage-sensitive code or thresholds changed
 - run `make build`
-- update user-facing docs for command/flag/example changes
-- update agent guidance when architectural or extension rules changed
-- update `tests/integration/AGENTS.md` or add system cases when system behavior changes
+- update the corresponding system usage skill for command/flag/example changes; apply Documentation sync rules to other user-facing docs
+- update agent guidance when architectural or extension rules or recorded facts changed
+- add or update necessary system integration cases when system behavior changes; update `tests/integration/AGENTS.md` only when authoring or layout guidance changes
 - add a matching skill when introducing a new public system under `cmd/system/`
 - write new files under `skills/` in Chinese
 

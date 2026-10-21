@@ -591,15 +591,11 @@ subsystem YAML 的 `gateway_name` 必须独立声明，不从父 system 继承�
 - `cmd/system/<system>/<system>_suite_test.go`：该 system 有测试时必须存在
 - `cmd/system/<system>/<subsystem>/<subsystem>_suite_test.go`：该 subsystem 有测试时必须存在
 
-如果新增公开 system，同步更新：
+文档更新范围统一遵循 `AGENTS.md` 的“Documentation sync rules”，不要维护另一份无条件同步清单：
 
-- `AGENTS.md`
-- `README.md`
-- `README_EN.md`
-- `tests/integration/AGENTS.md`
-- `skills/bk-cli-<system>/SKILL.md`
-
-如果只是改动已有命令或参数，也要同步更新 `AGENTS.md`、`README.md`、`README_EN.md`、`tests/integration/AGENTS.md` 和相关 skill。
+- 新增公开 system 时，补齐中文 `skills/bk-cli-<system>/SKILL.md`；新增 subsystem、action 或改动已有命令、参数时，更新对应 system skill 的用法、示例和必要排障说明。
+- 普通 system/subsystem/action 扩展默认只同步对应 system skill 和必要集成用例，不为了增加命令列表而修改 README、用户指南或设计文档。
+- 其他文档仅在各自承载的规则或已记载事实变化时按主规则更新；例如新增公开 system 后更新 `AGENTS.md` 的 system 清单，集成用例作者约定变化时更新 `tests/integration/AGENTS.md`。
 
 如果变更影响公开 system 的可见行为，补充或更新：
 
@@ -618,9 +614,9 @@ subsystem YAML 的 `gateway_name` 必须独立声明，不从父 system 继承�
 8. Go-implemented action 使用 `systemcmd.ExecuteRequest` 或 `syslib.ExecuteRequest`
 9. 共享 flags、校验、JSON 解析优先复用 `systemcmd` helper
 10. 测试优先复用 `cmd/system/testutil`
-11. 公开 system 已补 `skills/bk-cli-<system>/SKILL.md`
+11. 新增公开 system 已补中文 `skills/bk-cli-<system>/SKILL.md`；已有 system 的命令用法已按本次变更同步
 12. 相关 system 的集成用例已在 `tests/integration/cases/system/<system>/` 补齐或确认无需变更
-13. 如集成用例作者约定有变化，已更新 `tests/integration/AGENTS.md`
+13. 已按 `AGENTS.md` 的“Documentation sync rules”确认其他文档的更新范围；如集成用例作者约定有变化，已更新 `tests/integration/AGENTS.md`
 14. 如果新增 subsystem，确认只使用一层 subsystem
 15. 如果新增 subsystem，确认 subsystem action 路径是 `cmd/system/<system>/<subsystem>/...`
 16. 如果新增 subsystem，确认 subsystem YAML 顶层 `name` 是 `<subsystem>`，并且独立声明 `gateway_name`
