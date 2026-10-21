@@ -18,7 +18,6 @@
 - **自动化友好的输出**: 带 `ok` 字段的 JSON 信封、机器可读错误、可预测的退出码；API 响应保留 JSON 数字精度
 - **内置结果筛选**: `api` 和 system action 支持 `--jq '<表达式>'`，以完整最终 envelope 为输入，每个结果输出一行 JSON；无需安装外部 jq
 - **灵活请求体输入**: `--body` 支持内联 JSON、`@file` 文件读取和 stdin 输入
-- **AIDev 归档与删除**: 显式传入包含真实空间 ID 的请求体，例如 `bk-cli aidev archive_skill --skill_id 1 --body '{"space_id":"demo-space"}'`；更多示例见[用户指南](docs/user-guide.md)
 - **丰富的系统命令**: 内置多个 BlueKing system 子命令，也保留原始 `api` 调用作为兜底能力
 - **内置 Agent Skills**: 可通过 `bk-cli skills list` 和 `bk-cli skills read <name>` 查看随当前版本打包的使用指引，`skills read --raw` 可输出原始 Markdown
 - **个人 token 登录**: `bk-cli auth login --personal_token='<personal-token>'`，使用个人中心生成的 token 调用支持 Bearer 鉴权的 API
