@@ -2,9 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.9] - Unreleased
-
-以下草案基于 `v0.2.8 → 801887f`，包含已合并的 AIDev #21 及其后续修复 #47。发布日期在正式发布时确定。
+## [0.2.9] - 2026-10-21
 
 ### Highlights
 
