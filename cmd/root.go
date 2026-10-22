@@ -31,6 +31,7 @@ import (
 	apicmd "github.com/TencentBlueKing/bk-cli/cmd/api"
 	authcmd "github.com/TencentBlueKing/bk-cli/cmd/auth"
 	ctxcmd "github.com/TencentBlueKing/bk-cli/cmd/context"
+	mcpcmd "github.com/TencentBlueKing/bk-cli/cmd/mcp"
 	syscmd "github.com/TencentBlueKing/bk-cli/cmd/system"
 	updatecmd "github.com/TencentBlueKing/bk-cli/cmd/update"
 	internalapi "github.com/TencentBlueKing/bk-cli/internal/api"
@@ -163,6 +164,7 @@ Examples:
 	cmd.AddCommand(markRootCommand(authcmd.NewAuthCmd()))
 	cmd.AddCommand(markRootCommand(apicmd.NewAPICmd(GetContext, IsDryRun, IsVerbose, IsInsecure)))
 	cmd.AddCommand(markRootCommand(ctxcmd.NewContextCmd()))
+	cmd.AddCommand(markRootCommand(mcpcmd.NewCommand()))
 	cmd.AddCommand(markRootCommand(newSkillsCmd()))
 	cmd.AddCommand(markRootCommand(updatecmd.NewUpdateCmd(GetVersion, IsDryRun)))
 

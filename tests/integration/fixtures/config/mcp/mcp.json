@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "fixture": {
+      "type": "http",
+      "url": "http://mock_api:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_TEST_TOKEN}",
+        "X-Mock-Scenario": "${MCP_TEST_SCENARIO}"
+      }
+    },
+    "offline": {
+      "type": "http",
+      "url": "http://127.0.0.1:1/not-running",
+      "headers": {"X-API-Key": "offline-secret"}
+    }
+  }
+}

@@ -256,23 +256,51 @@ flowchart TD
 
 它的目标是让 Go-implemented action 不需要各自重建命令管道，而是复用一致的运行时解析、请求发送和输出约定。
 
-### 5.8 `internal/mcpclient`（MCP 本地基础，命令未接入）
+### 5.8 `internal/mcpclient` 与 `cmd/mcp`（远程 MCP）
 
-[Issue #42](https://github.com/TencentBlueKing/bk-cli/issues/42) 分阶段实现。当前仅提供独立的配置、认证和参数处理，不注册 `bk-cli mcp`，不连接 MCP server，不引入 MCP SDK 依赖。
+`bk-cli mcp <server>` 是独立根命令，对应 [Issue #42](https://github.com/TencentBlueKing/bk-cli/issues/42)。命令层负责模式、动态参数/帮助与最终输出；内部包负责配置、认证、SDK 会话、完整发现和结果分类。只支持 Streamable HTTP 的 JSON / SSE 响应，不启用 stdio、旧 HTTP+SSE、OAuth、resources/prompts、自动交互或 task 轮询。
 
-- `LoadServer` 只选择一个显式文件或 `config.BaseDirectory()/mcp.json`，相对路径按当前工作目录解析。严格校验整个 `mcpServers` 文件，拒绝未知字段、重复 JSON key、不合法的 server 名、URL 和 header；不读取 active context 或凭据。
-- `ResolveHeaders` 单独展开所选 server 的 `${ENV_NAME}`，`$${` 表示字面 `${`；不递归展开、执行 shell、加载 `.env` 或回写文件。静态帮助可只加载结构，不要求环境变量存在。
-- 认证只来自所选 server 的 headers。支持 Bearer、应用 code/secret + ticket 或 token、独立 access_token，以及其他合法认证 scheme 和自定义头。拒绝两种认证头并存、空票据和不合法的蓝鲸 JSON。`MaskedHeaders` 对所有配置值返回固定 `***`；错误不回显配置内容。
-- 禁止配置覆盖 HTTP 连接控制、内容类型、Host、长度、Accept、Last-Event-ID 和 `Mcp-*` 协议头。实际 HTTP 请求、响应头脱敏和重定向策略属于后续 transport 接入。
-- `ReadArguments` 支持内联 JSON、`@file` 和 `-` stdin，返回完整对象；重复字段、非对象、尾随内容和非法 UTF-8 均失败。数字保持 `json.Number`，不经浮点转换。
-- `Parameters` 只映射可明确表示的 string/integer/number/boolean/array/object 字段。CLI 保留名、复杂组合、引用和无法表示的字段留给完整 JSON。`BuildArguments` 拒绝重复和未知具名参数，非 nil body 完全覆盖已识别具名值，不合并、不注入 default。
-- 本地校验明确的基础类型、required、enum、嵌套 properties 和 items；数值枚举使用精确有理数比较。其他 JSON Schema 关键字不在本阶段验证范围，不访问远程 `$ref`。后续命令层仍须校验 CLI token 结构、执行模式和帮助路径。
+配置与输入契约：
 
-本地资源上限：单个配置/arguments 输入 16 MiB，JSON 容器嵌套最多 128 层，单个展开后的 header 值 16 MiB。需要数值类型/枚举校验时，数字字面量最多 4096 字符、显式指数绝对值最多 10000；超出校验范围报错，已接受的数字保留原始表示。这些是本地输入和校验限制，不替代后续 JSON/SSE 响应、累计目录和分页上限。
+- `LoadServer` 只选择显式 `--config` 文件或 `config.BaseDirectory()/mcp.json`；相对配置路径及 `--body @file` 均按当前工作目录解析。严格校验整个文件，拒绝未知字段、重复 key、不合法的 server 名、URL 和 header，不读取 active context 或凭据。
+- `ResolveHeaders` 只展开所选 server 的 `${ENV_NAME}`，`$${` 表示字面 `${`；不递归展开、执行 shell、加载 `.env` 或回写。根帮助不读配置，server 静态帮助不展开环境变量；tool 帮助仅连接并发现，不读取 body/stdin 或执行工具。
+- 支持 Bearer、应用 code/secret + ticket 或 token、独立 access_token、其他合法 scheme 和自定义头。拒绝两种认证头并存、空票据或非法蓝鲸 JSON。所有实际 HTTP 请求使用同一份已解析 headers；不跟随重定向，默认校验 HTTPS 证书。
+- 禁止配置覆盖 Host、内容类型、长度、Accept、连接控制、Last-Event-ID 和 `Mcp-*` 协议头。诊断中的全部配置 header 值固定为 `***`；响应同名头及已知认证头也脱敏。原始工具业务结果不做通用内容 DLP。
+- `ReadArguments` 将内联 JSON、`@file`、stdin 解析为完整对象；拒绝重复字段、非对象、尾随内容、非法 UTF-8。数字保留为 `json.Number`。`BuildArguments` 拒绝重复/未知具名参数，body 完全覆盖已识别具名值，不合并、不注入 default。
+- `Parameters` 映射可明确表示的 string/integer/number/boolean/array/object 字段；保留名、组合、引用和无法表示的名字仅用 body 原名传入。校验明确的类型、required、enum、嵌套 properties/items；数值 enum 精确比较。其他 JSON Schema 关键字交由服务端，不访问远程 `$ref`。
+- 显式 `--context` 报 `unsupported_option`。不支持 `--header/--stage/--tenant`；`--timeout` 默认 60 秒，覆盖连接、全部分页和调用的总预算，不读取 context。取消或超时结束本次会话。离线 dry-run 必须带完整 body，拒绝具名工具参数，零网络并标记未验证远端。
 
-SDK 接入前提（2026-10-22 验证）：官方主线提交 `12e768b461fd06ea80b0d87e14ac7fa0d24c606a` 的直接 JSON 解码仍将 Schema、tool/result/content 元数据中的 `9007199254740993` 改成 `9007199254740992`；同一工具结果的 structuredContent 保留原数值。上游 [#1239](https://github.com/modelcontextprotocol/go-sdk/pull/1239) 已合并，[#1311](https://github.com/modelcontextprotocol/go-sdk/pull/1311) 当时仍是未合并 Draft PR。依赖策略为只接受官方已合并提交，不采用第三方 PR head，也不降低数字保真验收要求。
+SDK 与数字保真（2026-10-22 验证）：
 
-后续需在修复合并后重新锁定 SDK 版本/提交，验证 Schema/元数据/参数/结果/jq 全链路数字精度及实际 `tools/call` 次数，再接入协议版本、响应上限、分页、超时、结果未知状态、命令与 mock 集成。当前本地单元测试不代表 MCP wire 兼容或真实服务联调通过。
+固定官方提交 [`12e768b461fd06ea80b0d87e14ac7fa0d24c606a`](https://github.com/modelcontextprotocol/go-sdk/commit/12e768b461fd06ea80b0d87e14ac7fa0d24c606a)，Go module 为 `v1.8.1-0.20261022085357-12e768b461fd`，不依赖浮动分支或第三方 PR head。SDK 要求 Go 1.25.0，与仓库 Go 1.25.5 声明兼容；许可证处于 Apache-2.0/MIT 迁移，采用该提交的原始 LICENSE。新增依赖随 Go 二进制编译，不增加运行时服务；复用 SDK 引入的依赖，不另引入 JSON Schema 验证器。
+
+上游 [#1239](https://github.com/modelcontextprotocol/go-sdk/pull/1239) 的 structuredContent 修复已合并，但 [#1311](https://github.com/modelcontextprotocol/go-sdk/pull/1311) 的 Schema/元数据修复在验证时仍未合并。所选提交直接解码这些泛型字段仍会把 `9007199254740993` 变成 `9007199254740992`。因此 `guardedTransport` 在 HTTP 读取边界以严格 JSON/`UseNumber` 保留原始目录和结果；SDK 仍负责版本协商、初始化、会话、JSON-RPC 路由和 SSE 消费。输出和参数构造使用保留的数据，不从 SDK 的 float64 还原数字。此适配也覆盖 outputSchema、content 元数据和 `_meta`；文本 content 不重新解析。简单 jq 字段提取保留数字，计算表达式沿用输出层 gojq 语义。正式版包含完整修复后须通过同一组测试再升级，不可仅因版本更新移除此边界。
+
+生命周期和结果契约：
+
+- 测试覆盖 `2025-03-26`、`2025-06-18`、`2025-11-25`、`2026-07-28` 的 JSON/SSE 发现与调用。由 SDK 处理 `server/discover` 及旧协议初始化差异，不自行降级 transport。
+- 显式关闭 SDK 多轮输入、负载退避重发、独立 SSE 及重连；HTTP 请求移除 replay body，并统计/拒绝第二次 `tools/call`。发现和调用复用一次 client 生命周期，结束关闭会话和空闲连接。
+- 分页直到无 nextCursor，拒绝循环游标、重名工具、畸形目录；任何中途错误不得输出完整成功。空 tools 列表成功。目录不持久缓存。
+- `--check` 输出 config/connection/protocol/tools 阶段以及 `complete`；发现通过只表示该请求被接受，不证明 token 或所有业务权限有效。`--tools` 保留完整描述和元数据。
+- 本地输入/配置/参数错误走 stderr、退出 1，即使参数错误发生在发现之后。远程错误走一个 stdout 失败 envelope、退出 2；401/403 分别为 `mcp_auth_required`/`mcp_permission_denied`，不换身份或重试。
+- 调用保留 `data.server/tool/result`。`isError:true` 为 `mcp_tool_error`；input_required、sampling、elicitation 或 task 状态为 `mcp_capability_unsupported`，保留可用原始要求/标识，不接续、不伪报完成。
+- 调用已尝试但没有完整可判定结果时设 `data.execution_state: "unknown"`，保留实际错误码，提示先业务查询再决定重试。完整结果后的 jq/输出错误不改为 unknown，不重发。`ok:true` 不解释业务 JSON 的 code/result/status，不证明异步任务完成。
+- jq 在本地解析阶段编译，只对聚合/分类后的最终 envelope 执行一次；失败 envelope 不被投影隐藏，投影失败保留原结果。
+
+固定资源上限：
+
+| 对象 | 上限与行为 |
+| --- | --- |
+| 配置/arguments JSON | 16 MiB；容器嵌套最多 128 层；错误为本地输入错误 |
+| 单个展开后的 header | 16 MiB |
+| 数值类型/enum 校验 | 字面量最多 4096 字符，显式指数绝对值最多 10000；超限明确拒绝，接受的值不截断 |
+| JSON 响应（含 HTTP 错误体）/单条 SSE 事件 | 16 MiB，在读取过程中限制；`mcp_response_too_large` |
+| 累计工具目录 | 原始分页 JSON 报文累计 32 MiB；`mcp_response_too_large` |
+| 发现页数 | 最多 100 页；仍有 nextCursor 时 `mcp_discovery_incomplete` |
+
+远端 JSON 同样拒绝重复 key、非法 UTF-8 和超过 128 层的嵌套。限制不截断后返回成功；调用结果超限且未取得完整结果按 unknown 处理。上限容纳常规 Schema/结果并限制单次 CLI 的内存和发现成本，不提供调节 flags。
+
+验收入口：`internal/mcpclient/*_test.go` 覆盖配置/认证/精度/协议/分页/大小限制/单次调用，`cmd/mcp/*_test.go` 与 `cmd/mcp_test.go` 覆盖模式、输出、帮助、context 隔离和 jq；`tests/integration/cases/mcp/` 的 MCP-001 至 MCP-005 覆盖构建后 CLI。真实环境验收清单见用户指南，mock 通过不代表真实服务已联调。
 
 ### 5.9 `cmd/*`
 
@@ -449,7 +477,7 @@ CLI 级错误输出到 stderr：
 
 ### 7.5 内置 `--jq` 结果投影
 
-`api`、YAML action、Go action 和 `cmdb list_biz_hosts_all` 支持独立的本地 `--jq '<expression>'`。该 flag 只在支持的执行命令注册，不是 root persistent flag；context、auth、doctor、version、update、skills 等命令显式使用时返回 unknown flag。帮助仍走原帮助路径，不执行请求。
+`api`、`mcp`、YAML action、Go action 和 `cmdb list_biz_hosts_all` 支持独立的本地 `--jq '<expression>'`。该 flag 只在支持的执行命令注册，不是 root persistent flag；context、auth、doctor、version、update、skills 等命令显式使用时返回 unknown flag。帮助仍走原帮助路径，不执行请求。
 
 - 根输入为完整最终 envelope（包括 `.ok`、`.status`、`.headers`、`.data` 或 `.request`），聚合结束后执行一次。未传 flag 时保持原有输出与退出判定。
 - 每个结果输出一行紧凑 JSON，字符串带引号并转义，多个结果形成 JSON Lines；`null` / `false` 不改变原命令退出码，`empty` 不输出字节。不提供外部 jq 的 `-r` / `-e` 或命令行选项。

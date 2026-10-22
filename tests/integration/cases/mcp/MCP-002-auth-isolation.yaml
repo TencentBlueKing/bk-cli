@@ -1,0 +1,33 @@
+id: MCP-002
+name: MCP uses only configured identity
+workspace:
+  seed_config: mcp
+steps:
+  - name: create unrelated context
+    command: [context, init, '--bk_api_url_tmpl=http://unrelated/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: cache unrelated credentials
+    command: [auth, login, --access_token=unrelated]
+    expect:
+      exit_code: 0
+  - name: MCP ignores cached identity
+    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-002}
+    command: [mcp, fixture, --check]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.authentication.source, equals: server_headers}
+  - name: explicit context is unsupported
+    command: [mcp, fixture, --context=default, --check]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: unsupported_option}
+  - name: rejected credentials do not fall back
+    env: {MCP_TEST_TOKEN: invalid-token, MCP_TEST_SCENARIO: MCP-002}
+    command: [mcp, fixture, --check]
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: mcp_auth_required}

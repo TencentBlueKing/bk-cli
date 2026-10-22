@@ -29,12 +29,13 @@
 
 ## 当前目录布局规则
 
-- `context`、`auth` 和原始 `api` 场景直接放在各自对应的目录下
+- `context`、`auth`、原始 `api` 和 `mcp` 场景直接放在各自对应的目录下
 - system 场景放在 `cases/system/<system>/` 下
 
 示例：
 
 - `cases/context/CTX-001-context-create-use-list.yaml`
+- `cases/mcp/MCP-001-basic.yaml`（使用 `fixtures/config/mcp` 和现有 mock 的 `/mcp` 协议入口）
 - `cases/system/devops/SYSGO-001-devops-start-build.yaml`
 - `cases/system/apigateway/SYSYAML-001-apigateway-list-gateways.yaml`
 
