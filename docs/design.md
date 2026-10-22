@@ -256,7 +256,25 @@ flowchart TD
 
 它的目标是让 Go-implemented action 不需要各自重建命令管道，而是复用一致的运行时解析、请求发送和输出约定。
 
-### 5.8 `cmd/*`
+### 5.8 `internal/mcpclient`（MCP 本地基础，命令未接入）
+
+[Issue #42](https://github.com/TencentBlueKing/bk-cli/issues/42) 分阶段实现。当前仅提供独立的配置、认证和参数处理，不注册 `bk-cli mcp`，不连接 MCP server，不引入 MCP SDK 依赖。
+
+- `LoadServer` 只选择一个显式文件或 `config.BaseDirectory()/mcp.json`，相对路径按当前工作目录解析。严格校验整个 `mcpServers` 文件，拒绝未知字段、重复 JSON key、不合法的 server 名、URL 和 header；不读取 active context 或凭据。
+- `ResolveHeaders` 单独展开所选 server 的 `${ENV_NAME}`，`$${` 表示字面 `${`；不递归展开、执行 shell、加载 `.env` 或回写文件。静态帮助可只加载结构，不要求环境变量存在。
+- 认证只来自所选 server 的 headers。支持 Bearer、应用 code/secret + ticket 或 token、独立 access_token，以及其他合法认证 scheme 和自定义头。拒绝两种认证头并存、空票据和不合法的蓝鲸 JSON。`MaskedHeaders` 对所有配置值返回固定 `***`；错误不回显配置内容。
+- 禁止配置覆盖 HTTP 连接控制、内容类型、Host、长度、Accept、Last-Event-ID 和 `Mcp-*` 协议头。实际 HTTP 请求、响应头脱敏和重定向策略属于后续 transport 接入。
+- `ReadArguments` 支持内联 JSON、`@file` 和 `-` stdin，返回完整对象；重复字段、非对象、尾随内容和非法 UTF-8 均失败。数字保持 `json.Number`，不经浮点转换。
+- `Parameters` 只映射可明确表示的 string/integer/number/boolean/array/object 字段。CLI 保留名、复杂组合、引用和无法表示的字段留给完整 JSON。`BuildArguments` 拒绝重复和未知具名参数，非 nil body 完全覆盖已识别具名值，不合并、不注入 default。
+- 本地校验明确的基础类型、required、enum、嵌套 properties 和 items；数值枚举使用精确有理数比较。其他 JSON Schema 关键字不在本阶段验证范围，不访问远程 `$ref`。后续命令层仍须校验 CLI token 结构、执行模式和帮助路径。
+
+本地资源上限：单个配置/arguments 输入 16 MiB，JSON 容器嵌套最多 128 层，单个展开后的 header 值 16 MiB。需要数值类型/枚举校验时，数字字面量最多 4096 字符、显式指数绝对值最多 10000；超出校验范围报错，已接受的数字保留原始表示。这些是本地输入和校验限制，不替代后续 JSON/SSE 响应、累计目录和分页上限。
+
+SDK 接入前提（2026-10-22 验证）：官方主线提交 `12e768b461fd06ea80b0d87e14ac7fa0d24c606a` 的直接 JSON 解码仍将 Schema、tool/result/content 元数据中的 `9007199254740993` 改成 `9007199254740992`；同一工具结果的 structuredContent 保留原数值。上游 [#1239](https://github.com/modelcontextprotocol/go-sdk/pull/1239) 已合并，[#1311](https://github.com/modelcontextprotocol/go-sdk/pull/1311) 当时仍是未合并 Draft PR。依赖策略为只接受官方已合并提交，不采用第三方 PR head，也不降低数字保真验收要求。
+
+后续需在修复合并后重新锁定 SDK 版本/提交，验证 Schema/元数据/参数/结果/jq 全链路数字精度及实际 `tools/call` 次数，再接入协议版本、响应上限、分页、超时、结果未知状态、命令与 mock 集成。当前本地单元测试不代表 MCP wire 兼容或真实服务联调通过。
+
+### 5.9 `cmd/*`
 
 负责 Cobra 命令定义和交互层。
 

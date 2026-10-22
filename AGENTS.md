@@ -112,6 +112,7 @@ Rules that should stay true:
 | `internal/validate` | Shared validation helpers for names and header values |
 | `internal/utils` | Small reusable helpers such as CSV parsing |
 | `internal/auth` | OAuth device-flow placeholder |
+| `internal/mcpclient` | MCP configuration, server-local auth, and lossless argument parsing; SDK/CLI integration pending |
 | `internal/update` | Self-update implementation |
 
 ### `cmd/*`
@@ -478,6 +479,7 @@ When finishing a code or CLI-surface change, verify all relevant items:
 The repo still has some intentionally incomplete areas:
 
 - OAuth device-flow placeholder in `internal/auth/device_flow.go`
+- MCP support currently has only local foundations in `internal/mcpclient`; no `bk-cli mcp` command or SDK transport is registered. See Issue #42 and the MCP section of `docs/design.md` before extending it.
 - `--quiet` / `-q` flag is not yet implemented (noted in `docs/design.md`)
 
 The design intent for current work should be inferred from `docs/design.md`, the README files, existing tests, and the current implementation.
