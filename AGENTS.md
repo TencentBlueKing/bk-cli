@@ -259,8 +259,11 @@ preview, request/response logs, and response envelope headers.
 
 Action-specific credential restrictions belong in the Go command. Use
 `runtime.EnsureCredential()` to load or reuse credentials before checking them.
-`apigateway apply_gateway_permission` rejects personal credentials and explicit
-Bearer headers locally, including dry-run.
+`apigateway apply_gateway_permission` requires `app_user` credentials with non-empty
+`bk_app_code` and `bk_app_secret`. It rejects access-token/personal-token credentials
+and explicit Bearer headers locally, including dry-run. An explicit
+`X-Bkapi-Authorization` must also contain non-empty app code/secret and no
+`access_token` or `personal_token` fields.
 
 Exact header payload shapes, validation, and redaction behavior remain defined in `docs/design.md` and the shared request/runtime packages.
 

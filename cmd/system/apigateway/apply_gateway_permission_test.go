@@ -47,6 +47,18 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	var status int
 	var server *httptest.Server
 
+	setupAppContext := func() {
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		key, err := credential.DeriveKey()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(credential.Save(config.CredentialsPath("default"), &credential.Credential{
+			Type:        credential.TypeAppUser,
+			BkAppCode:   "my-app",
+			BkAppSecret: "test-secret",
+			BkToken:     "test-user-token",
+		}, key)).To(Succeed())
+	}
+
 	newCommand := func(dryRun bool) *cobra.Command {
 		parent := &cobra.Command{Use: "apigateway"}
 		Expect(NewSystemSpec().RegisterGoActions(parent, systemtest.BuildDeps(dryRun))).To(Succeed())
@@ -96,7 +108,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 
 	DescribeTable("refuses every submission without explicit user confirmation",
 		func(args []string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			cmd := newCommand(false)
 			args = append(args, "--gateway_name", "bk-iam", "--body", body)
 			Expect(cmd.ParseFlags(args)).To(Succeed())
@@ -114,6 +126,9 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 		cmd.SetOut(&help)
 		Expect(cmd.Help()).To(Succeed())
 		Expect(help.String()).To(ContainSubstring("must ask the user"))
+		Expect(help.String()).To(ContainSubstring("Only bk_app_code + bk_app_secret"))
+		Expect(help.String()).To(ContainSubstring("Agents must stop"))
+		Expect(help.String()).To(ContainSubstring("access_token and personal_token contexts are forbidden"))
 		Expect(help.String()).To(ContainSubstring("every submission"))
 		Expect(help.String()).To(ContainSubstring("cannot be skipped"))
 		Expect(help.String()).To(ContainSubstring("Batch"))
@@ -126,7 +141,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	})
 
 	It("previews an unconfirmed batch without sending a request or claiming submission", func() {
-		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		setupAppContext()
 		cmd := newCommand(true)
 		Expect(cmd.Flags().Set("gateway_name", "bk-iam")).To(Succeed())
 		Expect(cmd.Flags().Set("body", body)).To(Succeed())
@@ -148,15 +163,19 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 		Expect(requests.Load()).To(BeZero())
 	})
 
-	DescribeTable("rejects personal token authentication before preview or submission",
-		func(dryRun, personalContext bool, headers []string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
-			if personalContext {
+	DescribeTable("rejects token authentication before preview or submission",
+		func(dryRun bool, credType credential.CredentialType, headers []string) {
+			setupAppContext()
+			if credType != credential.TypeAppUser {
 				key, err := credential.DeriveKey()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(credential.Save(config.CredentialsPath("default"), &credential.Credential{
-					Type: credential.TypePersonalToken, PersonalToken: "test-personal-token",
-				}, key)).To(Succeed())
+				cred := &credential.Credential{Type: credType}
+				if credType == credential.TypePersonalToken {
+					cred.PersonalToken = "test-personal-token"
+				} else {
+					cred.AccessToken = "test-access-token"
+				}
+				Expect(credential.Save(config.CredentialsPath("default"), cred, key)).To(Succeed())
 			}
 			cmd := newCommand(dryRun)
 			args := []string{"--gateway_name", "bk-iam", "--body", body}
@@ -173,47 +192,112 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			Expect(err).To(MatchError(ContainSubstring("unsupported_credential_type")))
 			Expect(err.Error()).To(ContainSubstring("application identity"))
 			Expect(err.Error()).NotTo(ContainSubstring("test-personal-token"))
+			Expect(err.Error()).NotTo(ContainSubstring("test-access-token"))
 			Expect(stdout.String()).To(BeEmpty())
 			Expect(requests.Load()).To(BeZero())
 		},
-		Entry("personal context submission", false, true, nil),
-		Entry("personal context preview", true, true, nil),
-		Entry("personal context with app header override", false, true,
-			[]string{`x-bkapi-authorization:{"access_token":"app-token"}`}),
-		Entry("app context with Bearer header submission", false, false,
+		Entry("access token submission", false, credential.TypeAccessToken, nil),
+		Entry("access token preview", true, credential.TypeAccessToken, nil),
+		Entry("access token with app header override", false, credential.TypeAccessToken,
+			[]string{`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret"}`}),
+		Entry("app context with access token header", false, credential.TypeAppUser,
+			[]string{`x-bkapi-authorization:{"access_token":"test-access-token"}`}),
+		Entry(
+			"app context with mixed auth preview",
+			true,
+			credential.TypeAppUser,
+			[]string{
+				`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret","access_token":"test-access-token"}`,
+			},
+		),
+
+		Entry("malformed auth header", false, credential.TypeAppUser,
+			[]string{`X-Bkapi-Authorization:{test-access-token`}),
+		Entry("missing app secret override", true, credential.TypeAppUser,
+			[]string{`X-Bkapi-Authorization:{"bk_app_code":"my-app"}`}),
+		Entry("null auth override", false, credential.TypeAppUser,
+			[]string{`X-Bkapi-Authorization:null`}),
+		Entry("non-string app secret", false, credential.TypeAppUser,
+			[]string{`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":123}`}),
+		Entry(
+			"personal token in app override",
+			false,
+			credential.TypeAppUser,
+			[]string{
+				`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret","personal_token":"test-personal-token"}`,
+			},
+		),
+		Entry(
+			"empty access token in app override",
+			true,
+			credential.TypeAppUser,
+			[]string{
+				`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret","access_token":""}`,
+			},
+		),
+		Entry("last case-insensitive override contains token", false, credential.TypeAppUser,
+			[]string{
+				`X-Bkapi-Authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret"}`,
+				`x-bkapi-authorization:{"access_token":"test-access-token"}`,
+			}),
+
+		Entry("personal context submission", false, credential.TypePersonalToken, nil),
+		Entry("personal context preview", true, credential.TypePersonalToken, nil),
+		Entry("personal context with app header override", false, credential.TypePersonalToken,
+			[]string{`x-bkapi-authorization:{"bk_app_code":"my-app","bk_app_secret":"test-secret"}`}),
+		Entry("app context with Bearer header submission", false, credential.TypeAppUser,
 			[]string{"authorization:bEaReR test-personal-token"}),
-		Entry("app context with Bearer header preview", true, false,
+		Entry("app context with Bearer header preview", true, credential.TypeAppUser,
 			[]string{"Authorization:Bearer test-personal-token"}),
 	)
 
-	DescribeTable("checks command-local personal token restrictions for cached credentials and header overrides",
+	DescribeTable(
+		"checks command-local application credential restrictions for cached credentials and header overrides",
 		func(credType credential.CredentialType, headers map[string]string, rejected bool) {
 			var cred *credential.Credential
 			if credType != "" {
-				cred = &credential.Credential{Type: credType}
+				cred = &credential.Credential{
+					Type:        credType,
+					BkAppCode:   "my-app",
+					BkAppSecret: "test-secret",
+				}
 			}
-			err := validatePersonalTokenAuth(cred, headers)
+			err := validatePermissionApplicationAuth(cred, headers)
 			if rejected {
 				Expect(err).To(MatchError(ContainSubstring("unsupported_credential_type")))
 			} else {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		},
-		Entry("anonymous without headers", credential.CredentialType(""), nil, false),
+		Entry("anonymous without headers", credential.CredentialType(""), nil, true),
 		Entry("application credentials", credential.TypeAppUser, nil, false),
-		Entry("access token credentials", credential.TypeAccessToken, nil, false),
+		Entry("access token credentials", credential.TypeAccessToken, nil, true),
 		Entry("cached personal credentials", credential.TypePersonalToken, nil, true),
 		Entry("explicit Bearer header without stored credentials", credential.CredentialType(""),
 			map[string]string{"aUtHoRiZaTiOn": " bEaReR personal"}, true),
-		Entry("non-Bearer header", credential.TypeAccessToken,
+		Entry("non-Bearer header", credential.TypeAppUser,
 			map[string]string{"Authorization": "Basic example"}, false),
-		Entry("empty header", credential.TypeAccessToken,
+		Entry("empty header", credential.TypeAppUser,
 			map[string]string{"Authorization": ""}, false),
 	)
 
+	It("allows an app credential header override and preserves header precedence", func() {
+		setupAppContext()
+		cmd := newCommand(false)
+		Expect(cmd.ParseFlags([]string{
+			"--confirmed", "--gateway_name", "bk-iam", "--body", body,
+			"--header", `X-Bkapi-Authorization:{"access_token":"discarded-token"}`,
+			"--header", `x-bkapi-authorization:{"bk_app_code":"my-app","bk_app_secret":"override-secret"}`,
+		})).To(Succeed())
+		Expect(cmd.RunE(cmd, nil)).To(Succeed())
+		Expect(requests.Load()).To(Equal(int32(1)))
+		Expect(capturedHeader.Get("X-Bkapi-Authorization")).To(MatchJSON(
+			`{"bk_app_code":"my-app","bk_app_secret":"override-secret"}`))
+	})
+
 	DescribeTable("submits exactly one batch and preserves all returned approval details",
 		func(input string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			bodyInput := body
 			if input == "file" {
 				file := filepath.Join(GinkgoT().TempDir(), "body.json")
@@ -249,7 +333,12 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 			)
 			Expect(capturedBody).To(MatchJSON(body))
 			Expect(capturedHeader.Get("X-Custom")).To(Equal("batch"))
-			Expect(capturedHeader.Get("X-Bkapi-Authorization")).NotTo(BeEmpty())
+			Expect(
+				capturedHeader.Get("X-Bkapi-Authorization"),
+			).To(
+				MatchJSON(`{"bk_app_code":"my-app","bk_app_secret":"test-secret"}`),
+			)
+			Expect(capturedHeader.Get("Authorization")).To(BeEmpty())
 			var env output.Envelope
 			Expect(json.Unmarshal(stdout.Bytes(), &env)).To(Succeed())
 			Expect(env.OK).To(BeTrue())
@@ -272,7 +361,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 
 	DescribeTable("rejects invalid local inputs before contacting the gateway",
 		func(gateway, input, errorCode string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			cmd := newCommand(false)
 			Expect(
 				cmd.ParseFlags([]string{"--confirmed", "--gateway_name", gateway, "--body", input}),
@@ -292,7 +381,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	DescribeTable(
 		"delegates permission fields and body structure to the server",
 		func(input string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			status = http.StatusBadRequest
 			response = `{"code":1,"message":"Server rejected application fields"}`
 			cmd := newCommand(false)
@@ -377,7 +466,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 
 	DescribeTable("rejects invalid JSON from inline, file and stdin during preview and submission",
 		func(source string, dryRun bool) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			input := `{`
 			bodyInput := input
 			if source == "file" {
@@ -417,7 +506,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	DescribeTable(
 		"keeps application bodies unchanged as the server contract evolves",
 		func(input string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			cmd := newCommand(false)
 			Expect(
 				cmd.ParseFlags([]string{"--confirmed", "--gateway_name", "bk-iam", "--body", input}),
@@ -453,7 +542,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	DescribeTable(
 		"only reports submission when the upstream returns an application record",
 		func(upstream, recordID string) {
-			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+			setupAppContext()
 			response = upstream
 			cmd := newCommand(false)
 			Expect(
@@ -512,7 +601,7 @@ var _ = Describe("apigateway apply_gateway_permission", func() {
 	)
 
 	It("preserves upstream errors without a successful application message", func() {
-		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		setupAppContext()
 		status = http.StatusForbidden
 		response = `{"code":1640301,"message":"Permission denied"}`
 		cmd := newCommand(false)

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	json "github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
 	"github.com/TencentBlueKing/bk-cli/internal/api"
@@ -53,11 +54,15 @@ Batch required resource_names into one request per gateway to avoid excessive
 application records. Do not retry automatically: a retry can create another record.
 Use --dry-run to preview without confirmation or submitting an application.
 
-This API requires application identity and does not support personal_token.
-Personal-token contexts and explicit Authorization: Bearer headers are rejected
-locally with unsupported_credential_type, including during --dry-run. Select an
-application credential context or log in with app credentials or a suitable
-access_token before previewing or submitting.
+Only bk_app_code + bk_app_secret authentication is supported by this action.
+access_token and personal_token contexts are forbidden, including during --dry-run.
+Authorization: Bearer and X-Bkapi-Authorization overrides containing access_token
+or personal_token are rejected locally with unsupported_credential_type. An
+X-Bkapi-Authorization override must contain non-empty bk_app_code and bk_app_secret.
+Agents must stop if only tokens are available and ask the application developer
+to handle the permission application. Do not bypass this restriction with raw API
+calls, header overrides or automatic retries. Select an authorized app credential
+context before previewing or submitting; user confirmation is still required.
 
 The required --body accepts JSON, @file or - for stdin.
 Before preview or submission, the shared request layer reads the input and checks
@@ -125,7 +130,7 @@ Do not invent approval links or approvers, or assume the CLI knows approval stat
 			if err := runtime.EnsureCredential(); err != nil {
 				return err
 			}
-			if err := validatePersonalTokenAuth(runtime.Credential, headerMap); err != nil {
+			if err := validatePermissionApplicationAuth(runtime.Credential, headerMap); err != nil {
 				return err
 			}
 			return systemcmd.ExecuteRequest(cmd, runtime, "apply_gateway_permission", syslib.RequestSpec{
@@ -175,21 +180,36 @@ Do not invent approval links or approvers, or assume the CLI knows approval stat
 	return cmd
 }
 
-func validatePersonalTokenAuth(cred *credential.Credential, headers map[string]string) error {
-	personalAuth := cred != nil && cred.Type == credential.TypePersonalToken
+func validatePermissionApplicationAuth(cred *credential.Credential, headers map[string]string) error {
+	unsupported := cred == nil || cred.Type != credential.TypeAppUser ||
+		strings.TrimSpace(cred.BkAppCode) == "" || strings.TrimSpace(cred.BkAppSecret) == ""
 	for name, value := range headers {
-		if strings.EqualFold(name, "Authorization") {
+		switch {
+		case strings.EqualFold(name, "Authorization"):
 			parts := strings.Fields(value)
-			personalAuth = personalAuth || (len(parts) > 0 && strings.EqualFold(parts[0], "Bearer"))
+			unsupported = unsupported || (len(parts) > 0 && strings.EqualFold(parts[0], "Bearer"))
+		case strings.EqualFold(name, "X-Bkapi-Authorization"):
+			var auth map[string]string
+			if err := json.Unmarshal([]byte(value), &auth); err != nil {
+				unsupported = true
+				continue
+			}
+			_, accessToken := auth["access_token"]
+			_, personalToken := auth["personal_token"]
+			unsupported = unsupported || accessToken || personalToken ||
+				strings.TrimSpace(
+					auth["bk_app_code"],
+				) == "" || strings.TrimSpace(auth["bk_app_secret"]) == ""
 		}
 	}
-	if personalAuth {
+	if unsupported {
 		return output.UserError(
 			"unsupported_credential_type",
-			"personal_token authentication is not supported for this action; application identity is required",
-			"Select an application credential context using --context, or run bk-cli auth login with "+
-				"--bk_app_code/--bk_app_secret and --bk_token/--bk_ticket, or a suitable --access_token; "+
-				"remove any Authorization: Bearer override before previewing or submitting.",
+			"this action requires application identity via bk_app_code + bk_app_secret; "+
+				"access_token and personal_token authentication are forbidden",
+			"Agents must stop if only tokens are available and ask the application developer to apply. "+
+				"Select an authorized app credential context with --context; remove token header overrides. "+
+				"Do not bypass this restriction with raw API calls or retry automatically.",
 		)
 	}
 	return nil
