@@ -12,7 +12,7 @@ steps:
         - path: ok
           equals: true
   - name: login
-    command: [auth, login, --access_token, integration-token]
+    command: [auth, login, --bk_app_code, my-app, --bk_app_secret, integration-secret, --bk_token, integration-user]
     expect:
       exit_code: 0
       checks:

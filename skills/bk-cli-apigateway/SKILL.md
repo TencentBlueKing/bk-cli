@@ -86,7 +86,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - `user_verified_required: true`：调用方需要带用户身份。
 - `resource_perm_required: true`：除了有应用身份外，应用通常还需要先申请该 API 的资源权限。
 
-如果当前 context 使用个人 token，CLI 使用 `Authorization: Bearer <personal-token>`，无需补充应用或用户凭据。应结合目标部署对个人 token 的支持情况和服务端返回，判断 token 是否有效及是否具有接口权限；不能再叠加 `X-Bkapi-Authorization`。例外：下文 `apply_gateway_permission` 需要应用身份，不支持个人 token。共享登录、互斥和脱敏规则见 `../bk-cli-shared/SKILL.md`。
+如果当前 context 使用个人 token，CLI 使用 `Authorization: Bearer <personal-token>`，无需补充应用或用户凭据。应结合目标部署对个人 token 的支持情况和服务端返回，判断 token 是否有效及是否具有接口权限；不能再叠加 `X-Bkapi-Authorization`。例外：下文 `apply_gateway_permission` 只接受 `bk_app_code` + `bk_app_secret`，不支持 `access_token` 或个人 token。共享登录、互斥和脱敏规则见 `../bk-cli-shared/SKILL.md`。
 
 对使用 app+user 或 `access_token` 的 agent 来说，推荐这样解读：
 
@@ -219,7 +219,9 @@ bk-cli apigateway retrieve_gateway_api_details --gateway_name bk-iam --api_name 
 
 调用 `v2_open_apply_gateway_permission` 申请网关或批量 API 权限。需要应用身份；`target_app_code` 必须与请求使用的应用一致。
 
-不支持 `personal_token`。个人 token context 或显式 `Authorization: Bearer` header 在预览和提交时均返回 `unsupported_credential_type`，不会发送请求。先通过 `--context` 切换到应用 context，或使用 `bk_app_code` / `bk_app_secret` 加 `bk_token` / `bk_ticket`、满足要求的 `access_token` 登录，并移除 Bearer header。不要尝试在个人 token 上叠加 `X-Bkapi-Authorization`，也不要自动重试。
+**仅允许使用应用 `bk_app_code` + `bk_app_secret` 认证，禁止 `access_token` 和 `personal_token`。** token context、显式 `Authorization: Bearer`、含 `access_token` / `personal_token` 的 `X-Bkapi-Authorization` 在预览和提交时均返回 `unsupported_credential_type`，不会发送请求。覆盖 `X-Bkapi-Authorization` 时必须提供非空的 `bk_app_code` 和 `bk_app_secret`。
+
+**Agent 若只有 access_token 或个人 token，必须停止申请，告知用户联系应用开发者处理。不得改用原始 `api`、覆盖 header 或自动重试来绕过限制。** 经授权使用应用凭据时，可通过 `--context` 选择对应 context，或使用 `bk_app_code` / `bk_app_secret` 加 `bk_token` / `bk_ticket` 登录；本命令生成的认证头仅携带应用凭据。
 
 **Agent 每次实际提交前必须询问用户，确认目标网关、申请应用、资源范围、有效期和原因；暂不允许跳过询问。** 提交会创建申请单并触发通知和审批，成本较高。只有用户明确同意本次具体请求后才能传 `--confirmed`，该参数只是记录已获同意，不能代替询问。用户拒绝或尚未同意时停止提交；申请内容变化后需重新预览并确认。
 

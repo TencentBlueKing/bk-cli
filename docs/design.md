@@ -579,7 +579,7 @@ https://bkapi.example.com/api/bk-iam/prod/api/v2/systems/
 
 `personal_token` 使用独立的 `--personal_token` 登录 flag，与其他五个凭据 flags 按显式出现互斥（包括显式空值）。输入必须符合 RFC 6750 §2.1 的单个 Bearer token 字符语法，不添加前缀、不裁剪原值。非法输入返回 `invalid_credentials` 且不回显原值，也不替换已有凭据。复用 AES-GCM 存储和 context 隔离，不改变旧凭据格式；存储读取后，在生成个人认证头前再次校验。
 
-个人模式不套用应用/用户字段拼装；默认要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。`apigateway apply_gateway_permission` 需要应用身份，因此在命令内通过 `runtime.EnsureCredential()` 加载或复用凭据，拒绝个人凭据及显式 Bearer header，返回 `unsupported_credential_type`，dry-run 同样拒绝。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
+个人模式不套用应用/用户字段拼装；默认要求任一认证维度的 action 都生成 Bearer 值，token 有效性、接口/MCP 权限及资源权限由服务端判断。`apigateway apply_gateway_permission` 需要应用身份，因此在命令内通过 `runtime.EnsureCredential()` 加载或复用凭据，仅接受包含非空 `bk_app_code` / `bk_app_secret` 的 `app_user` 凭据，拒绝 `access_token` / `personal_token` 凭据及显式 Bearer header；覆盖 `X-Bkapi-Authorization` 时也必须包含非空应用 code/secret，且不得包含 `access_token` / `personal_token` 字段。不符合要求时返回 `unsupported_credential_type`，dry-run 同样拒绝。此限制仅由该子命令执行，不代替服务端对直接 API 调用的鉴权限制。原始 `api` 仍加载凭据；明确无需认证的 action 不加载凭据且不生成认证头，即使 runtime 已缓存个人凭据。`auth status/check` 仅展示凭据类型及本地状态，不验证远端；`logout` 删除当前 context 凭据。
 
 YAML action 必须显式配置 `authConfig`，用于声明当前资源需要哪些认证维度：
 
