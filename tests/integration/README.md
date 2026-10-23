@@ -29,12 +29,13 @@
 
 ## 当前目录布局规则
 
-- `context`、`auth` 和原始 `api` 场景直接放在各自对应的目录下
+- `context`、`auth`、原始 `api` 和 `mcp` 场景直接放在各自对应的目录下
 - system 场景放在 `cases/system/<system>/` 下
 
 示例：
 
 - `cases/context/CTX-001-context-create-use-list.yaml`
+- `cases/mcp/MCP-001-basic.yaml`（使用 `fixtures/config/mcp` 和现有 mock 的 `/mcp` 协议入口）
 - `cases/system/devops/SYSGO-001-devops-start-build.yaml`
 - `cases/system/apigateway/SYSYAML-001-apigateway-list-gateways.yaml`
 
@@ -174,3 +175,13 @@ make test-integration CASE=tests/integration/cases/system/<system>/<file>.yaml
 
 面向 agent 的覆盖新增说明位于
 [AGENTS.md](./AGENTS.md)。
+
+## MCP 人工真实环境验收清单
+
+以下清单需在有授权的测试环境手动执行。本目录的 mock 测试不证明真实服务联调通过，不要求把真实票据写入测试文件。
+
+1. 为同一个可控 server 分别配置个人 Bearer、应用 + ticket、应用 + token、access_token，以及可用的匿名 server；验证 check、完整 tools 和一个明确无副作用的工具。
+2. 切换或移除 active context，确认 MCP 仍使用所选配置；换成失效票据及权限不足身份，确认 401/403 分类，检查 verbose 无票据泄漏。
+3. 根据服务端日志核对初始化、发现分页、调用使用同一身份；选择包含复杂参数、大整数和元数据的工具，核对实际 arguments、结果及 jq 字段值。
+4. 在测试服务注入延迟、断流、input_required 和异步 task 响应，确认退出码、unknown/未完成状态，且每次 CLI 最多一次 tools/call；不要在生产写工具上制造超时。
+5. 检查 JSON/SSE、会话释放、证书和最终 endpoint；记录服务版本、CLI 提交、已验证协议版本及未验证项，避免把一次发现成功当成全功能验收。

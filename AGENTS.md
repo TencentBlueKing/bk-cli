@@ -112,6 +112,7 @@ Rules that should stay true:
 | `internal/validate` | Shared validation helpers for names and header values |
 | `internal/utils` | Small reusable helpers such as CSV parsing |
 | `internal/auth` | OAuth device-flow placeholder |
+| `internal/mcpclient` | MCP configuration, server-local auth, SDK sessions, bounded discovery and lossless arguments/results |
 | `internal/update` | Self-update implementation |
 
 ### `cmd/*`
@@ -121,6 +122,7 @@ Rules that should stay true:
 | `cmd/root.go` | Root command, global flags, shared wiring |
 | `cmd/auth` | `auth login/status/check/logout` |
 | `cmd/api` | Raw API command |
+| `cmd/mcp` | Independent MCP discovery, help, invocation and offline preview |
 | `cmd/context` | Context lifecycle commands |
 | `cmd/doctor.go` | Root-level environment diagnostics command |
 | `cmd/update` | Self-update command |
@@ -137,6 +139,7 @@ Rules that should stay true:
 - `context`
 - `doctor`
 - `help`
+- `mcp`
 - `update`
 - `version`
 - registered public systems via `cmd/system/register.go`
@@ -313,9 +316,13 @@ When a Go-implemented action supports both named flags and raw `--body`, treat `
 
 ## Final result projection
 
-`api` and public system actions register `output.AddJQFlag(cmd)` locally. Go actions inherit it through `AddCommonRequestFlags` / `AddCommonRequestFlagsWithoutBody`; YAML actions register it in their builder. `jq` is reserved for generated flags.
+`api`, `mcp`, and public system actions register `output.AddJQFlag(cmd)` locally. Go actions inherit it through `AddCommonRequestFlags` / `AddCommonRequestFlagsWithoutBody`; YAML actions register it in their builder. `jq` is reserved for generated flags.
 
 Write final request results through `output.WriteCommandEnvelope(cmd, env)`, after any result checks, redaction, response mutation, or pagination aggregation. Keep intermediate requests in the shared request layer without projecting them. The output helper compiles during flag parsing, buffers JSON Lines with finite execution/output budgets, bypasses failed envelopes, and preserves completed request results on projection failures. Keep unsupported commands explicit instead of adding a root flag that can be silently ignored. Detailed semantics are defined in `docs/design.md`.
+
+## MCP command boundary
+
+`cmd/mcp` is a root command, not a public system. `--list` reads local configuration only and masks all header values. Header values are literal and never expanded from environment variables. Remote operations use only the selected `mcp.json` server headers and never resolve gateway context, credentials, stage or tenant. Keep SDK negotiation/session ownership in `internal/mcpclient`, preserve raw JSON numbers at the HTTP boundary, and never replay `tools/call`. See `docs/design.md` section 5.8 for version, resource-limit and result-state contracts. Keep MCP integration cases in `tests/integration/cases/mcp/` and user guidance in `skills/bk-cli-mcp/SKILL.md`.
 
 ## Runtime, auth, and request behavior
 

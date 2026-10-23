@@ -17,8 +17,10 @@
 from __future__ import annotations
 
 from typing import Any
+import json
+import time
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 NEGATIVE_SCENARIOS: dict[str, tuple[int, dict[str, Any]]] = {
     "SYSGO-002": (
@@ -70,6 +72,57 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
     if test_config:
         app.config.update(test_config)
+
+    @app.route("/mcp", methods=["POST", "DELETE"])
+    def mcp_endpoint():
+        if request.method == "DELETE":
+            return "", 204
+        if request.headers.get("Authorization") != "Bearer integration-mcp":
+            return jsonify({"error": "unauthorized"}), 401
+        if request.headers.get("X-Bkapi-Authorization") or request.headers.get("X-Bk-Tenant-Id"):
+            return jsonify({"error": "unexpected_context_identity"}), 403
+        if request.headers.get("X-Literal") != "${MCP_TEST_TOKEN}":
+            return jsonify({"error": "header_value_changed"}), 400
+        rpc = request.get_json()
+        method = rpc.get("method")
+        if method == "server/discover":
+            return jsonify({"jsonrpc": "2.0", "id": rpc["id"], "error": {"code": -32601, "message": "legacy fixture"}})
+        if method == "initialize":
+            result = {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}}, "serverInfo": {"name": "integration", "version": "1"}}
+        elif method in ("notifications/initialized", "notifications/cancelled"):
+            return "", 202
+        elif method == "tools/list":
+            tools = [{"name": name, "description": "Synthetic MCP tool", "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}} for name in ("echo", "fail", "slow", "input")]
+            scenario = request.headers.get("X-Mock-Scenario", "")
+            cursor = rpc.get("params", {}).get("cursor")
+            result = {"tools": tools, "nextCursor": None}
+            if scenario == "MCP-004":
+                result = {"tools": tools[2:] if cursor else tools[:2]}
+                if not cursor:
+                    result["nextCursor"] = "second-page"
+        elif method == "tools/call":
+            params = rpc.get("params", {})
+            name = params.get("name")
+            if name == "echo" and params.get("arguments", {}).get("text") in ("rpc-error", "rpc-http-error"):
+                response = jsonify({"jsonrpc": "2.0", "id": rpc["id"], "error": {"code": -32602, "message": "Unknown tool"}})
+                response.headers["Mcp-Session-Id"] = "integration-private-session"
+                if params.get("arguments", {}).get("text") == "rpc-http-error":
+                    response.status_code = 400
+                return response
+            if name == "slow":
+                time.sleep(0.3)
+            if name == "input":
+                result = {"resultType": "input_required", "inputRequests": {}, "requestState": "pending"}
+            else:
+                result = {"content": [{"type": "text", "text": "fixture"}], "structuredContent": {"arguments": params.get("arguments"), "big": 9007199254740993}, "isError": name == "fail"}
+        else:
+            return jsonify({"jsonrpc": "2.0", "id": rpc.get("id"), "error": {"code": -32601, "message": "unknown method"}})
+        message = json.dumps({"jsonrpc": "2.0", "id": rpc["id"], "result": result})
+        if method == "tools/call" and rpc.get("params", {}).get("arguments", {}).get("text") == "sse-eof":
+            return Response("data: " + message + "\n", content_type="text/event-stream")
+        if request.headers.get("X-Mock-Scenario") == "MCP-004":
+            return Response("event: message\ndata: " + message + "\n\n", content_type="text/event-stream")
+        return Response(message, content_type="application/json")
 
     def active_scenario() -> str:
         return request.headers.get("X-Mock-Scenario", "").strip()

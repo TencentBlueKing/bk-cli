@@ -1,0 +1,37 @@
+id: MCP-005
+name: MCP offline preview and invalid combinations
+workspace:
+  seed_config: mcp
+steps:
+  - name: dry run works with unreachable endpoint
+    command: [mcp, offline, unverified, --body, '{}', --dry-run]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: dry_run, equals: true}
+        - {path: data.verified_remote, equals: false}
+        - {path: request.headers.X-API-Key, equals: '***'}
+  - name: named arguments cannot be mapped offline
+    command: [mcp, offline, unverified, --text=x, --dry-run]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}
+  - name: check is incompatible with dry run
+    command: [mcp, offline, --check, --dry-run]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}
+  - name: help cannot override offline dry run
+    command: [mcp, offline, unverified, --body, '{}', --dry-run, --help]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}
+  - name: short help cannot become a tool argument
+    command: [mcp, offline, unverified, --text, -h]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}

@@ -49,6 +49,7 @@ Use the existing top-level coverage folders:
 - `cases/context/`
 - `cases/auth/`
 - `cases/api/`
+- `cases/mcp/` (non-system MCP commands; use the `mcp` config seed and `/mcp` mock endpoint)
 
 ### System commands
 
