@@ -1,0 +1,62 @@
+id: MONITOR-010
+name: Calendar inputs, timezone and native timestamp contracts
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect: {exit_code: 0}
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect: {exit_code: 0}
+  - name: readable log time defaults to Asia Shanghai
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --start_time, '2026-10-13 14:00:00', --end_time, '2026-10-13 15:00:00']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.start_time, equals: '1791871200'}
+        - {path: data.tool_args.end_time, equals: '1791874800'}
+  - name: explicit RFC3339 offset wins over timezone flag
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --start_time, '2026-10-13T14:00:00+08:00', --end_time, '2026-10-13T07:00:00Z', --timezone, UTC]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.start_time, equals: '1791871200'}
+        - {path: data.tool_args.end_time, equals: '1791874800'}
+  - name: explicit seconds converted to SQL milliseconds
+    command: [monitor, metric, execute_sql_query, --bk_biz_id, '100100', --table_id, example.table, --sql, 'SELECT 1', --start_time, 1791871200s, --end_time, 1791874800s]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.start_time, equals: '1791871200000'}
+        - {path: data.tool_args.end_time, equals: '1791874800000'}
+  - name: Profiling receives integers rather than strings
+    command: [monitor, apm, get_profile_type, --bk_biz_id, '100100', --app_name, example-app, --service_name, example-service, --start_time, '2026-10-13 14:00', --end_time, '2026-10-13 15:00']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.start_time, equals: 1791871200}
+        - {path: data.tool_args.end_time, equals: 1791874800}
+  - name: body calendar times are normalized too
+    command: [monitor, log, search_logs, --body, '{"bk_biz_id":"100100","index_set_id":101003,"start_time":"2026-10-13 14:00","end_time":"2026-10-13 15:00"}']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.start_time, equals: '1791871200'}
+  - name: relative window cannot silently override body times
+    command: [monitor, log, search_logs, --body, '{"bk_biz_id":"100100","index_set_id":101003,"start_time":"yesterday","end_time":"today"}', --since, 1h]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: conflicting_time}
+  - name: timezone ambiguity is rejected
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --start_time, '2025-11-02 01:30:00', --end_time, '2025-11-02 03:00:00', --timezone, America/New_York]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: ambiguous_local_time}
+  - name: no reverse time interval
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --start_time, '2026-10-13 15:00', --end_time, '2026-10-13 14:00']
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_time_range}

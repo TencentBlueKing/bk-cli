@@ -1,0 +1,76 @@
+id: MONITOR-005
+name: SRE profile discovery, query, permissions and diagnostics
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: offline profile discovery before login
+    command: [monitor, profile, list, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.profiles.0.name, equals: ns-a}
+  - name: offline resolved profile
+    command: [monitor, profile, show, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.log.index_set_id, equals: 101003}
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: query fixed index without listing indices
+    command: [monitor, log, search_logs, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --since, 15m, --limit, '1']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.index_set_id, equals: 101003}
+        - {path: data.tool_args.bk_biz_id, equals: '100100'}
+        - {path: profile.name, equals: worker}
+        - {path: profile.context, equals: default}
+  - name: scope same business by namespace
+    command: [monitor, log, search_logs, --profile, ns-a, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.target_type, equals: scene}
+        - {path: data.tool_args.table_id_conditions.0.1.value.0, equals: test-cluster}
+        - {path: data.tool_args.query_string, equals: '__ext.io_kubernetes_pod_namespace:"ns-a"'}
+  - name: explicit flag wins over body and profile
+    command: [monitor, log, get_index_set_fields, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --body, '{"index_set_id":111}', --index_set_id, '222']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.index_set_id, equals: 222}
+  - name: permission check reuses profile scope
+    command: [monitor, permission, check, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --tool, get_index_set_fields]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.decision, equals: ready}
+        - {path: data.steps.2.resource_context.index_set_id, equals: 101003}
+  - name: profile preflight reads metadata but no log payload
+    command: [monitor, profile, check, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.checks.0.metadata_tool, equals: get_index_set_fields}
+        - {path: data.checks.1.metadata_tool, equals: list_time_series_metrics}
+  - name: status online
+    command: [monitor, status, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.ok, equals: true}
+        - {path: data.checks.3.name, equals: authenticated_api}
+        - {path: data.checks.3.status, equals: pass}
+  - name: status offline explicitly skips authentication
+    command: [monitor, status, --offline, --check_update]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.checks.3.status, equals: skipped}
+        - {path: data.checks.4.status, equals: skipped}

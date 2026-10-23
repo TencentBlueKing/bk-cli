@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+import json
+
 from typing import Any
 
 from flask import Flask, jsonify, request
@@ -230,10 +232,132 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         "/<gateway>/<stage>/<path:tail>",
         methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     )
+    @app.route("/alternate/<gateway>/<stage>/<path:tail>", methods=["GET", "POST"])
     def generic_gateway(gateway: str, stage: str, tail: str):
         negative = maybe_negative_response(gateway, stage, tail)
         if negative is not None:
             return negative
+
+        if gateway == "bk-monitor" and active_scenario() == "MONITOR-012":
+            if stage != "testing" or request.headers.get("X-Example") != "preflight":
+                return jsonify({"result": False, "message": "preflight request options missing"}), 403
+
+        if gateway == "bk-monitor" and tail == "mcp/lookup_tool/":
+            payload = request_body() or {}
+            return jsonify(
+                {
+                    "result": True,
+                    "data": {
+                        "tools": [
+                            {
+                                "name": payload.get("tool_name") or "list_alerts",
+                                "risk": "query",
+                                "requires_confirmation": False,
+                                "permission_state": "missing",
+                            }
+                        ]
+                    },
+                }
+            )
+
+        if gateway == "bk-monitor" and tail == "mcp/lookup_tool_schema/":
+            return jsonify(
+                {
+                    "result": True,
+                    "data": {
+                        "catalog_version": "integration",
+                        "permission": {
+                            "mode": "mcp_then_native",
+                            "fallback_permission": {
+                                "resource_type": "indices" if (request_body() or {}).get("tool_name") == "get_index_set_fields" else "space",
+                                "resource_arg": "index_set_id" if (request_body() or {}).get("tool_name") == "get_index_set_fields" else "bk_biz_id",
+                            },
+                        },
+                    },
+                }
+            )
+
+        if gateway == "bk-monitor" and tail == "mcp/lookup_permissions/":
+            payload = request_body() or {}
+            tool_name = payload.get("tool_name")
+            # Two synthetic V2 evidence sources for MONITOR-009.
+            if payload.get("bk_biz_id") in ("10007", "10008"):
+                return jsonify({"result": True, "data": {"authorized": True, "scopes": [{"tool_name": tool_name, "state": "granted"}]}})
+            # Synthetic scope mismatch for MONITOR-007; never a real business ID.
+            if payload.get("bk_biz_id") == "900007":
+                return jsonify({"result": True, "data": {"authorized": True, "scopes": [{"tool_name": "different_tool", "state": "granted"}]}})
+            # Fixed synthetic profile resources; list_alerts remains denied for MONITOR-004.
+            if payload.get("bk_biz_id") == "100100" and (
+                tool_name == "list_time_series_metrics"
+                or (tool_name == "get_index_set_fields" and (payload.get("resource_context") or {}).get("index_set_id") == 101003)
+            ):
+                return jsonify({"result": True, "data": {"authorized": True, "scopes": [{"tool_name": tool_name, "state": "granted"}]}})
+            return jsonify(
+                {
+                    "result": True,
+                    "data": {
+                        "authorized": False,
+                        "scopes": [
+                            {
+                                "tool_name": tool_name,
+                                "state": "missing",
+                                "authorized": False,
+                                "legacy_permission": {
+                                    "system_id": "bk_monitorv3",
+                                    "action_id": "using_alarm_mcp",
+                                    "resource_type": "space",
+                                    "apply_url": "https://iam.example.com/apply/mcp",
+                                },
+                                "fallback_permission": {
+                                    "system_id": "bk_monitorv3",
+                                    "action_id": "view_event_v2",
+                                    "resource_type": "space",
+                                    "apply_url": "https://iam.example.com/apply/native",
+                                },
+                            }
+                        ],
+                    },
+                }
+            )
+
+        if gateway == "bk-monitor" and tail.startswith("mcp/"):
+            tool_name = tail.removeprefix("mcp/").strip("/")
+            if tool_name == "execute_tool":
+                return jsonify({"result": False, "message": "generic dispatch is not supported"}), 404
+            args = request_body() or {}
+            if request.method == "GET":
+                args = dict(request.args)
+                for key, value in list(args.items()):
+                    if key != "bk_biz_id":
+                        try:
+                            args[key] = json.loads(value)
+                        except (TypeError, ValueError):
+                            pass
+            if active_scenario() == "MONITOR-012" and tool_name == "list_time_series_metrics":
+                if args.get("table_id") == "missing.table":
+                    return jsonify({"result": False, "message": "table does not exist"})
+            if active_scenario() == "MONITOR-013":
+                if tool_name in ("list_alerts", "get_alert_top_n"):
+                    if args.get("bk_biz_ids") != [str(args.get("bk_biz_id"))]:
+                        return jsonify({"result": False, "message": "single-business array missing"}), 400
+                    if tool_name == "get_alert_top_n":
+                        return jsonify({"result": True, "data": {"scope": args["bk_biz_ids"]}})
+                    biz = "100200" if request.headers.get("X-Example") == "foreign-scope" else args["bk_biz_id"]
+                    return jsonify({"result": True, "data": {"alerts": [{"id": "sample-alert", "bk_biz_id": biz}], "total": 1}})
+                if tool_name == "get_alert_info":
+                    if args.get("id") == "missing-alert":
+                        return jsonify({"result": False, "code": 3324002, "message": "synthetic alert not found"})
+                    return jsonify({"result": True, "data": {"id": args["id"], "bk_biz_id": args["bk_biz_id"]}})
+            if tool_name in ("find_relations", "find_relations_range"):
+                code = 400 if args.get("bk_biz_id") == "900008" else 200
+                items = [{"code": code, "target_list": []} for _ in args.get("query_list", [])]
+                return jsonify({"result": True, "data": {"data": items}})
+            return jsonify({"result": True, "data": {
+                "path": f"/{gateway}/{stage}/{tail}", "request_path": request.path,
+                "tool_args": args,
+                **({"alerts": []} if tool_name == "list_alerts" else {}),
+                "headers": {key: request.headers.get(key) for key in ("X-Example", "X-Bk-Tenant-Id")},
+            }})
 
         if gateway == "bk-cmdb" and tail == "api/v3/open/hosts/modules/read":
             return jsonify(

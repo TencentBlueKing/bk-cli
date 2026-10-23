@@ -1,0 +1,53 @@
+id: MONITOR-013
+name: native alert search derives one business and keeps list-detail scope
+steps:
+  - name: init context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect: {exit_code: 0}
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect: {exit_code: 0}
+  - name: derive scope after named override
+    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"900001"}', --bk_biz_id, '100100', --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.alerts.0.id, equals: sample-alert}
+        - {path: data.alerts.0.bk_biz_id, equals: '100100'}
+  - name: read detail in the same business
+    command: [monitor, alert, get_alert_info, --bk_biz_id, '100100', --id, sample-alert, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.bk_biz_id, equals: '100100'}
+        - {path: data.id, equals: sample-alert}
+  - name: derive scope from profile
+    command: [monitor, alert, list_alerts, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --profile, worker, --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.alerts.0.bk_biz_id, equals: '100100'}
+  - name: derive topn scope
+    command: [monitor, alert, get_alert_top_n, --bk_biz_id, '100100', --fields, severity, --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.scope.0, equals: '100100'}
+  - name: reject conflicting raw business array before sending
+    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"100100","bk_biz_ids":["100200"]}', --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_arguments}
+  - name: reject an upstream list outside the requested business
+    command: [monitor, alert, list_alerts, --bk_biz_id, '100100', --since, 1h, --header, 'X-Example:foreign-scope', --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: response_scope_mismatch}
+  - name: classify native missing alert
+    command: [monitor, alert, get_alert_info, --bk_biz_id, '100100', --id, missing-alert, --header, 'X-Mock-Scenario:MONITOR-013']
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: resource_not_found}

@@ -1,0 +1,42 @@
+id: MONITOR-007
+name: Strict inputs, trustworthy anchors and scoped permission responses
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: reject trailing input
+    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"100100"} {}', --since, 15m]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_body}
+  - name: reject a mock record inside a success envelope
+    command: [monitor, log, search_index_set_context, --bk_biz_id, '100100', --from, /workspace/tests/integration/fixtures/monitor-anchor-mock.json, --dry-run]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: mock_record}
+  - name: reject an anchor copied from another context
+    command: [monitor, log, search_index_set_context, --bk_biz_id, '100100', --from, /workspace/tests/integration/fixtures/monitor-anchor-foreign.json, --dry-run]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: anchor_context_mismatch}
+  - name: fail closed on a mismatched permission scope
+    command: [monitor, permission, check, --bk_biz_id, '900007', --tool, get_index_set_fields, --body, '{"index_set_id":101003}']
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: permission_response_invalid}
+  - name: permission list supplies a concrete scoped next command
+    command: [monitor, permission, list, --bk_biz_id, '100100', --module, alert]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.next.0, equals: 'bk-cli monitor permission apply --bk_biz_id 100100 --tool list_alerts --context default'}

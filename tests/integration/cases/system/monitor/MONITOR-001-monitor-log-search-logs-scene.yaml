@@ -1,0 +1,56 @@
+id: MONITOR-001
+name: monitor log search_logs builds scene arguments
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: search logs by scene
+    command:
+      - monitor
+      - log
+      - search_logs
+      - --bk_biz_id
+      - "100100"
+      - --scene
+      - host
+      - --where
+      - serverIp=192.0.2.10
+      - --query_string
+      - ERROR
+      - --since
+      - 15m
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.path
+          contains: /bk-monitor/prod/mcp/search_logs/
+        - path: data.tool_args.target_type
+          equals: scene
+        - path: data.tool_args.table_id_conditions.0.0.value.0
+          equals: host
+        - path: data.tool_args.table_id_conditions.0.1.field_name
+          equals: serverIp

@@ -1,0 +1,14 @@
+# Synthetic resources only; SQL is a preset inspected during metadata preflight.
+version: 2
+sources: {sample-source: {context: default, bk_biz_id: "10007"}}
+profiles:
+  sample:
+    components:
+      api:
+        bindings:
+          metrics:
+            module: metric
+            source: sample-source
+            args: {table_id: existing.table}
+            tools:
+              execute_sql_query: {table_id: missing.table, sql: 'SELECT 1'}

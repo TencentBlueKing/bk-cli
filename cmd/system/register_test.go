@@ -896,6 +896,21 @@ actions:
 			{"devops", "stream", "trigger"},
 			{"nodeman", "install_job"},
 			{"nodeman", "get_job_details"},
+			{"monitor", "tools", "search"},
+			{"monitor", "permission", "list"},
+			{"monitor", "permission", "check"},
+			{"monitor", "permission", "apply"},
+			{"monitor", "profile", "list"},
+			{"monitor", "profile", "show"},
+			{"monitor", "profile", "check"},
+			{"monitor", "status"},
+			{"monitor", "space", "search_spaces"},
+			{"monitor", "log", "search_logs"},
+			{"monitor", "log", "search_index_set_context"},
+			{"monitor", "metric", "execute_range_query"},
+			{"monitor", "alert", "list_alerts"},
+			{"monitor", "apm", "search_spans"},
+			{"monitor", "extract", "get_log_extract_task"},
 		} {
 			actionCmd, _, findErr := root.Find(path)
 			Expect(findErr).NotTo(HaveOccurred(), strings.Join(path, " "))

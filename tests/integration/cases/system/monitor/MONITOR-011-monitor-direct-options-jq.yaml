@@ -1,0 +1,25 @@
+id: MONITOR-011
+name: monitor direct HTTP actions preserve common request options and jq
+steps:
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect: {exit_code: 0}
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect: {exit_code: 0}
+  - name: direct log query with common options and projection
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --since, 15m, --stage, testing, --header, 'X-Example:probe', --header, 'X-Bk-Tenant-Id:tenant-test', --jq, '{ok:.ok,path:.data.path,headers:.data.headers}']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: ok, equals: true}
+        - {path: path, equals: /bk-monitor/testing/mcp/search_logs/}
+        - {path: headers.X-Example, equals: probe}
+        - {path: headers.X-Bk-Tenant-Id, equals: tenant-test}
+  - name: native GET request
+    command: [monitor, log, get_index_set_fields, --bk_biz_id, '100100', --index_set_id, '101003', --jq, '.data']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: path, equals: /bk-monitor/prod/mcp/get_index_set_fields/}
+        - {path: tool_args.index_set_id, equals: 101003}

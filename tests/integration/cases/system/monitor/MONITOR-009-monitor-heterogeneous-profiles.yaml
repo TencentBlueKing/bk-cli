@@ -1,0 +1,98 @@
+id: MONITOR-009
+name: V2 components select independent evidence sources and named native presets
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: list business components without any context
+    command: [monitor, profile, list, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.profiles.0.components.0, equals: backend}
+  - name: preview preflight plan without credentials
+    command: [monitor, profile, check, --profile, game-prod, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --dry-run]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: dry_run, equals: true}
+        - {path: data.network, equals: not_used}
+  - name: require an explicit component
+    command: [monitor, log, search_logs, --profile, game-prod, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --since, 15m]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: needs_component}
+  - name: init log source
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login log source
+    command: [auth, login, --access_token, integration-log-token]
+    expect:
+      exit_code: 0
+  - name: create trace source on another endpoint
+    command: [context, create, cloud, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/alternate/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login trace source
+    command: [auth, login, --context, cloud, --access_token, integration-trace-token]
+    expect:
+      exit_code: 0
+  - name: worker log source
+    command: [monitor, log, search_logs, --profile, game-prod, --component, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.index_set_id, equals: 1502}
+        - {path: data.tool_args.bk_biz_id, equals: '10007'}
+        - {path: profile.context, equals: default}
+        - {path: profile.binding, equals: logs}
+  - name: backend trace source
+    command: [monitor, apm, search_spans, --profile, game-prod, --component, backend, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.bk_biz_id, equals: '10008'}
+        - {path: data.request_path, equals: /alternate/bk-monitor/prod/mcp/search_spans/}
+        - {path: profile.context, equals: cloud}
+        - {path: data.tool_args.filters.0.value.0, equals: api}
+  - name: reject ambiguous golden query
+    command: [monitor, metric, execute_range_query, --profile, game-prod, --component, backend, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --since, 15m]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: needs_binding}
+  - name: select one golden query
+    command: [monitor, metric, execute_range_query, --profile, game-prod, --component, backend, --binding, traffic, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml, --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.promql, equals: 'sum(request_qps)'}
+        - {path: profile.context, equals: cloud}
+  - name: apply exact policy preset
+    command: [monitor, alarm, get_alarm_strategy, --profile, game-prod, --component, backend, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.conditions.0.value.0, equals: '1701'}
+  - name: preflight every binding
+    command: [monitor, profile, check, --profile, game-prod, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.ok, equals: true}
+        - {path: data.bindings.0.status, equals: pass}
+  - name: diagnose both source contexts
+    command: [monitor, status, --profile, game-prod, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles-v2.yaml]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.sources.logs.context, equals: default}
+        - {path: data.sources.traces.context, equals: cloud}
+        - {path: data.sources.logs.authentication, equals: verified}
+        - {path: data.sources.traces.authentication, equals: verified}
+  - name: selected trace source must not replace active context
+    command: [context, status]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.context, equals: default}

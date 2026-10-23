@@ -1,0 +1,46 @@
+id: MONITOR-003
+name: monitor log search_logs explains a missing target
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: search logs without a target
+    command:
+      - monitor
+      - log
+      - search_logs
+      - --bk_biz_id
+      - "100100"
+      - --since
+      - 15m
+    expect:
+      exit_code: 1
+      checks:
+        - path: ok
+          equals: false
+        - path: error.code
+          equals: needs_resource
+        - path: data.next.0
+          equals: bk-cli monitor log list_log_scenes --bk_biz_id 100100

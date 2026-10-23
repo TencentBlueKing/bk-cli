@@ -1,0 +1,33 @@
+# Illustrative only: replace context, business and resource identifiers with verified values.
+# No credentials, URLs, scripts, templates or IAM grants belong in this file.
+version: 1
+profiles:
+  checkout-prod: &checkout
+    description: Checkout service, production namespace
+    context: observability
+    bk_biz_id: "100100"
+    log:
+      scene: k8s
+      where:
+        cluster_id: EXAMPLE-CLUSTER
+      filters:
+        __ext.io_kubernetes_pod_namespace: checkout-prod
+    metric:
+      table_id: example.checkout_metrics
+    apm:
+      app_name: checkout
+      service_name: api
+  checkout-staging:
+    <<: *checkout
+    description: Same application, staging namespace
+    log:
+      scene: k8s
+      where:
+        cluster_id: EXAMPLE-CLUSTER
+      filters:
+        __ext.io_kubernetes_pod_namespace: checkout-staging
+  checkout-worker:
+    <<: *checkout
+    description: Worker index-set logs, not scene mode
+    log:
+      index_set_id: 200200

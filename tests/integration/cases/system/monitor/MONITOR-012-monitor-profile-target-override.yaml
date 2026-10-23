@@ -1,0 +1,16 @@
+id: MONITOR-012
+name: monitor profile preflight checks the tool-specific table and propagates request options
+steps:
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect: {exit_code: 0}
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect: {exit_code: 0}
+  - name: reject the missing overridden table without executing SQL
+    command: [monitor, profile, check, --profile, sample, --profile_file, /workspace/tests/integration/fixtures/monitor-review-profile.yaml, --stage, testing, --header, 'X-Example:preflight', --header, 'X-Mock-Scenario:MONITOR-012']
+    expect:
+      exit_code: 1
+      checks:
+        - {path: ok, equals: false}
+        - {path: data.bindings.0.failure.decision, equals: resource_not_found}

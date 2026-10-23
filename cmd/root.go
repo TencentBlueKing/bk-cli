@@ -140,6 +140,7 @@ Examples:
   - Business system 403: if the upstream body returns a business code such as
     bk_error_code 9900403 (IAM permission error), ask to apply business
     permission instead of API permission`,
+		Annotations:   map[string]string{"build_version": buildInfo.Version},
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -1,0 +1,4527 @@
+{
+  "source": "bk-monitor reviewed read-only HTTP APIs and diagnostic metadata",
+  "catalog_version": "7891fc8fb223",
+  "tools": [
+    {
+      "module": "metric",
+      "category": "metrics",
+      "name": "execute_range_query",
+      "short": "Run a PromQL range query",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [
+        "list_time_series_groups",
+        "list_time_series_metrics"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID 业务ID"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "promql",
+          "type": "string",
+          "required": true,
+          "description": "PromQL query statement PromQL查询语句"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "step",
+          "type": "string",
+          "required": false,
+          "description": "Query resolution step interval (e.g., \"1m\", \"5m\", \"1h\") 查询分辨率步长间隔（例如：\"1m\"、\"5m\"、\"1h\"）"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/execute_range_query/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "metric",
+      "category": "metrics",
+      "name": "execute_sql_query",
+      "short": "Run a BkBase SQL raw-data query",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [
+        "list_time_series_groups"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID, used to resolve space_uid for bk-unify-query routing and permission scope"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp",
+          "time_unit": "ms"
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "description": "Maximum number of raw records to return"
+        },
+        {
+          "name": "sql",
+          "type": "string",
+          "required": true,
+          "description": "BkBase SQL statement"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp",
+          "time_unit": "ms"
+        },
+        {
+          "name": "step",
+          "type": "string",
+          "required": false,
+          "description": "Query step interval (e.g., \"1m\", \"5m\", \"1h\")"
+        },
+        {
+          "name": "table_id",
+          "type": "string",
+          "required": true,
+          "description": "BkBase result table ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/execute_sql_query/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "metric",
+      "category": "metrics",
+      "name": "list_time_series_groups",
+      "short": "List all time series groups in the monitoring system",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "business ID 业务ID"
+        },
+        {
+          "name": "is_platform",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to query platform-level data ID 是否查询公共数据",
+          "enum": [
+            "False"
+          ]
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "required": false,
+          "description": "Page Number 页数"
+        },
+        {
+          "name": "page_size",
+          "type": "string",
+          "required": false,
+          "description": "Number of items to retrieve 获取的条数"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_time_series_groups/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "metric",
+      "category": "metrics",
+      "name": "list_time_series_metrics",
+      "short": "Get all metrics information from a specific time series group",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_time_series_groups"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID 业务ID"
+        },
+        {
+          "name": "table_id",
+          "type": "string",
+          "required": true,
+          "description": "Result table ID 结果表ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_time_series_metrics/",
+        "query_params": [
+          "table_id",
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "analyze_field",
+      "short": "Analyze field distribution in one index set",
+      "capabilities": [
+        "analysis"
+      ],
+      "prerequisites": [
+        "list_index_sets",
+        "get_index_set_fields"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "conditions",
+          "type": "object",
+          "required": false,
+          "description": "Additional filter conditions"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "field_name",
+          "type": "string",
+          "required": true,
+          "description": "Field name to analyze"
+        },
+        {
+          "name": "group_by",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to group statistics by field values"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": true,
+          "description": "Index set ID"
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "required": false,
+          "description": "Maximum number of results to return"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "required": false,
+          "description": "Sort order for results",
+          "enum": [
+            "value",
+            "time"
+          ]
+        },
+        {
+          "name": "query_string",
+          "type": "string",
+          "required": false,
+          "description": "Log search query string to filter logs before analysis"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "step",
+          "type": "string",
+          "required": false,
+          "description": "Time step interval for time series analysis"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "search_log_v2",
+          "resource_type": "indices",
+          "resource_arg": "index_set_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/analyze_field/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "get_index_set_fields",
+      "short": "List fields of one index set",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_index_sets"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": true,
+          "description": "Index set ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "search_log_v2",
+          "resource_type": "indices",
+          "resource_arg": "index_set_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_index_set_fields/",
+        "query_params": [
+          "bk_biz_id",
+          "index_set_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "get_scene_log_fields",
+      "short": "List fields for scene routing conditions",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_log_scenes",
+        "list_scene_dimension_values"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "table_id_conditions",
+          "type": "array",
+          "required": true,
+          "description": "Result-table routing conditions",
+          "items": "array"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_scene_log_fields/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "list_index_sets",
+      "short": "List all available log index sets in BlueKing Monitor",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_index_sets/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "list_log_scenes",
+      "short": "List log scenes available to a business and their dimension definitions",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_log_scenes/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "list_scene_dimension_values",
+      "short": "List valid values for a dynamic scene routing dimension",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_log_scenes"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "dimension_key",
+          "type": "string",
+          "required": true,
+          "description": "Dynamic dimension key returned by list_log_scenes, such as cluster_id"
+        },
+        {
+          "name": "filters",
+          "type": "array",
+          "required": false,
+          "description": "Previously selected routing dimensions for cascading lookup",
+          "items": "object"
+        },
+        {
+          "name": "scene",
+          "type": "string",
+          "required": true,
+          "description": "Scene identifier returned by list_log_scenes, such as k8s or bk_paas"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_scene_dimension_values/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "search_index_set_context",
+      "short": "Show logs before and after one search hit",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_logs"
+      ],
+      "params": [
+        {
+          "name": "begin",
+          "type": "string",
+          "required": true,
+          "description": "Offset from the anchor"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "dtEventTimeStamp",
+          "type": "string",
+          "required": true,
+          "description": "Log timestamp for context positioning"
+        },
+        {
+          "name": "gseIndex",
+          "type": "string",
+          "required": true,
+          "description": "GSE packet sequence number for log positioning"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": true,
+          "description": "Index set ID"
+        },
+        {
+          "name": "iterationIndex",
+          "type": "string",
+          "required": false,
+          "description": "GSE packet iteration index"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "required": false,
+          "description": "Log file path as returned by search_logs, if needed for positioning"
+        },
+        {
+          "name": "serverIp",
+          "type": "string",
+          "required": true,
+          "description": "Use the exact serverIp value returned by search_logs, including for BCS-collected logs"
+        },
+        {
+          "name": "size",
+          "type": "string",
+          "required": false,
+          "description": "Per-direction record limit, default 50"
+        },
+        {
+          "name": "zero",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether to query both directions"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "search_log_v2",
+          "resource_type": "indices",
+          "resource_arg": "index_set_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_index_set_context/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "search_log_clustering_pattern",
+      "short": "Find log clustering patterns in one index set",
+      "capabilities": [
+        "analysis"
+      ],
+      "prerequisites": [
+        "list_index_sets"
+      ],
+      "params": [
+        {
+          "name": "begin",
+          "type": "integer",
+          "required": false,
+          "description": "Offset number for pagination"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in milliseconds (Unix timestamp as string)",
+          "time_unit": "ms"
+        },
+        {
+          "name": "group_by",
+          "type": "array",
+          "required": false,
+          "description": "Optional field names used to group clustering patterns",
+          "items": "string"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": true,
+          "description": "Index set ID"
+        },
+        {
+          "name": "keyword",
+          "type": "string",
+          "required": false,
+          "description": "Search keyword for filtering patterns"
+        },
+        {
+          "name": "pattern_level",
+          "type": "string",
+          "required": true,
+          "description": "Clustering sensitivity level",
+          "enum": [
+            "01",
+            "03",
+            "05",
+            "07",
+            "09"
+          ]
+        },
+        {
+          "name": "show_new_pattern",
+          "type": "boolean",
+          "required": true,
+          "description": "Whether to show only newly discovered patterns"
+        },
+        {
+          "name": "size",
+          "type": "integer",
+          "required": false,
+          "description": "Maximum number of pattern records to return"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in milliseconds (Unix timestamp as string)",
+          "time_unit": "ms"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "search_log_v2",
+          "resource_type": "indices",
+          "resource_arg": "index_set_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_log_clustering_pattern/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "log",
+      "category": "log",
+      "name": "search_logs",
+      "short": "Search logs by scene or index set",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [
+        "list_index_sets",
+        "get_index_set_fields"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "conditions",
+          "type": "object",
+          "required": false,
+          "description": "Structured filter conditions for target_type=index_set only, combined with query_string using AND relation"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": false,
+          "description": "Index set ID"
+        },
+        {
+          "name": "keep_columns",
+          "type": "array",
+          "required": false,
+          "description": "Output fields to keep",
+          "items": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "description": "Maximum number of log records to return"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false,
+          "description": "Offset for pagination, used with limit to fetch subsequent pages (e.g"
+        },
+        {
+          "name": "order_by",
+          "type": "array",
+          "required": false,
+          "description": "Result sort fields",
+          "items": "string"
+        },
+        {
+          "name": "query_string",
+          "type": "string",
+          "required": false,
+          "description": "Log search query string"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "table_id_conditions",
+          "type": "array",
+          "required": false,
+          "description": "Result-table routing conditions required when target_type=scene",
+          "items": "array"
+        },
+        {
+          "name": "target_type",
+          "type": "string",
+          "required": false,
+          "description": "Search target type",
+          "enum": [
+            "index_set",
+            "scene"
+          ]
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "search_log_v2",
+          "resource_type": "indices",
+          "resource_arg": "index_set_id",
+          "conditional": {
+            "when": "target_type=scene",
+            "system_id": "bk_log_search",
+            "action_id": "view_business_v2",
+            "resource_type": "space",
+            "resource_arg": "bk_biz_id"
+          }
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_logs/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_event_tag_detail",
+      "short": "Get alert event bubble detail at a specific time point",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "get_alert_event_ts"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "required": false,
+          "description": "Aggregation interval in seconds"
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "required": false,
+          "description": "Maximum number of event samples to return"
+        },
+        {
+          "name": "sources",
+          "type": "array",
+          "required": false,
+          "description": "Event source filter",
+          "items": "string",
+          "enum": [
+            "BCS",
+            "HOST",
+            "BKCI",
+            "DEFAULT"
+          ]
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp (seconds)",
+          "time_unit": "s"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alert_event_tag_detail/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_event_ts",
+      "short": "Get alert related event time series data for trend visualization",
+      "capabilities": [
+        "detail",
+        "analysis"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": false,
+          "description": "Custom end timestamp (seconds)",
+          "time_unit": "s"
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "required": false,
+          "description": "Time bucket interval in seconds"
+        },
+        {
+          "name": "sources",
+          "type": "array",
+          "required": false,
+          "description": "Event source filter",
+          "items": "string",
+          "enum": [
+            "BCS",
+            "HOST",
+            "BKCI",
+            "DEFAULT"
+          ]
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": false,
+          "description": "Custom start timestamp (seconds)",
+          "time_unit": "s"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alert_event_ts/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_events",
+      "short": "Get alert related events list",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "required": false,
+          "description": "Maximum number of events to return"
+        },
+        {
+          "name": "offset",
+          "type": "string",
+          "required": false,
+          "description": "Pagination offset"
+        },
+        {
+          "name": "sources",
+          "type": "array",
+          "required": false,
+          "description": "Event source filter",
+          "items": "string",
+          "enum": [
+            "BCS",
+            "HOST",
+            "BKCI",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alert_events/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_host_target",
+      "short": "Get host targets for an alert",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alert_host_target/",
+        "query_params": [
+          "bk_biz_id",
+          "alert_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_info",
+      "short": "Get alert details",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_alerts"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alert_info/",
+        "query_params": [
+          "bk_biz_id",
+          "id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_k8s_target",
+      "short": "Get Kubernetes targets for an alert",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alert_k8s_target/",
+        "query_params": [
+          "bk_biz_id",
+          "alert_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_log_relations",
+      "short": "Get log targets related to an alert, including queryable log index set information",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alert_log_relations/",
+        "query_params": [
+          "bk_biz_id",
+          "alert_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_top_n",
+      "short": "Analyze alert events by fields and return Top N aggregation results",
+      "capabilities": [
+        "analysis"
+      ],
+      "prerequisites": [
+        "list_alerts"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "conditions",
+          "type": "array",
+          "required": false,
+          "description": "Advanced filter conditions for complex alert queries",
+          "items": "object"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "fields",
+          "type": "array",
+          "required": true,
+          "description": "Alert event fields to analyze",
+          "items": "string"
+        },
+        {
+          "name": "need_time_partition",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether backend should split long time ranges into time partitions for Top N aggregation"
+        },
+        {
+          "name": "query_string",
+          "type": "string",
+          "required": false,
+          "description": "Full-text search string"
+        },
+        {
+          "name": "size",
+          "type": "string",
+          "required": false,
+          "description": "Maximum bucket count per field"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "status",
+          "type": "array",
+          "required": false,
+          "description": "Alert status filter",
+          "items": "string",
+          "enum": [
+            "ABNORMAL",
+            "RECOVERED",
+            "CLOSED"
+          ]
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": false,
+          "description": "Filter by alert owner/assignee username"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alert_top_n/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_alert_traces",
+      "short": "Get traces (call chains) related to an alert",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [
+        "list_alerts",
+        "get_alert_info"
+      ],
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "string",
+          "required": true,
+          "description": "Alert ID"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "limit",
+          "type": "string",
+          "required": false,
+          "description": "Maximum number of traces to return"
+        },
+        {
+          "name": "offset",
+          "type": "string",
+          "required": false,
+          "description": "Pagination offset"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alert_traces/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_strategy_detail",
+      "short": "Get the current strategy configuration by strategy ID in a business",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_alerts"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Strategy ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_strategy_detail/",
+        "query_params": [
+          "bk_biz_id",
+          "id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "get_strategy_snapshot",
+      "short": "Get the strategy configuration snapshot associated with an alert",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_alerts"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Numeric alert ID from list_alerts[].id or get_alert_info.id; do not use event_id"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_strategy_snapshot/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alert",
+      "category": "alert",
+      "name": "list_alerts",
+      "short": "List alerts in BlueKing Monitor with flexible filtering, time range, and query conditions",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "conditions",
+          "type": "array",
+          "required": false,
+          "description": "Advanced filter conditions for complex queries",
+          "items": "object"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "ordering",
+          "type": "array",
+          "required": false,
+          "description": "Sort fields",
+          "items": "string"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "required": false,
+          "description": "Page number, starts from 1"
+        },
+        {
+          "name": "page_size",
+          "type": "string",
+          "required": false,
+          "description": "Items per page"
+        },
+        {
+          "name": "query_string",
+          "type": "string",
+          "required": false,
+          "description": "Full-text search string"
+        },
+        {
+          "name": "show_aggs",
+          "type": "boolean",
+          "required": false,
+          "description": "Include aggregation statistics (trends, distributions)"
+        },
+        {
+          "name": "show_overview",
+          "type": "boolean",
+          "required": false,
+          "description": "Include overview statistics (total counts by status)"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "status",
+          "type": "array",
+          "required": false,
+          "description": "Alert status filter",
+          "items": "string",
+          "enum": [
+            "ABNORMAL",
+            "RECOVERED",
+            "CLOSED"
+          ]
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": false,
+          "description": "Filter by alert owner/assignee username"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_event_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_alerts/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "event",
+      "category": "event",
+      "name": "get_event_view_config",
+      "short": "Get event view config including field schema, types, and operations",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_events"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": false,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data_source_label",
+          "type": "string",
+          "required": true,
+          "description": "Data source label",
+          "enum": [
+            "custom",
+            "bk_monitor"
+          ]
+        },
+        {
+          "name": "data_type_label",
+          "type": "string",
+          "required": true,
+          "description": "Data type label",
+          "enum": [
+            "event",
+            "log"
+          ]
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "service_name",
+          "type": "string",
+          "required": false,
+          "description": "Service name within the APM application"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "description": "Event source table name"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id",
+          "conditional": {
+            "when": "app_name+service_name",
+            "system_id": "bk_monitorv3",
+            "action_id": "view_apm_application_v2",
+            "resource_type": "apm_application",
+            "resource_arg": "app_name"
+          }
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_event_view_config/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "event",
+      "category": "event",
+      "name": "list_events",
+      "short": "List all event sources in BlueKing Monitor",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data_source_label",
+          "type": "string",
+          "required": true,
+          "description": "Data source label"
+        },
+        {
+          "name": "data_type_label",
+          "type": "string",
+          "required": true,
+          "description": "Data type label"
+        },
+        {
+          "name": "return_dimensions",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to return dimension information"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_events/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "event",
+      "category": "event",
+      "name": "search_event_log",
+      "short": "Execute event search with time range and filters",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [
+        "list_events",
+        "get_event_view_config"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": false,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data_source_label",
+          "type": "string",
+          "required": true,
+          "description": "Data source label",
+          "enum": [
+            "custom",
+            "bk_monitor"
+          ]
+        },
+        {
+          "name": "data_type_label",
+          "type": "string",
+          "required": true,
+          "description": "Data type label",
+          "enum": [
+            "event",
+            "log"
+          ]
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "description": "Maximum number of event records to return"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false,
+          "description": "Offset for pagination"
+        },
+        {
+          "name": "query_string",
+          "type": "string",
+          "required": false,
+          "description": "Event search query string"
+        },
+        {
+          "name": "service_name",
+          "type": "string",
+          "required": false,
+          "description": "Service name within the APM application"
+        },
+        {
+          "name": "sort",
+          "type": "array",
+          "required": false,
+          "description": "Sort field list: - Type: Array of String - Rule: Each item is a field name string",
+          "items": "string"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix timestamp)",
+          "time_unit": "s"
+        },
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "description": "Event source table name"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id",
+          "conditional": {
+            "when": "app_name+service_name",
+            "system_id": "bk_monitorv3",
+            "action_id": "view_apm_application_v2",
+            "resource_type": "apm_application",
+            "resource_arg": "app_name"
+          }
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_event_log/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "calculate_by_range",
+      "short": "Calculate APM metrics by time range with comparison analysis",
+      "capabilities": [
+        "analysis"
+      ],
+      "prerequisites": [
+        "list_apm_applications"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "baseline",
+          "type": "string",
+          "required": false,
+          "description": "Baseline time shift for growth rate calculation"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": false,
+          "description": "End timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "filter_dict",
+          "type": "object",
+          "required": false,
+          "description": "Filter conditions dict"
+        },
+        {
+          "name": "group_by",
+          "type": "array",
+          "required": false,
+          "description": "Group-by fields for dimension aggregation",
+          "items": "string"
+        },
+        {
+          "name": "metric_cal_type",
+          "type": "string",
+          "required": true,
+          "description": "Metric calculation type"
+        },
+        {
+          "name": "metric_group_name",
+          "type": "string",
+          "required": true,
+          "description": "Metric group"
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "required": false,
+          "description": "Extra options"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": false,
+          "description": "Start timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "time_shifts",
+          "type": "array",
+          "required": false,
+          "description": "Time shift list for comparison",
+          "items": "string"
+        },
+        {
+          "name": "where",
+          "type": "array",
+          "required": false,
+          "description": "Filter conditions list",
+          "items": "object"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/calculate_by_range/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_apm_filter_fields",
+      "short": "Get available filter fields for an APM app",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_apm_applications"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_apm_filter_fields/",
+        "query_params": [
+          "bk_biz_id",
+          "app_name"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_profile_application_service",
+      "short": "Profiling step 1: list profiled applications and services",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "is_get_ebpf",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to additionally include eBPF (DeepFlow) profile services"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_profile_application_service/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_profile_label",
+      "short": "Profiling step 3: list profile labels",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "get_profile_application_service"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data_type",
+          "type": "string",
+          "required": false,
+          "description": "Profile sample type, e.g"
+        },
+        {
+          "name": "end_time",
+          "type": "integer",
+          "required": true,
+          "description": "End timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "service_name",
+          "type": "string",
+          "required": true,
+          "description": "Service name under the application"
+        },
+        {
+          "name": "start_time",
+          "type": "integer",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix)",
+          "time_unit": "s"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_profile_label/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_profile_type",
+      "short": "Profiling step 2: list profile types",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "get_profile_application_service"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "end_time",
+          "type": "integer",
+          "required": true,
+          "description": "End timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "service_name",
+          "type": "string",
+          "required": true,
+          "description": "Service name under the application"
+        },
+        {
+          "name": "start_time",
+          "type": "integer",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "view_mode",
+          "type": "string",
+          "required": false,
+          "description": "View mode, \"default\" returns full detail object, \"sidebar\" returns a flattened list for UI sidebar"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_profile_type/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_span_detail",
+      "short": "Get detailed information of a single span",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_spans"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "span_id",
+          "type": "string",
+          "required": true,
+          "description": "Span ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_span_detail/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "get_trace_detail",
+      "short": "Get complete trace detail including all spans in the call chain",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_spans"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "trace_id",
+          "type": "string",
+          "required": true,
+          "description": "Trace ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_trace_detail/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "list_apm_applications",
+      "short": "List APM applications in a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_apm_applications/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "list_apm_services",
+      "short": "List services in an APM application",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_apm_applications"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "service_names",
+          "type": "array",
+          "required": false,
+          "description": "Optional service name list; when empty or omitted, returns all services under the app",
+          "items": "string"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_apm_services/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "query_graph_profile",
+      "short": "Profiling step 4: query a profile graph",
+      "capabilities": [
+        "query",
+        "analysis"
+      ],
+      "prerequisites": [
+        "get_profile_application_service",
+        "get_profile_type"
+      ],
+      "params": [
+        {
+          "name": "agg_method",
+          "type": "string",
+          "required": false,
+          "description": "Aggregation method across samples"
+        },
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": false,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data_type",
+          "type": "string",
+          "required": false,
+          "description": "Profile sample type"
+        },
+        {
+          "name": "diff_filter_labels",
+          "type": "object",
+          "required": false,
+          "description": "Only used when is_compared=true"
+        },
+        {
+          "name": "diff_profile_id",
+          "type": "string",
+          "required": false,
+          "description": "Only used when is_compared=true"
+        },
+        {
+          "name": "end_time",
+          "type": "integer",
+          "required": true,
+          "description": "End timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "filter_labels",
+          "type": "object",
+          "required": false,
+          "description": "Profile label filters, e.g"
+        },
+        {
+          "name": "global_query",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to query the platform-level global storage (uploaded profiles) instead of the application storage"
+        },
+        {
+          "name": "is_compared",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to enable diff/compare mode (compare current window with another profile / label set)"
+        },
+        {
+          "name": "profile_id",
+          "type": "string",
+          "required": false,
+          "description": "Optional profile_id; convenience shortcut for filter_labels.profile_id, used to view the profile of a speci..."
+        },
+        {
+          "name": "service_name",
+          "type": "string",
+          "required": false,
+          "description": "Service name under the application"
+        },
+        {
+          "name": "start_time",
+          "type": "integer",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix)",
+          "time_unit": "s"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/query_graph_profile/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "apm",
+      "category": "apm",
+      "name": "search_spans",
+      "short": "Search spans in an APM app with filters and time range",
+      "capabilities": [
+        "query"
+      ],
+      "prerequisites": [
+        "list_apm_applications",
+        "get_apm_filter_fields"
+      ],
+      "params": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true,
+          "description": "APM application name"
+        },
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "required": true,
+          "description": "End timestamp in seconds (Unix)",
+          "time_unit": "s"
+        },
+        {
+          "name": "filters",
+          "type": "array",
+          "required": false,
+          "description": "Filter conditions array",
+          "items": "object"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "description": "Maximum number of spans to return"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false,
+          "description": "Offset for pagination"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "required": false,
+          "description": "Query string for full-text search"
+        },
+        {
+          "name": "sort",
+          "type": "array",
+          "required": false,
+          "description": "Sort conditions array",
+          "items": "string"
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "required": true,
+          "description": "Start timestamp in seconds (Unix)",
+          "time_unit": "s"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_apm_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_apm_application_v2",
+          "resource_type": "apm_application",
+          "resource_arg": "app_name"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_spans/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "dashboard",
+      "category": "dashboard",
+      "name": "get_dashboard_detail_by_uid",
+      "short": "Get dashboard detail by UID",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "get_dashboard_tree_list"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID 业务ID"
+        },
+        {
+          "name": "dashboard_uid",
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier of the dashboard 仪表盘的唯一标识符"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_dashboard_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_single_dashboard",
+          "resource_type": "grafana_dashboard",
+          "resource_arg": "dashboard_uid"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_dashboard_detail_by_uid/",
+        "query_params": [
+          "bk_biz_id",
+          "dashboard_uid"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "dashboard",
+      "category": "dashboard",
+      "name": "get_dashboard_tree_list",
+      "short": "Get dashboard directory tree in a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID 业务ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_dashboard_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_dashboard_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_dashboard_tree_list/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "relation",
+      "category": "relation",
+      "name": "find_relations",
+      "short": "Find resource relations at one time point",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "query_list",
+          "type": "array",
+          "required": true,
+          "description": "List of query items",
+          "items": "object"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/find_relations/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "relation",
+      "category": "relation",
+      "name": "find_relations_range",
+      "short": "Query resource relation changes over a time range with time-series results",
+      "capabilities": [
+        "relation"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "query_list",
+          "type": "array",
+          "required": true,
+          "description": "List of query items",
+          "items": "object"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metrics_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "explore_metric_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/find_relations_range/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "get_alarm_action_config",
+      "short": "Get one action config by ID in a business, including is_enabled and complete execute_config",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_alarm_action_configs"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Action config ID from search_alarm_action_configs"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alarm_action_config/",
+        "query_params": [
+          "bk_biz_id",
+          "id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "get_alarm_shield",
+      "short": "Get one alarm shield by ID in a business",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_alarm_shields"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Shield ID from search_alarm_shields"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_downtime_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_alarm_shield/",
+        "query_params": [
+          "bk_biz_id",
+          "id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "get_alarm_strategy",
+      "short": "Get one alarm strategy by an exact strategy_id or strategy_name condition",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "search_alarm_strategies"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "conditions",
+          "type": "array",
+          "required": true,
+          "description": "",
+          "items": "object"
+        },
+        {
+          "name": "convert_dashboard",
+          "type": "boolean",
+          "required": false,
+          "description": "Convert dashboard configuration"
+        },
+        {
+          "name": "with_user_group",
+          "type": "boolean",
+          "required": false,
+          "description": "Include notice group information"
+        },
+        {
+          "name": "with_user_group_detail",
+          "type": "boolean",
+          "required": false,
+          "description": "Include full notice group details"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_alarm_strategy/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "search_alarm_action_configs",
+      "short": "List action configs in one business, including is_enabled",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "required": false,
+          "description": "Sort field",
+          "enum": [
+            "-id",
+            "id",
+            "create_time",
+            "-create_time",
+            "update_time",
+            "-update_time"
+          ]
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "required": false,
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "integer",
+          "required": false,
+          "description": "Items per page"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/search_alarm_action_configs/",
+        "query_params": [
+          "bk_biz_id",
+          "page",
+          "page_size",
+          "order"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "search_alarm_assign_groups",
+      "short": "Search alert assign rule groups in one business, including rules, priority, and source",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "group_ids",
+          "type": "array",
+          "required": false,
+          "description": "Assign group IDs to filter",
+          "items": "string"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_alarm_assign_groups/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "search_alarm_notice_groups",
+      "short": "Search notice groups in one business by ID or fuzzy name",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "ids",
+          "type": "array",
+          "required": false,
+          "description": "Notice group IDs",
+          "items": "string"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false,
+          "description": "Fuzzy notice group name"
+        },
+        {
+          "name": "with_detail",
+          "type": "boolean",
+          "required": false,
+          "description": "Return complete group details"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_notify_team_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_alarm_notice_groups/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "search_alarm_shields",
+      "short": "Search alarm shields in one business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "categories",
+          "type": "array",
+          "required": false,
+          "description": "Shield categories",
+          "items": "string",
+          "enum": [
+            "scope",
+            "strategy",
+            "event",
+            "alert",
+            "dimension"
+          ]
+        },
+        {
+          "name": "conditions",
+          "type": "array",
+          "required": false,
+          "description": "Shield model filters",
+          "items": "object"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether to return active shields"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "required": false,
+          "description": "Sort field",
+          "enum": [
+            "-id",
+            "id",
+            "begin_time",
+            "-begin_time",
+            "failure_time",
+            "-failure_time"
+          ]
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "required": false,
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "integer",
+          "required": false,
+          "description": "Items per page"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "required": false,
+          "description": "Shield source"
+        },
+        {
+          "name": "time_range",
+          "type": "string",
+          "required": false,
+          "description": "Time range in \"start -- end\" form"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_downtime_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_alarm_shields/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "alarm",
+      "category": "alert_handling",
+      "name": "search_alarm_strategies",
+      "short": "Search alarm strategies",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "conditions",
+          "type": "array",
+          "required": false,
+          "description": "Strategy filter conditions",
+          "items": "object"
+        },
+        {
+          "name": "convert_dashboard",
+          "type": "boolean",
+          "required": false,
+          "description": "Convert dashboard configuration in strategy results"
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "required": false,
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "integer",
+          "required": false,
+          "description": "Items per page"
+        },
+        {
+          "name": "scenario",
+          "type": "string",
+          "required": false,
+          "description": "Monitoring scenario, such as os, host_process, kubernetes, or uptimecheck"
+        },
+        {
+          "name": "with_user_group",
+          "type": "boolean",
+          "required": false,
+          "description": "Include notice group summaries"
+        },
+        {
+          "name": "with_user_group_detail",
+          "type": "boolean",
+          "required": false,
+          "description": "Include notice group details"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_alarm_handling_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_rule_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_alarm_strategies/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "get_log_collector",
+      "short": "Get one collector by collector_config_id",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_log_collectors"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "collector_config_id",
+          "type": "integer",
+          "required": true,
+          "description": "Collector configuration ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_log_collector/",
+        "query_params": [
+          "bk_biz_id",
+          "collector_config_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "get_log_collector_status",
+      "short": "Query one collector's deployment task and subscription status",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "collector_config_id",
+          "type": "integer",
+          "required": true,
+          "description": "Collector configuration ID"
+        },
+        {
+          "name": "detail_limit",
+          "type": "integer",
+          "required": false,
+          "description": "Max instance-detail rows across task and subscription phases"
+        },
+        {
+          "name": "task_ids",
+          "type": "array",
+          "required": false,
+          "description": "Task IDs returned by fast_create_log_collector / fast_update_log_collector"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_collection_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/get_log_collector_status/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "get_log_index_set",
+      "short": "Get an independent log index set by index_set_id",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "list_log_collectors"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "index_set_id",
+          "type": "integer",
+          "required": true,
+          "description": "Independent index-set ID from list_log_collectors.index_set_id"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_log_index_set/",
+        "query_params": [
+          "bk_biz_id",
+          "index_set_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "list_log_collectors",
+      "short": "List log access entries in a business with stable pagination",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "collector_scenario_id",
+          "type": "string",
+          "required": false,
+          "description": "Log type / collection scenario",
+          "enum": [
+            "row",
+            "section",
+            "wineventlog",
+            "custom",
+            "redis_slowlog",
+            "syslog",
+            "kafka",
+            "client"
+          ]
+        },
+        {
+          "name": "conditions",
+          "type": "string",
+          "required": false,
+          "description": "JSON array of advanced filters, such as [{\"key\":\"name\",\"value\":[\"nginx\"]}]"
+        },
+        {
+          "name": "keyword",
+          "type": "string",
+          "required": false,
+          "description": "Fuzzy search against collector display name, English name/result table, or business ID"
+        },
+        {
+          "name": "log_access_type",
+          "type": "array",
+          "required": false,
+          "description": "Filter by unified access type",
+          "items": "string",
+          "enum": [
+            "linux",
+            "winevent",
+            "container_file",
+            "container_stdout",
+            "bkdata",
+            "es",
+            "custom_report"
+          ]
+        },
+        {
+          "name": "ordering",
+          "type": "string",
+          "required": false,
+          "description": "Sort by a supported list field; prefix with - for descending order",
+          "enum": [
+            "name",
+            "-name",
+            "retention",
+            "-retention",
+            "updated_at",
+            "-updated_at",
+            "created_at",
+            "-created_at"
+          ]
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "required": false,
+          "description": "Page number, starting from 1"
+        },
+        {
+          "name": "page_size",
+          "type": "integer",
+          "required": false,
+          "description": "Number of collectors per page"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_log_collectors/",
+        "query_params": [
+          "bk_biz_id",
+          "page",
+          "page_size",
+          "keyword",
+          "collector_scenario_id",
+          "log_access_type",
+          "conditions",
+          "ordering"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "list_log_index_set_groups",
+      "short": "List index groups available to a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_log_index_set_groups/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "list_result_tables",
+      "short": "List result tables / indexes available to a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "result_table_id",
+          "type": "string",
+          "required": false,
+          "description": "Optional index name to fuzzy match"
+        },
+        {
+          "name": "scenario_id",
+          "type": "string",
+          "required": true,
+          "description": "Access scenario",
+          "enum": [
+            "bkdata",
+            "es"
+          ]
+        },
+        {
+          "name": "storage_cluster_id",
+          "type": "integer",
+          "required": false,
+          "description": "Storage cluster ID, required when scenario_id=es"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_result_tables/",
+        "query_params": [
+          "bk_biz_id",
+          "scenario_id",
+          "storage_cluster_id",
+          "result_table_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "list_third_party_es_clusters",
+      "short": "List third-party Elasticsearch storage clusters available to a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/list_third_party_es_clusters/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "collect",
+      "category": "log_collection",
+      "name": "preview_log_etl",
+      "short": "Preview field extraction from one sample log",
+      "capabilities": [
+        "analysis"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        },
+        {
+          "name": "data",
+          "type": "string",
+          "required": true,
+          "description": "One sample log line for preview"
+        },
+        {
+          "name": "etl_config",
+          "type": "string",
+          "required": true,
+          "description": "Cleaning type",
+          "enum": [
+            "bk_log_text",
+            "bk_log_json",
+            "bk_log_regexp",
+            "bk_log_delimiter"
+          ]
+        },
+        {
+          "name": "etl_params",
+          "type": "object",
+          "required": false,
+          "description": "Complete cleaning parameters (full replacement)"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_collection_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_collection_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/preview_log_etl/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "extract",
+      "category": "log_extract",
+      "name": "get_log_extract_task",
+      "short": "Get a log-extraction task state",
+      "capabilities": [
+        "detail"
+      ],
+      "prerequisites": [
+        "create_log_extract_task"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "task_id",
+          "type": "integer",
+          "required": true,
+          "description": "Log extraction task ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_extract_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/get_log_extract_task/",
+        "query_params": [
+          "bk_biz_id",
+          "task_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "extract",
+      "category": "log_extract",
+      "name": "list_log_extract_allowed_paths",
+      "short": "List paths allowed for log extraction",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "search_log_extract_hosts"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "ip_list",
+          "type": "array",
+          "required": false,
+          "description": "Optional; an empty array is treated as omitted",
+          "items": "object"
+        },
+        {
+          "name": "target_node_type",
+          "type": "string",
+          "required": false,
+          "description": "INSTANCE accepts ip_list or host target_nodes; TOPO and SERVICE_TEMPLATE require target_nodes",
+          "enum": [
+            "INSTANCE",
+            "TOPO",
+            "SERVICE_TEMPLATE"
+          ]
+        },
+        {
+          "name": "target_nodes",
+          "type": "array",
+          "required": false,
+          "description": "Optional; an empty array is treated as omitted.",
+          "items": "object"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_extract_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_log_extract_allowed_paths/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "extract",
+      "category": "log_extract",
+      "name": "list_log_extract_topology",
+      "short": "List topology nodes that the current user may access through log-extraction policies",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_extract_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/list_log_extract_topology/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "extract",
+      "category": "log_extract",
+      "name": "search_log_extract_hosts",
+      "short": "Query hosts accessible under log-extraction policies",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "list_log_extract_topology"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID"
+        },
+        {
+          "name": "node_list",
+          "type": "array",
+          "required": false,
+          "description": "Optional authorized topology nodes returned by list_log_extract_topology",
+          "items": "object"
+        },
+        {
+          "name": "page_size",
+          "type": "integer",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "search_content",
+          "type": "string",
+          "required": false,
+          "description": "Fuzzy search across internal IPv4, internal IPv6, host name, operating-system type, and operating-system name"
+        },
+        {
+          "name": "start",
+          "type": "integer",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_log_extract_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_log_search",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "POST",
+        "path": "/mcp/search_log_extract_hosts/",
+        "query_params": [],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "space",
+      "category": "metadata",
+      "name": "list_bcs_clusters",
+      "short": "List BCS (BlueKing Container Service) clusters in a business",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [
+        "search_spaces"
+      ],
+      "params": [
+        {
+          "name": "bk_biz_id",
+          "type": "string",
+          "required": true,
+          "description": "Business ID in BlueKing Monitor"
+        }
+      ],
+      "permission": {
+        "mode": "mcp_then_native",
+        "mcp": {
+          "system_id": "bk_monitorv3",
+          "action_id": "using_metadata_mcp",
+          "resource_type": "space"
+        },
+        "native": {
+          "system_id": "bk_monitorv3",
+          "action_id": "view_business_v2",
+          "resource_type": "space",
+          "resource_arg": "bk_biz_id"
+        }
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/search_bcs_clusters/",
+        "query_params": [
+          "bk_biz_id"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    },
+    {
+      "module": "space",
+      "category": "metadata",
+      "name": "search_spaces",
+      "short": "Find business spaces by name",
+      "capabilities": [
+        "discovery"
+      ],
+      "prerequisites": [],
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "required": false,
+          "description": "Page number, starts from 1"
+        },
+        {
+          "name": "page_size",
+          "type": "string",
+          "required": false,
+          "description": "Items per page"
+        },
+        {
+          "name": "space_name",
+          "type": "string",
+          "required": true,
+          "description": "Search keyword for fuzzy matching space/business names"
+        }
+      ],
+      "permission": {
+        "mode": "exempt"
+      },
+      "endpoint": {
+        "method": "GET",
+        "path": "/mcp/search_spaces/",
+        "query_params": [
+          "space_name",
+          "page",
+          "page_size"
+        ],
+        "auth": {
+          "userVerifiedRequired": true,
+          "appVerifiedRequired": false,
+          "resourcePermissionRequired": true
+        }
+      }
+    }
+  ],
+  "actions": {
+    "bk_monitorv3:using_metrics_mcp": "使用指标MCP",
+    "bk_monitorv3:using_log_mcp": "使用日志MCP",
+    "bk_monitorv3:using_alarm_mcp": "使用告警查询MCP",
+    "bk_monitorv3:using_apm_mcp": "使用APM MCP",
+    "bk_monitorv3:using_dashboard_mcp": "使用仪表盘MCP",
+    "bk_monitorv3:using_alarm_handling_mcp": "使用告警处置MCP",
+    "bk_monitorv3:using_log_collection_mcp": "使用日志采集MCP",
+    "bk_monitorv3:using_log_extract_mcp": "使用日志提取MCP",
+    "bk_monitorv3:using_metadata_mcp": "使用元数据MCP",
+    "bk_monitorv3:view_business_v2": "业务访问",
+    "bk_monitorv3:explore_metric_v2": "指标检索",
+    "bk_monitorv3:view_event_v2": "事件中心查看",
+    "bk_monitorv3:view_rule_v2": "策略查看",
+    "bk_monitorv3:view_downtime_v2": "屏蔽查看",
+    "bk_monitorv3:view_notify_team_v2": "告警组查看",
+    "bk_monitorv3:view_dashboard_v2": "仪表盘查看",
+    "bk_monitorv3:view_single_dashboard": "仪表盘实例查看",
+    "bk_monitorv3:view_apm_application_v2": "APM应用查看",
+    "bk_monitorv3:view_collection_v2": "采集查看",
+    "bk_log_search:view_business_v2": "业务访问",
+    "bk_log_search:search_log_v2": "日志检索"
+  },
+  "resource_types": {
+    "space": "业务",
+    "indices": "索引集",
+    "apm_application": "APM 应用",
+    "grafana_dashboard": "仪表盘"
+  }
+}

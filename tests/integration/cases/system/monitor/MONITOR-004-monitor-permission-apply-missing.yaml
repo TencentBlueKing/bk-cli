@@ -1,0 +1,52 @@
+id: MONITOR-004
+name: monitor permission apply returns either apply link
+tags:
+  - coverage-system_go
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command:
+      - context
+      - init
+      - --bk_api_url_tmpl
+      - ${MOCK_API_BASE_URL}/{gateway_name}
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command:
+      - auth
+      - login
+      - --access_token
+      - integration-token
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: apply for a denied tool
+    command:
+      - monitor
+      - permission
+      - apply
+      - --bk_biz_id
+      - "100100"
+      - --tool
+      - list_alerts
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: data.decision
+          equals: apply_required
+        - path: data.applications.0.any_of.0.action_id
+          equals: using_alarm_mcp
+        - path: data.applications.0.any_of.0.apply_url
+          equals: https://iam.example.com/apply/mcp
+        - path: data.applications.0.any_of.1.action_id
+          equals: view_event_v2
+        - path: data.applications.0.any_of.1.apply_url
+          equals: https://iam.example.com/apply/native

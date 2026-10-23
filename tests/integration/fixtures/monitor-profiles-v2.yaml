@@ -1,0 +1,40 @@
+# Synthetic resources and local contexts only. Not production configuration.
+version: 2
+sources:
+  logs: {context: default, bk_biz_id: "10007"}
+  traces: {context: cloud, bk_biz_id: "10008"}
+profiles:
+  game-prod:
+    environment: production
+    components:
+      backend:
+        bindings:
+          logs: {module: log, source: logs, args: {index_set_id: 1501}}
+          traces: &traces
+            module: apm
+            source: traces
+            args: {app_name: example-production}
+            tools:
+              search_spans:
+                filters: [{key: resource.service.name, operator: equal, value: [api]}]
+          traffic:
+            module: metric
+            source: traces
+            args: {table_id: example.metrics}
+            tools:
+              execute_range_query: {promql: 'sum(request_qps)'}
+          latency:
+            module: metric
+            source: traces
+            tools:
+              execute_range_query: {promql: 'max(request_latency)'}
+          policy:
+            module: alarm
+            source: logs
+            tools:
+              get_alarm_strategy:
+                conditions: [{key: strategy_id, value: ["1701"]}]
+      worker:
+        bindings:
+          logs: {module: log, source: logs, args: {index_set_id: 1502}}
+          traces: *traces
