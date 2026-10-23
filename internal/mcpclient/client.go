@@ -104,11 +104,20 @@ func (c *Client) ProtocolVersion() string {
 	return c.session.InitializeResult().ProtocolVersion
 }
 
-// Headers returns the last response headers with configured/known secrets masked.
+// Headers returns the last operation response headers, excluding session cleanup,
+// with configured/known secrets masked.
 func (c *Client) Headers() map[string]string {
 	c.state.mu.Lock()
 	defer c.state.mu.Unlock()
 	return maps.Clone(c.state.headers)
+}
+
+// RPCError returns the server's validated JSON-RPC code and message, if present.
+// Like tool results, this remote payload is kept separate from safe diagnostics.
+func (c *Client) RPCError() map[string]any {
+	c.state.mu.Lock()
+	defer c.state.mu.Unlock()
+	return maps.Clone(c.state.rpcError)
 }
 
 // CallAttempted reports whether a tools/call entered the HTTP transport.
@@ -182,7 +191,7 @@ func (c *Client) Discover() ([]map[string]any, error) {
 			tools = append(tools, tool)
 		}
 		next, exists := raw["nextCursor"]
-		if !exists || next == "" {
+		if !exists || next == nil || next == "" {
 			return tools, nil
 		}
 		cursor, ok = next.(string)

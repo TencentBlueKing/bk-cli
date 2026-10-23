@@ -19,6 +19,8 @@
 package mcpclient
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -104,45 +106,65 @@ func LoadConfig(path string) (*Config, error) {
 	return loaded, nil
 }
 
+// configFieldError includes only a validated server name and static field/reason
+// strings. Never pass raw parser messages, unknown keys or configuration values.
+func configFieldError(name, field, reason string) error {
+	return &Error{
+		"invalid_mcp_config",
+		fmt.Sprintf("Invalid MCP configuration: server %q, field %s: %s", name, field, reason),
+	}
+}
+
 func parseServer(name string, raw any) (*Server, error) {
 	if name == "" || strings.HasPrefix(name, "-") || strings.ContainsFunc(name, func(r rune) bool {
 		return unicode.IsSpace(r) || unicode.IsControl(r)
 	}) {
-		return nil, configError()
+		return nil, &Error{
+			"invalid_mcp_config",
+			"Invalid MCP configuration: mcpServers contains an invalid server name",
+		}
 	}
 	object, ok := raw.(map[string]any)
 	if !ok {
-		return nil, configError()
-	}
-	for key := range object {
-		if key != "type" && key != "url" && key != "headers" {
-			return nil, configError()
-		}
+		return nil, configFieldError(name, "entry", "expected an object")
 	}
 	transport, ok := object["type"].(string)
 	if !ok || transport != "http" {
-		return nil, configError()
+		return nil, configFieldError(
+			name,
+			"type",
+			`must be explicitly set to "http"; other transports are unsupported`,
+		)
+	}
+	for key := range object {
+		if key != "type" && key != "url" && key != "headers" {
+			return nil, configFieldError(name, "entry", "only type, url and headers are supported")
+		}
 	}
 	endpoint, ok := object["url"].(string)
 	if !ok || !validEndpoint(endpoint) {
-		return nil, configError()
+		return nil, configFieldError(
+			name,
+			"url",
+			"expected an absolute HTTP(S) URL without userinfo or fragment",
+		)
 	}
 	server := &Server{Name: name, URL: endpoint, Headers: make(map[string]string)}
 	if rawHeaders, exists := object["headers"]; exists {
 		headers, ok := rawHeaders.(map[string]any)
 		if !ok {
-			return nil, configError()
+			return nil, configFieldError(name, "headers", "expected an object of string values")
 		}
 		for key, value := range headers {
 			text, ok := value.(string)
 			if !ok {
-				return nil, configError()
+				return nil, configFieldError(name, "headers", "expected string values")
 			}
 			server.Headers[key] = text
 		}
 	}
 	if err := validateHeaders(server.Headers); err != nil {
-		return nil, err
+		return nil, configFieldError(name, "headers", "invalid, duplicate or protocol-managed header")
 	}
 	return server, nil
 }
@@ -199,6 +221,10 @@ func (s Server) ResolveHeaders() (http.Header, error) {
 		headers.Set(name, value)
 	}
 	if err := validateAuth(headers); err != nil {
+		var detail *Error
+		if errors.As(err, &detail) {
+			return nil, &Error{detail.Code, fmt.Sprintf("MCP server %q: %s", s.Name, detail.Message)}
+		}
 		return nil, err
 	}
 	return headers, nil

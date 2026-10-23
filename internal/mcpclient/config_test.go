@@ -113,6 +113,24 @@ var _ = Describe("MCP configuration", func() {
 			`{"mcpServers":{"test":{"type":"http","url":"https://example.com","headers":{"X-Key":"SECRET\n"}}}}`,
 		),
 	)
+	DescribeTable("identifies the invalid server and field without exposing values", func(entry, field string) {
+		_, err := LoadConfig(write(`{"mcpServers":{"broken":` + entry + `}}`))
+		Expect(
+			err,
+		).To(
+			MatchError(
+				And(
+					ContainSubstring("invalid_mcp_config"),
+					ContainSubstring(`"broken"`),
+					ContainSubstring(field),
+				),
+			),
+		)
+		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+	}, Entry("missing transport", `{"url":"https://example.com"}`, "type"),
+		Entry("stdio", `{"type":"stdio","url":"https://example.com"}`, "type"),
+		Entry("bad URL", `{"type":"http","url":"SECRET"}`, "url"),
+		Entry("bad headers", `{"type":"http","url":"https://example.com","headers":{"X-Key":42}}`, "headers"))
 	It("uses explicit files, exact names, and safe errors", func() {
 		path := write(`{"mcpServers":{"Case":{"type":"http","url":"http://example.com"}}}`)
 		GinkgoT().Setenv("BK_CLI_CONFIG_DIR", filepath.Join(dir, "unused"))
@@ -199,47 +217,47 @@ var _ = Describe("Server header resolution", func() {
 			},
 			"mcp_auth_conflict",
 		),
-		Entry("empty", map[string]string{"Authorization": ""}, "invalid_mcp_config"),
-		Entry("empty bearer", map[string]string{"Authorization": "bEaReR "}, "invalid_mcp_config"),
+		Entry("empty", map[string]string{"Authorization": ""}, "invalid_mcp_auth"),
+		Entry("empty bearer", map[string]string{"Authorization": "bEaReR "}, "invalid_mcp_auth"),
 		Entry(
 			"bearer with spaces",
 			map[string]string{"Authorization": "Bearer SECRET bad"},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
-		Entry("non-object", map[string]string{"X-Bkapi-Authorization": `[]`}, "invalid_mcp_config"),
-		Entry("invalid JSON", map[string]string{"X-Bkapi-Authorization": `SECRET`}, "invalid_mcp_config"),
-		Entry("empty object", map[string]string{"X-Bkapi-Authorization": `{}`}, "invalid_mcp_config"),
+		Entry("non-object", map[string]string{"X-Bkapi-Authorization": `[]`}, "invalid_mcp_auth"),
+		Entry("invalid JSON", map[string]string{"X-Bkapi-Authorization": `SECRET`}, "invalid_mcp_auth"),
+		Entry("empty object", map[string]string{"X-Bkapi-Authorization": `{}`}, "invalid_mcp_auth"),
 		Entry(
 			"wrong type",
 			map[string]string{"X-Bkapi-Authorization": `{"access_token":42}`},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 		Entry(
 			"empty token",
 			map[string]string{"X-Bkapi-Authorization": `{"access_token":" "}`},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 		Entry(
 			"mixed modes",
 			map[string]string{"X-Bkapi-Authorization": `{"access_token":"SECRET","bk_app_code":"a"}`},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 		Entry(
 			"unknown field",
 			map[string]string{"X-Bkapi-Authorization": `{"access_token":"SECRET","extra":"x"}`},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 		Entry(
 			"two user tokens",
 			map[string]string{
 				"X-Bkapi-Authorization": `{"bk_app_code":"a","bk_app_secret":"SECRET","bk_ticket":"t","bk_token":"t"}`,
 			},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 		Entry(
 			"missing secret",
 			map[string]string{"X-Bkapi-Authorization": `{"bk_app_code":"a","bk_ticket":"t"}`},
-			"invalid_mcp_config",
+			"invalid_mcp_auth",
 		),
 	)
 	DescribeTable("preserves template-like text literally", func(value string) {
@@ -260,6 +278,6 @@ var _ = Describe("Server header resolution", func() {
 	It("does not turn a templated bearer value into a valid credential", func() {
 		GinkgoT().Setenv("MCP_TEST_SECRET", "valid-token")
 		_, err := (Server{Headers: map[string]string{"Authorization": "Bearer ${MCP_TEST_SECRET}"}}).ResolveHeaders()
-		Expect(err).To(MatchError(ContainSubstring("invalid_mcp_config")))
+		Expect(err).To(MatchError(ContainSubstring("invalid_mcp_auth")))
 	})
 })

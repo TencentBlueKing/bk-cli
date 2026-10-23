@@ -91,10 +91,38 @@ var _ = Describe("MCP remote boundaries", func() {
 		_, err := client.Discover()
 		Expect(err).NotTo(HaveOccurred())
 		_, err = client.Call("echo", nil)
-		Expect(err).To(MatchError(ContainSubstring("mcp_protocol_error")))
+		Expect(err).To(MatchError(ContainSubstring("mcp_rpc_error")))
 		Expect(client.ResultKnown()).To(BeTrue())
 		Expect(err.Error()).NotTo(ContainSubstring("secret-error"))
 		Expect(f.calls).To(Equal(1))
+	})
+	DescribeTable("closes the session after a failed call without replaying it", func(rpc bool) {
+		f := fixture()
+		if rpc {
+			f.rpcError = true
+		} else {
+			f.callStatus = http.StatusServiceUnavailable
+		}
+		client := open(f)
+		_, err := client.Call("echo", nil)
+		Expect(err).To(HaveOccurred())
+		client.Close()
+		// Cleanup responses must not replace the failed operation's diagnostics.
+		Expect(client.Headers()["Content-Type"]).To(Equal("application/json"))
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		Expect(f.methods).To(ContainElement("DELETE"))
+		Expect(f.calls).To(Equal(1))
+		Expect(f.headers[len(f.headers)-1].Get("Mcp-Session-Id")).To(Equal("fixture-session"))
+	}, Entry("RPC error", true), Entry("HTTP error", false))
+	It("accepts a null nextCursor as the final page", func() {
+		f := fixture()
+		f.list = strings.TrimSuffix(f.list, "}") + `,"nextCursor":null}`
+		client := open(f)
+		tools, err := client.Discover()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tools).To(HaveLen(1))
+		Expect(f.listCount).To(Equal(1))
 	})
 	DescribeTable("keeps malformed JSON-RPC errors unknown", func(raw string) {
 		f := fixture()
@@ -298,6 +326,7 @@ var _ = Describe("MCP remote boundaries", func() {
 				"Authorization":         []string{"Bearer secret"},
 				"X-Bkapi-Authorization": []string{"secret"},
 				"Set-Cookie":            []string{"secret"},
+				"mCp-SeSsIoN-iD":        []string{"live-session"},
 				"Content-Type":          []string{"application/json"},
 			},
 			http.Header{"X-Api-Key": []string{""}},
@@ -306,6 +335,7 @@ var _ = Describe("MCP remote boundaries", func() {
 		Expect(masked["Authorization"]).To(Equal("***"))
 		Expect(masked["X-Bkapi-Authorization"]).To(Equal("***"))
 		Expect(masked["Set-Cookie"]).To(Equal("***"))
+		Expect(masked["mCp-SeSsIoN-iD"]).To(Equal("***"))
 		Expect(masked["Content-Type"]).To(Equal("application/json"))
 	})
 	It("enforces exact JSON and SSE read limits without success truncation", func() {

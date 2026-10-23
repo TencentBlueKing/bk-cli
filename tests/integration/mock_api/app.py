@@ -95,7 +95,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             tools = [{"name": name, "description": "Synthetic MCP tool", "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}} for name in ("echo", "fail", "slow", "input")]
             scenario = request.headers.get("X-Mock-Scenario", "")
             cursor = rpc.get("params", {}).get("cursor")
-            result = {"tools": tools}
+            result = {"tools": tools, "nextCursor": None}
             if scenario == "MCP-004":
                 result = {"tools": tools[2:] if cursor else tools[:2]}
                 if not cursor:
@@ -103,6 +103,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         elif method == "tools/call":
             params = rpc.get("params", {})
             name = params.get("name")
+            if name == "echo" and params.get("arguments", {}).get("text") == "rpc-error":
+                response = jsonify({"jsonrpc": "2.0", "id": rpc["id"], "error": {"code": -32602, "message": "Unknown tool"}})
+                response.headers["Mcp-Session-Id"] = "integration-private-session"
+                return response
             if name == "slow":
                 time.sleep(0.3)
             if name == "input":

@@ -50,6 +50,7 @@ var _ = Describe("MCP command", func() {
 	var calls, requests atomic.Int32
 	var endpoint, dir string
 	var result string
+	var rpcError bool
 	var callDelay time.Duration
 	var receivedHeaders chan http.Header
 	run := func(args ...string) (string, string, error) {
@@ -69,6 +70,7 @@ var _ = Describe("MCP command", func() {
 		GinkgoT().Setenv("BK_CLI_CONFIG_DIR", dir)
 		result = `{"content":[],"structuredContent":{"n":9007199254740993,"decimal":0.123456789012345678901}}`
 		callDelay = 0
+		rpcError = false
 		receivedHeaders = make(chan http.Header, 64)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests.Add(1)
@@ -106,6 +108,15 @@ var _ = Describe("MCP command", func() {
 				)
 			case "tools/call":
 				calls.Add(1)
+				if rpcError {
+					w.Header().Set("Mcp-Session-Id", "private-session")
+					fmt.Fprintf(
+						w,
+						`{"jsonrpc":"2.0","id":%s,"error":{"code":-32602,"message":"Unknown tool"}}`,
+						req.ID,
+					)
+					return
+				}
 				if callDelay > 0 {
 					select {
 					case <-time.After(callDelay):
@@ -119,6 +130,64 @@ var _ = Describe("MCP command", func() {
 		DeferCleanup(server.Close)
 		endpoint = server.URL
 		writeConfig(dir, endpoint)
+	})
+	It("preserves RPC code and message in a known failure envelope", func() {
+		rpcError = true
+		out, stderr, err := run("test", "echo", "--text", "hello")
+		Expect(err).To(HaveOccurred())
+		Expect(stderr).To(BeEmpty())
+		var env struct {
+			Error struct{ Code string }
+			Data  struct {
+				RPCError struct {
+					Code    int
+					Message string
+				} `json:"rpc_error"`
+				ExecutionState string `json:"execution_state"`
+			}
+			Headers map[string]string
+		}
+		Expect(json.Unmarshal([]byte(out), &env)).To(Succeed())
+		Expect(env.Error.Code).To(Equal("mcp_rpc_error"))
+		Expect(env.Data.RPCError.Code).To(Equal(-32602))
+		Expect(env.Data.RPCError.Message).To(Equal("Unknown tool"))
+		Expect(env.Data.ExecutionState).To(BeEmpty())
+		Expect(out).NotTo(ContainSubstring("private-session"))
+		Expect(env.Headers["Mcp-Session-Id"]).To(Equal("***"))
+		Expect(calls.Load()).To(Equal(int32(1)))
+	})
+	It("rejects dry-run combined with help before network or stdin access", func() {
+		out, stderr, err := run("test", "echo", "--dry-run", "--help", "--body", "-")
+		Expect(err).To(HaveOccurred())
+		Expect(out).To(BeEmpty())
+		Expect(stderr).To(ContainSubstring("invalid_mcp_arguments"))
+		Expect(requests.Load()).To(BeZero())
+	})
+	It("distinguishes local authentication errors from structural listing", func() {
+		path := filepath.Join(dir, "mcp.json")
+		content := fmt.Sprintf(
+			`{"mcpServers":{"test":{"type":"http","url":%q,"headers":{"X-Bkapi-Authorization":"{\"bk_app_code\":\"app\",\"bk_app_secret\":\"SECRET\"}"}}}}`,
+			endpoint,
+		)
+		Expect(os.WriteFile(path, []byte(content), 0o600)).To(Succeed())
+		_, _, err := run("--list")
+		Expect(err).NotTo(HaveOccurred())
+		out, stderr, err := run("test", "--check")
+		Expect(err).To(HaveOccurred())
+		Expect(out).To(BeEmpty())
+		Expect(
+			stderr,
+		).To(
+			And(
+				ContainSubstring("invalid_mcp_auth"),
+				ContainSubstring("test"),
+				ContainSubstring("bk_ticket"),
+				ContainSubstring("bk_token"),
+				ContainSubstring("access_token"),
+			),
+		)
+		Expect(stderr).NotTo(ContainSubstring("SECRET"))
+		Expect(requests.Load()).To(BeZero())
 	})
 	It("root and static server help do not connect or resolve credentials", func() {
 		for _, args := range [][]string{{}, {"--help"}, {"test"}, {"test", "-h"}} {

@@ -29,3 +29,12 @@ steps:
       checks:
         - {path: error.code, equals: mcp_capability_unsupported}
         - {path: data.result.requestState, equals: pending}
+  - name: preserve a known RPC error without exposing the session header
+    command: [mcp, fixture, echo, --text, rpc-error]
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: mcp_rpc_error}
+        - {path: data.rpc_error.code, equals: -32602}
+        - {path: data.rpc_error.message, equals: Unknown tool}
+        - {path: headers.Mcp-Session-Id, equals: '***'}

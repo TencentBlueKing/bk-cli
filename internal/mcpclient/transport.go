@@ -41,6 +41,7 @@ type wireState struct {
 	mu          sync.Mutex
 	failure     *Error
 	result      map[string]any
+	rpcError    map[string]any
 	resultBytes int
 	known       bool
 	reached     bool
@@ -54,6 +55,7 @@ func remoteError(code string) *Error {
 		"mcp_permission_denied":      "MCP permission denied; check server, tool and business permissions",
 		"mcp_connection_error":       "MCP connection failed; check the configured endpoint and TLS settings",
 		"mcp_timeout":                "MCP operation timed out or was cancelled",
+		"mcp_rpc_error":              "The MCP server returned a JSON-RPC error",
 		"mcp_protocol_error":         "Invalid MCP response or protocol negotiation",
 		"mcp_discovery_incomplete":   "MCP tool discovery did not complete",
 		"mcp_response_too_large":     "MCP response or tool catalog exceeds the fixed size limit",
@@ -77,6 +79,7 @@ func (s *wireState) begin() {
 	defer s.mu.Unlock()
 	s.failure = nil
 	s.result = nil
+	s.rpcError = nil
 	s.resultBytes = 0
 	s.known = false
 }
@@ -118,8 +121,10 @@ func (s *wireState) observe(data []byte, method string, id json.RawMessage) (boo
 		}
 		s.mu.Lock()
 		s.known = true
+		detail, _ := object["error"].(map[string]any) // checked by validRPCError above
+		s.rpcError = map[string]any{"code": detail["code"], "message": detail["message"]}
 		s.mu.Unlock()
-		return true, s.fail("mcp_protocol_error")
+		return true, s.fail("mcp_rpc_error")
 	}
 	result, ok := object["result"].(map[string]any)
 	if !ok {
@@ -169,7 +174,8 @@ func (t *guardedTransport) RoundTrip(request *http.Request) (*http.Response, err
 	t.state.mu.Lock()
 	failure := t.state.failure
 	t.state.mu.Unlock()
-	if failure != nil {
+	// A failed operation must not prevent bounded SDK session cleanup.
+	if failure != nil && request.Method != http.MethodDelete {
 		return nil, failure
 	}
 	var rpc struct {
@@ -215,7 +221,10 @@ func (t *guardedTransport) RoundTrip(request *http.Request) (*http.Response, err
 	}
 	t.state.mu.Lock()
 	t.state.reached = true
-	t.state.headers = maskedResponseHeaders(response.Header, t.headers)
+	// SDK cleanup may run before the caller renders the failed operation.
+	if request.Method != http.MethodDelete {
+		t.state.headers = maskedResponseHeaders(response.Header, t.headers)
+	}
 	t.state.mu.Unlock()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, readErr := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
@@ -264,7 +273,7 @@ func maskedResponseHeaders(headers, configured http.Header) map[string]string {
 		value := strings.Join(values, ", ")
 		if configured.Get(key) != "" || strings.EqualFold(key, "Authorization") ||
 			strings.EqualFold(key, "X-Bkapi-Authorization") ||
-			strings.EqualFold(key, "Set-Cookie") {
+			strings.EqualFold(key, "Set-Cookie") || strings.EqualFold(key, "Mcp-Session-Id") {
 			value = "***"
 		} else {
 			for name := range configured {

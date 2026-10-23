@@ -23,3 +23,9 @@ steps:
       exit_code: 1
       checks:
         - {path: error.code, equals: invalid_mcp_arguments}
+  - name: help cannot override offline dry run
+    command: [mcp, offline, unverified, --body, '{}', --dry-run, --help]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}

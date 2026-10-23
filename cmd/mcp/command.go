@@ -178,7 +178,7 @@ func (o *options) validateMode(cmd *cobra.Command, positionals []string) error {
 			Message: "--context is not supported by MCP; authentication comes only from server headers",
 		}
 	}
-	if len(positionals) > 2 || o.timeout <= 0 {
+	if len(positionals) > 2 || o.timeout <= 0 || (o.dryRun && o.help) {
 		return invalidArguments()
 	}
 	if len(positionals) > 0 {
@@ -429,6 +429,9 @@ func remoteFailure(cmd *cobra.Command, client *mcpclient.Client, data map[string
 	var detail *mcpclient.Error
 	if !errors.As(err, &detail) {
 		detail = &mcpclient.Error{Code: "mcp_protocol_error", Message: "MCP operation failed"}
+	}
+	if rpcError := client.RPCError(); rpcError != nil {
+		data["rpc_error"] = rpcError
 	}
 	hint := "Inspect the selected server configuration and result"
 	if data["execution_state"] == "unknown" {

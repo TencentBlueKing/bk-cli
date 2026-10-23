@@ -9,7 +9,7 @@ description: 当用户希望通过 bk-cli 连接远程 MCP server、检查连接
 
 使用 `bk-cli mcp <server>` 连接配置中的 Streamable HTTP server。先确认用户授权调用的目标和工具；发现工具不意味着授权调用全部工具。有副作用的工具按用户的业务授权执行。
 
-默认配置为 `~/.bk-cli/mcp.json`，或 `BK_CLI_CONFIG_DIR` 下的 `mcp.json`；`--config <path>` 只选一个指定文件，不合并。配置必须是严格 JSON：
+默认配置为 `~/.bk-cli/mcp.json`，或 `BK_CLI_CONFIG_DIR` 下的 `mcp.json`；`--config <path>` 只选一个指定文件，不合并。配置必须是严格 JSON，每个 server 都必须显式填写 `"type": "http"`。从其他客户端迁移时，应另存一份只含 HTTP 服务的配置并补齐 type；不能直接使用含 stdio 条目的文件：
 
 ```json
 {
@@ -25,7 +25,7 @@ description: 当用户希望通过 bk-cli 连接远程 MCP server、检查连接
 
 认证只来自所选 server 的 headers，配置字符串就是最终发送值，不支持环境变量展开或模板渲染；不读取 context、auth login 缓存、`.env` 或其他客户端配置。显式 `--context` 会报错，`--header/--stage/--tenant` 不支持。不要通过反复登录 bk-cli 解决 MCP 身份问题。
 
-除个人 Bearer 外，可将 `X-Bkapi-Authorization` 设为完整认证 JSON 字符串（配置中转义内层引号）：应用 code/secret + ticket、应用 code/secret + token、或独立 access_token。不要同时配置两种认证头。无认证 server 可省略 headers，自定义 API key 也写在 headers 中。参见[用户指南](../../docs/user-guide.md#11-远程-mcp-工具)的完整示例。
+除个人 Bearer 外，可将 `X-Bkapi-Authorization` 设为完整认证 JSON 字符串（配置中转义内层引号）：应用 code/secret + ticket、应用 code/secret + token、或独立 access_token。不支持仅含应用 code/secret 的组合。不要同时配置两种认证头。无认证 server 可省略 headers，自定义 API key 也写在 headers 中。参见[用户指南](../../docs/user-guide.md#11-远程-mcp-工具)的完整示例。
 
 ## 推荐流程
 
@@ -63,13 +63,16 @@ server、tool 和字段名使用配置/发现返回的原名，不改写大小�
 - 只发送明确提供的参数，不依赖 Schema default 自动补值。
 - body 是完整 arguments 对象，不是 HTTP/JSON-RPC 包装。body 覆盖全部具名参数，不合并；未知或重复 flag 仍报错。
 - 复杂 Schema、保留名（如 `help/body/config`）或无法表示为 flag 的字段通过 body 原名传入。
-- `--list` 不接受 server/tool 或其他执行模式；`--check`、`--tools` 与工具调用互斥。离线 dry-run 不接受具名工具参数，也不证明远端 Schema、工具存在性或权限。
+- `--list` 不接受 server/tool 或其他执行模式；`--check`、`--tools` 与工具调用互斥。离线 dry-run 不接受具名工具参数或 `--help`，也不证明远端 Schema、工具存在性或权限。
 - 默认总超时 60 秒，`--timeout 90s` 覆盖整次连接、所有分页和调用。`--verbose` 输出脱敏诊断；`--insecure` 只在明确需要时使用。
 
 ## 结果判断与恢复
 
 本地错误写 stderr、退出 1；远程失败写 stdout 的一个 `ok:false` envelope、退出 2。成功结果位于 `data.result`，其中 text 不自动解释为业务 JSON。`ok:true` 不证明异步任务完成或任意业务字段表示成功；check 成功也不证明所有工具均有权限。
 
+- `invalid_mcp_config`：按错误中的 server 和字段修正配置；任意条目结构不合规都会使整份文件校验失败。
+- `invalid_mcp_auth`：所选 server 的认证格式不受支持，按错误列出的字段组合修正；`--list` 只检查结构，成功不代表认证有效。
+- `mcp_rpc_error`：在 `data.rpc_error` 查看服务端 code/message，区分参数或工具错误与协议错误；不自动重发。
 - `mcp_auth_required`：检查所选 server 配置中的 headers，不自动 OAuth 登录或更换身份。
 - `mcp_permission_denied`：检查服务、工具与业务权限，不一律归因于票据过期。
 - `mcp_tool_not_found` / `invalid_mcp_arguments`：本地校验失败，没有调用工具；重新查看工具帮助。

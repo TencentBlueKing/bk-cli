@@ -34,10 +34,10 @@ func validateAuth(headers http.Header) error {
 		value := headers.Get("Authorization")
 		fields := strings.Fields(value)
 		if len(fields) == 0 {
-			return configError()
+			return invalidAuth("Authorization must be non-empty; Bearer requires one valid token")
 		}
 		if strings.EqualFold(fields[0], "Bearer") && (len(fields) != 2 || !validBearer(fields[1])) {
-			return configError()
+			return invalidAuth("Authorization must be non-empty; Bearer requires one valid token")
 		}
 	}
 	if hasBlueKing {
@@ -53,34 +53,45 @@ func validBearer(value string) bool { return bearerToken.MatchString(value) }
 func validateBlueKingAuth(value string) error {
 	raw, err := decodeJSON(strings.NewReader(value))
 	if err != nil {
-		return configError()
+		return invalidBlueKingAuth()
 	}
 	fields, ok := raw.(map[string]any)
 	if !ok {
-		return configError()
+		return invalidBlueKingAuth()
 	}
 	auth := make(map[string]string)
 	for key, value := range fields {
 		switch key {
 		case "access_token", "bk_app_code", "bk_app_secret", "bk_token", "bk_ticket":
 		default:
-			return configError()
+			return invalidBlueKingAuth()
 		}
 		text, ok := value.(string)
 		if !ok || strings.TrimSpace(text) == "" {
-			return configError()
+			return invalidBlueKingAuth()
 		}
 		auth[key] = text
 	}
 	if auth["access_token"] != "" {
 		if len(auth) != 1 {
-			return configError()
+			return invalidBlueKingAuth()
 		}
 		return nil
 	}
 	if len(auth) != 3 || auth["bk_app_code"] == "" || auth["bk_app_secret"] == "" ||
 		(auth["bk_token"] == "") == (auth["bk_ticket"] == "") {
-		return configError()
+		return invalidBlueKingAuth()
 	}
 	return nil
+}
+
+func invalidAuth(message string) error {
+	return &Error{"invalid_mcp_auth", message}
+}
+
+func invalidBlueKingAuth() error {
+	return invalidAuth(
+		"X-Bkapi-Authorization requires exactly access_token, or bk_app_code + bk_app_secret + " +
+			"one of bk_ticket/bk_token; all values must be non-empty strings",
+	)
 }
