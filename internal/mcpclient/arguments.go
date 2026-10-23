@@ -72,7 +72,7 @@ var parameterName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]*$`)
 // ReservedParameter reports names owned or reserved by the MCP CLI contract.
 func ReservedParameter(name string) bool {
 	switch name {
-	case "help", "h", "check", "tools", "config", "body", "body-schema", "timeout", "jq", "context",
+	case "help", "h", "list", "check", "tools", "config", "body", "body-schema", "timeout", "jq", "context",
 		"dry-run", "verbose", "v", "insecure", "format", "header", "stage", "tenant", "quiet", "q":
 		return true
 	}

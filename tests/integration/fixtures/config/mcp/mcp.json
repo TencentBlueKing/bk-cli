@@ -4,14 +4,33 @@
       "type": "http",
       "url": "http://mock_api:8080/mcp",
       "headers": {
-        "Authorization": "Bearer ${MCP_TEST_TOKEN}",
-        "X-Mock-Scenario": "${MCP_TEST_SCENARIO}"
+        "Authorization": "Bearer integration-mcp",
+        "X-Mock-Scenario": "MCP-001",
+        "X-Literal": "${MCP_TEST_TOKEN}"
       }
     },
     "offline": {
       "type": "http",
       "url": "http://127.0.0.1:1/not-running",
-      "headers": {"X-API-Key": "offline-secret"}
+      "headers": {
+        "X-API-Key": "offline-secret"
+      }
+    },
+    "fixture-sse": {
+      "type": "http",
+      "url": "http://mock_api:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer integration-mcp",
+        "X-Mock-Scenario": "MCP-004",
+        "X-Literal": "${MCP_TEST_TOKEN}"
+      }
+    },
+    "denied": {
+      "type": "http",
+      "url": "http://mock_api:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer invalid-token"
+      }
     }
   }
 }

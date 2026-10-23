@@ -201,6 +201,7 @@ var _ = Describe("MCP arguments", func() {
 	It("keeps reserved and ambiguous fields accessible through body", func() {
 		schema := map[string]any{"properties": map[string]any{
 			"body":     map[string]any{"type": "string"},
+			"list":     map[string]any{"type": "string"},
 			"bad name": map[string]any{"type": "string"},
 			"union": map[string]any{
 				"type": []any{"string", "null"},
@@ -214,7 +215,14 @@ var _ = Describe("MCP arguments", func() {
 		).To(
 			Equal([]Parameter{{Name: "flag", Type: "boolean", Description: "A flag", Required: true}}),
 		)
-		body := map[string]any{"body": "value", "flag": false, "bad name": "x", "union": nil, "ref": "x"}
+		body := map[string]any{
+			"body":     "value",
+			"list":     "value",
+			"flag":     false,
+			"bad name": "x",
+			"union":    nil,
+			"ref":      "x",
+		}
 		_, err := BuildArguments(schema, nil, body)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = BuildArguments(schema, []NamedArgument{{"body", "value"}}, nil)

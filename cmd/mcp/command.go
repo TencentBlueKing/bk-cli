@@ -39,28 +39,31 @@ import (
 )
 
 type options struct {
-	config, body                                  string
-	timeout                                       time.Duration
-	check, tools, help, dryRun, verbose, insecure bool
-	context                                       string
-	server, tool                                  string
-	named                                         []mcpclient.NamedArgument
+	config, body                                        string
+	timeout                                             time.Duration
+	list, check, tools, help, dryRun, verbose, insecure bool
+	context                                             string
+	server, tool                                        string
+	named                                               []mcpclient.NamedArgument
 }
 
 const generalHelp = `Usage:
+  bk-cli mcp [--config path] --list
   bk-cli mcp [--config path] <server> [--check | --tools | <tool> [arguments]]
 
 Configuration: $BK_CLI_CONFIG_DIR/mcp.json, otherwise ~/.bk-cli/mcp.json.
-Only the selected server's configured headers are used; context credentials are never loaded.
+Only the selected server's configured headers are used, without environment expansion.
+Context credentials are never loaded.
 
 Examples:
-  bk-cli mcp report-prod --check
-  bk-cli mcp report-prod --tools
-  bk-cli mcp report-prod search --help
-  bk-cli mcp report-prod search --body '{"keyword":"gateway"}'
-  bk-cli mcp report-prod search --body @arguments.json
-  bk-cli mcp report-prod search --body - < arguments.json
-  bk-cli mcp report-prod search --body '{}' --dry-run
+  bk-cli mcp --list
+  bk-cli mcp demo --check
+  bk-cli mcp demo --tools
+  bk-cli mcp demo search --help
+  bk-cli mcp demo search --body '{"keyword":"gateway"}'
+  bk-cli mcp demo search --body @arguments.json
+  bk-cli mcp demo search --body - < arguments.json
+  bk-cli mcp demo search --body '{}' --dry-run
 
 Options: --config, --timeout (default 60s), --jq, --verbose/-v, --insecure, --dry-run.
 Remote tools may have side effects. Discovery success does not prove business permissions.
@@ -81,6 +84,7 @@ func NewCommand() *cobra.Command {
 	flags.StringVar(&o.config, "config", "", "Use exactly this MCP JSON file")
 	flags.StringVar(&o.body, "body", "", "Complete arguments JSON, @file, or - for stdin")
 	flags.DurationVar(&o.timeout, "timeout", config.DefaultTimeout, "Total remote operation timeout")
+	flags.BoolVar(&o.list, "list", false, "List configured servers locally without connecting")
 	flags.BoolVar(&o.check, "check", false, "Check connection, protocol and complete tool discovery")
 	flags.BoolVar(&o.tools, "tools", false, "List all tools and schemas")
 	flags.BoolVarP(&o.help, "help", "h", false, "Show help without calling a tool")
@@ -202,10 +206,16 @@ func (o *options) validateMode(cmd *cobra.Command, positionals []string) error {
 	if o.server == "" && modes > 0 {
 		return invalidArguments()
 	}
+	if o.list && (o.server != "" || modes > 0) {
+		return invalidArguments()
+	}
 	return nil
 }
 
 func (o *options) run(cmd *cobra.Command) error {
+	if o.list && !o.help {
+		return o.listServers(cmd)
+	}
 	if o.server == "" {
 		_, err := fmt.Fprint(cmd.OutOrStdout(), generalHelp)
 		return err
@@ -271,6 +281,22 @@ func (o *options) run(cmd *cobra.Command) error {
 		)
 	}
 	return o.execute(cmd, server, headers)
+}
+
+func (o *options) listServers(cmd *cobra.Command) error {
+	loaded, err := mcpclient.LoadConfig(o.config)
+	if err != nil {
+		return localError(cmd, err)
+	}
+	servers := make([]map[string]any, 0, len(loaded.Servers))
+	for _, server := range loaded.Servers {
+		servers = append(servers, map[string]any{
+			"name": server.Name, "transport": "http", "url": server.URL, "headers": server.MaskedHeaders(),
+		})
+	}
+	return writeResult(cmd, output.SuccessData(map[string]any{
+		"config_file": loaded.File, "server_count": len(servers), "servers": servers,
+	}))
 }
 
 func (o *options) execute(cmd *cobra.Command, server *mcpclient.Server, headers http.Header) error {

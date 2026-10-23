@@ -51,6 +51,7 @@ var _ = Describe("MCP command", func() {
 	var endpoint, dir string
 	var result string
 	var callDelay time.Duration
+	var receivedHeaders chan http.Header
 	run := func(args ...string) (string, string, error) {
 		cmd := NewCommand()
 		var out, stderr bytes.Buffer
@@ -68,8 +69,10 @@ var _ = Describe("MCP command", func() {
 		GinkgoT().Setenv("BK_CLI_CONFIG_DIR", dir)
 		result = `{"content":[],"structuredContent":{"n":9007199254740993,"decimal":0.123456789012345678901}}`
 		callDelay = 0
+		receivedHeaders = make(chan http.Header, 64)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests.Add(1)
+			receivedHeaders <- r.Header.Clone()
 			if r.Method == "DELETE" {
 				w.WriteHeader(204)
 				return
@@ -128,6 +131,82 @@ var _ = Describe("MCP command", func() {
 		Expect(os.Remove(filepath.Join(dir, "mcp.json"))).To(Succeed())
 		_, _, err := run("--help")
 		Expect(err).NotTo(HaveOccurred())
+	})
+	It("lists configured servers offline with stable names and masked headers", func() {
+		path := filepath.Join(dir, "other.json")
+		content := `{"mcpServers":{"zeta":{"type":"http","url":"http://127.0.0.1:1/z","headers":{"Authorization":"Bearer ${UNSET}"}},"alpha":{"type":"http","url":"http://127.0.0.1:1/a","headers":{"X-Key":"private-secret"}}}}`
+		Expect(os.WriteFile(path, []byte(content), 0o600)).To(Succeed())
+		out, stderr, err := run("--list", "--config", path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stderr).To(BeEmpty())
+		var env struct {
+			Data struct {
+				ConfigFile  string `json:"config_file"`
+				ServerCount int    `json:"server_count"`
+				Servers     []struct {
+					Name, URL, Transport string
+					Headers              map[string]string
+				} `json:"servers"`
+			}
+		}
+		Expect(json.Unmarshal([]byte(out), &env)).To(Succeed())
+		Expect(env.Data.ConfigFile).To(Equal(path))
+		Expect(env.Data.ServerCount).To(Equal(2))
+		Expect(env.Data.Servers).To(HaveLen(2))
+		Expect(env.Data.Servers[0].Name).To(Equal("alpha"))
+		Expect(env.Data.Servers[0].URL).To(Equal("http://127.0.0.1:1/a"))
+		Expect(env.Data.Servers[0].Transport).To(Equal("http"))
+		Expect(env.Data.Servers[0].Headers).To(Equal(map[string]string{"X-Key": "***"}))
+		Expect(env.Data.Servers[1].Name).To(Equal("zeta"))
+		Expect(out).NotTo(ContainSubstring("private-secret"))
+		Expect(out).NotTo(ContainSubstring("${UNSET}"))
+		out, _, err = run("--list", "--jq", ".data.servers[].name")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("\"test\"\n"))
+		Expect(requests.Load()).To(BeZero())
+	})
+	It("lists empty configuration and reports missing or malformed files locally", func() {
+		path := filepath.Join(dir, "mcp.json")
+		Expect(os.WriteFile(path, []byte(`{"mcpServers":{}}`), 0o600)).To(Succeed())
+		out, _, err := run("--list", "--jq", ".data.servers")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("[]\n"))
+		Expect(os.WriteFile(path, []byte(`{"mcpServers":{"bad":{}}}`), 0o600)).To(Succeed())
+		out, stderr, err := run("--list")
+		Expect(err).To(HaveOccurred())
+		Expect(out).To(BeEmpty())
+		Expect(stderr).To(ContainSubstring("invalid_mcp_config"))
+		Expect(os.Remove(path)).To(Succeed())
+		out, stderr, err = run("--list")
+		Expect(err).To(HaveOccurred())
+		Expect(out).To(BeEmpty())
+		Expect(stderr).To(ContainSubstring("mcp_config_not_found"))
+		out, _, err = run("--list", "--help")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("Usage:"))
+		Expect(requests.Load()).To(BeZero())
+	})
+	It("rejects list mode combined with a target or remote execution", func() {
+		for _, args := range [][]string{{"--list", "test"}, {"--list", "--check"}, {"--list", "--tools"}, {"--list", "--body={}"}, {"--list", "--dry-run"}, {"--list", "--text=x"}, {"--list", "--context=x"}} {
+			out, _, err := run(args...)
+			Expect(err).To(HaveOccurred())
+			Expect(out).To(BeEmpty())
+		}
+		Expect(requests.Load()).To(BeZero())
+	})
+	It("sends configured headers literally without environment rendering", func() {
+		GinkgoT().Setenv("MCP_LITERAL_SECRET", "changed-by-environment")
+		content := fmt.Sprintf(
+			`{"mcpServers":{"test":{"type":"http","url":%q,"headers":{"X-Key":"${MCP_LITERAL_SECRET}/$${missing}"}}}}`,
+			endpoint,
+		)
+		Expect(os.WriteFile(filepath.Join(dir, "mcp.json"), []byte(content), 0o600)).To(Succeed())
+		_, _, err := run("test", "echo", "--text=x")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(receivedHeaders)).To(BeNumerically(">", 0))
+		for len(receivedHeaders) > 0 {
+			Expect((<-receivedHeaders).Get("X-Key")).To(Equal("${MCP_LITERAL_SECRET}/$${missing}"))
+		}
 	})
 	It("tool help discovers but does not read a body or call", func() {
 		out, _, err := run("test", "echo", "--help", "--body", "-")

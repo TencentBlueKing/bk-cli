@@ -20,51 +20,9 @@ package mcpclient
 
 import (
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 )
-
-var environmentName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-func expandHeader(value string) (string, error) {
-	var expanded strings.Builder
-	for i := 0; i < len(value); {
-		switch {
-		case strings.HasPrefix(value[i:], "$${"):
-			expanded.WriteString("${")
-			i += 3
-		case strings.HasPrefix(value[i:], "${"):
-			end := strings.IndexByte(value[i+2:], '}')
-			if end < 0 {
-				return "", configError()
-			}
-			name := value[i+2 : i+2+end]
-			if !environmentName.MatchString(name) {
-				return "", configError()
-			}
-			replacement, ok := os.LookupEnv(name)
-			if !ok {
-				return "", &Error{
-					"missing_environment_variable",
-					"A configured MCP header environment variable is not set",
-				}
-			}
-			if len(replacement) > MaxInputBytes-expanded.Len() {
-				return "", configError()
-			}
-			expanded.WriteString(replacement)
-			i += end + 3
-		default:
-			expanded.WriteByte(value[i])
-			i++
-		}
-		if expanded.Len() > MaxInputBytes {
-			return "", configError()
-		}
-	}
-	return expanded.String(), nil
-}
 
 func validateAuth(headers http.Header) error {
 	_, hasAuthorization := headers["Authorization"]

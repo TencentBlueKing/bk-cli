@@ -4,21 +4,18 @@ workspace:
   seed_config: mcp
 steps:
   - name: complete body overrides named values
-    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-003}
     command: [mcp, fixture, echo, --text=ignored, --body, '{"text":"body","n":9007199254740993}']
     expect:
       exit_code: 0
       checks:
         - {path: data.result.structuredContent.arguments.text, equals: body}
   - name: missing required argument is local
-    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-003}
     command: [mcp, fixture, echo]
     expect:
       exit_code: 1
       checks:
         - {path: error.code, equals: invalid_mcp_arguments}
   - name: tool error is not hidden by jq
-    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-003}
     command: [mcp, fixture, fail, --text=x, --jq, empty]
     expect:
       exit_code: 2
@@ -26,7 +23,6 @@ steps:
         - {path: error.code, equals: mcp_tool_error}
         - {path: data.result.isError, equals: true}
   - name: input required remains incomplete
-    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-003}
     command: [mcp, fixture, input, --text=x]
     expect:
       exit_code: 2

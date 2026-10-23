@@ -51,21 +51,22 @@ var _ = Describe("MCP configuration", func() {
 		_, err = LoadServer(filepath.Join(dir, "missing.json"), "test")
 		Expect(err).To(MatchError(ContainSubstring("mcp_config_not_found")))
 	})
-	It("keeps help independent of selected or unrelated missing variables", func() {
+	It("keeps configured header values literal without changing the file", func() {
 		path := write(
-			`{"mcpServers":{"test":{"type":"http","url":"https://example.com","headers":{"Authorization":"Bearer ${MCP_TEST_SECRET}"}},"other":{"type":"http","url":"https://example.net","headers":{"X-Key":"${MCP_TEST_MISSING}"}}}}`,
+			`{"mcpServers":{"test":{"type":"http","url":"https://example.com","headers":{"X-Key":"${MCP_TEST_SECRET}"}},"other":{"type":"http","url":"https://example.net","headers":{"Authorization":"invalid credential"}}}}`,
 		)
 		GinkgoT().Setenv("MCP_TEST_SECRET", "secret")
 		selected, err := LoadServer(path, "test")
 		Expect(err).NotTo(HaveOccurred())
 		headers, err := selected.ResolveHeaders()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(headers.Get("Authorization")).To(Equal("Bearer secret"))
-		Expect(selected.MaskedHeaders()).To(Equal(map[string]string{"Authorization": "***"}))
+		Expect(headers.Get("X-Key")).To(Equal("${MCP_TEST_SECRET}"))
+		Expect(selected.MaskedHeaders()).To(Equal(map[string]string{"X-Key": "***"}))
 		content, err := os.ReadFile(path)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(content)).To(ContainSubstring("${MCP_TEST_SECRET}"))
 	})
+
 	DescribeTable(
 		"rejects invalid structure without reflecting secrets",
 		func(body string) {
@@ -241,36 +242,24 @@ var _ = Describe("Server header resolution", func() {
 			"invalid_mcp_config",
 		),
 	)
-	It("expands only explicit references, once, and supports literal escapes", func() {
-		GinkgoT().Setenv("MCP_TEST_A", "${MCP_TEST_B}")
-		GinkgoT().Setenv("MCP_TEST_B", "SECRET")
-		GinkgoT().Setenv("BK_CLI_PERSONAL_TOKEN", "unrelated")
-		server := Server{
-			Headers: map[string]string{"X-Key": "${MCP_TEST_A}/${MCP_TEST_B}/$${literal}/$(whoami)"},
-		}
-		headers, err := server.ResolveHeaders()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(headers.Get("X-Key")).To(Equal("${MCP_TEST_B}/SECRET/${literal}/$(whoami)"))
-		Expect(headers.Get("Authorization")).To(BeEmpty())
-	})
-	DescribeTable("rejects unsupported template syntax", func(value string) {
-		_, err := (Server{Headers: map[string]string{"X-Key": value}}).ResolveHeaders()
-		Expect(err).To(MatchError(ContainSubstring("invalid_mcp_config")))
-	}, Entry("unterminated", "${SECRET"), Entry("client syntax", "${env:SECRET}"), Entry("default", "${SECRET:-default}"), Entry("empty", "${}"), Entry("leading digit", "${1SECRET}"))
-	It("rejects missing variables and expanded control characters", func() {
-		name := "BK_CLI_MCP_TEST_UNSET_42"
-		old, exists := os.LookupEnv(name)
-		Expect(os.Unsetenv(name)).To(Succeed())
-		DeferCleanup(func() {
-			if exists {
-				Expect(os.Setenv(name, old)).To(Succeed())
-			}
-		})
-		_, err := (Server{Headers: map[string]string{"X-Key": "${" + name + "}"}}).ResolveHeaders()
-		Expect(err).To(MatchError(ContainSubstring("missing_environment_variable")))
+	DescribeTable("preserves template-like text literally", func(value string) {
+		GinkgoT().Setenv("MCP_TEST_SECRET", "SECRET")
 		GinkgoT().Setenv("MCP_TEST_BAD", "SECRET\r\n")
-		_, err = (Server{Headers: map[string]string{"X-Key": "${MCP_TEST_BAD}"}}).ResolveHeaders()
+		GinkgoT().Setenv("BK_CLI_PERSONAL_TOKEN", "unrelated")
+		headers, err := (Server{Headers: map[string]string{"X-Key": value}}).ResolveHeaders()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(headers.Get("X-Key")).To(Equal(value))
+		Expect(headers.Get("Authorization")).To(BeEmpty())
+	}, Entry("existing variable", "${MCP_TEST_SECRET}"),
+		Entry("missing variable", "${MCP_VARIABLE_NOT_CONFIGURED_42}"),
+		Entry("escape", "$${MCP_TEST_SECRET}"),
+		Entry("control characters in environment", "${MCP_TEST_BAD}"),
+		Entry("unterminated", "${SECRET"), Entry("client syntax", "${env:SECRET}"),
+		Entry("default", "${SECRET:-default}"), Entry("empty", "${}"),
+		Entry("shell text", "$(whoami)/`whoami`"))
+	It("does not turn a templated bearer value into a valid credential", func() {
+		GinkgoT().Setenv("MCP_TEST_SECRET", "valid-token")
+		_, err := (Server{Headers: map[string]string{"Authorization": "Bearer ${MCP_TEST_SECRET}"}}).ResolveHeaders()
 		Expect(err).To(MatchError(ContainSubstring("invalid_mcp_config")))
-		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
 	})
 })

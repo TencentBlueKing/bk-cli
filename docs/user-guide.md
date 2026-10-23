@@ -670,15 +670,15 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/{gateway_name}/resources/ \
 ```json
 {
   "mcpServers": {
-    "report-personal": {
+    "demo": {
       "type": "http",
-      "url": "https://mcp.example.com/report/application/mcp/",
-      "headers": {"Authorization": "Bearer ${REPORT_PERSONAL_TOKEN}"}
+      "url": "https://mcp.example.com/demo/mcp/",
+      "headers": {"Authorization": "Bearer your-personal-token"}
     },
-    "report-app": {
+    "demo-app": {
       "type": "http",
-      "url": "https://mcp.example.com/report/application/mcp/",
-      "headers": {"X-Bkapi-Authorization": "${REPORT_BK_AUTH}"}
+      "url": "https://mcp.example.com/demo/mcp/",
+      "headers": {"X-Bkapi-Authorization": "{\"access_token\":\"your-access-token\"}"}
     },
     "public-docs": {
       "type": "http",
@@ -688,7 +688,7 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/{gateway_name}/resources/ \
 }
 ```
 
-只展开所选 server 的 header 中显式声明的 `${ENV_NAME}`。从安全的凭据来源设置这些环境变量；`REPORT_BK_AUTH` 应是完整 JSON 对象字符串，支持以下三种独立形态：
+配置文件中的 header 字符串就是最终发送值，不做环境变量展开或模板渲染。请直接填写凭据；`${NAME}` 和 `$${NAME}` 没有特殊含义，也不会读取对应环境变量。蓝鲸 `X-Bkapi-Authorization` 的值是 JSON 对象字符串，支持以下三种独立形态（写进配置时需转义内层引号）：
 
 ```json
 {"bk_app_code":"your_app","bk_app_secret":"your_secret","bk_ticket":"your_ticket"}
@@ -696,39 +696,43 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/{gateway_name}/resources/ \
 {"access_token":"your_access_token"}
 ```
 
-不要同时配置 `Authorization` 与 `X-Bkapi-Authorization`。自定义 API key header 和第三方合法 Authorization scheme 也可透传。缺失环境变量、空认证值、重复配置字段或不支持的配置选项会明确失败，不自动回退匿名或其他身份。无认证 server 可以省略 headers。`$${` 表示字面 `${`；不会执行 shell、递归展开或读取 `.env`。
+不要同时配置 `Authorization` 与 `X-Bkapi-Authorization`。自定义 API key header 和第三方合法 Authorization scheme 也可透传。空认证值、重复配置字段或不支持的配置选项会明确失败，不自动回退匿名或其他身份。无认证 server 可以省略 headers。不会执行 shell 或读取 `.env`。
 
 含真实票据的文件应仅允许当前用户读写，不提交版本库。配置和错误诊断中的全部 header 值都显示为 `***`；工具返回的业务数据原样保留，仍应按其敏感程度处理。
 
 ### 检查、发现、帮助与调用
 
 ```bash
-# 本地帮助，不需要票据环境变量，不连接远端
+# 本地帮助，只展示用法；不连接远端
 bk-cli mcp
-bk-cli mcp report-personal
+bk-cli mcp demo
+
+# 查看当前配置文件中的服务列表，不联网；header 值统一脱敏
+bk-cli mcp --list
+bk-cli mcp --config ./mcp.json --list
 
 # 检查协议和完整目录；查看完整工具定义
-bk-cli mcp report-personal --check
-bk-cli mcp report-personal --tools
-bk-cli mcp report-personal search_reports --help
+bk-cli mcp demo --check
+bk-cli mcp demo --tools
+bk-cli mcp demo search --help
 
 # 按远端 Schema 的原始字段名传参；布尔值显式赋值
-bk-cli mcp report-personal search_reports --keyword '网关错误' --limit 20 --enabled=false
+bk-cli mcp demo search --keyword '网关错误' --limit 20 --enabled=false
 
 # 完整 arguments 对象，不是 JSON-RPC 报文；覆盖全部具名参数
-bk-cli mcp report-personal search_reports --body '{"keyword":"网关错误","limit":20}'
-bk-cli mcp report-personal search_reports --body @params.json
-bk-cli mcp report-personal search_reports --body - < params.json
+bk-cli mcp demo search --body '{"keyword":"网关错误","limit":20}'
+bk-cli mcp demo search --body @params.json
+bk-cli mcp demo search --body - < params.json
 
 # 只用指定配置；提取最终结果
-bk-cli mcp --config ./mcp.json report-personal --tools --jq '.data.tools[].name'
-bk-cli mcp report-personal search_reports --body @params.json --jq '.data.result'
+bk-cli mcp --config ./mcp.json demo --tools --jq '.data.tools[].name'
+bk-cli mcp demo search --body @params.json --jq '.data.result'
 
 # 完全离线的预览；无参数工具也要显式提供 {}
-bk-cli mcp report-personal search_reports --body @params.json --dry-run
+bk-cli mcp demo search --body @params.json --dry-run
 ```
 
-示例 server/tool/字段名需换成实际配置和发现结果，名称大小写敏感，保留下划线、连字符和点号。工具帮助会联网获取 Schema，但不会调用工具或读取 body/stdin。`--check`、`--tools`、tool 调用互斥；不提供 `--header/--stage/--tenant`。复杂 Schema、无法映射的名字以及 `body/help/config` 等保留名字段使用完整 body，不自动改名。具名数组和对象使用 JSON，不能用逗号分隔代替。只发送显式值，不注入 Schema default。body 顶层必须是对象，无参数用 `{}`。
+示例 server/tool/字段名需换成实际配置和发现结果，名称大小写敏感，保留下划线、连字符和点号。工具帮助会联网获取 Schema，但不会调用工具或读取 body/stdin。`--list` 不接受 server/tool 或其他执行模式；`--check`、`--tools`、tool 调用互斥；不提供 `--header/--stage/--tenant`。复杂 Schema、无法映射的名字以及 `body/help/config` 等保留名字段使用完整 body，不自动改名。具名数组和对象使用 JSON，不能用逗号分隔代替。只发送显式值，不注入 Schema default。body 顶层必须是对象，无参数用 `{}`。
 
 `--timeout 90s` 设置本次连接、所有发现页和工具调用的总时间，默认 60 秒。`--verbose` 在 stderr 输出已脱敏的诊断；`--insecure` 仅用于明确需要跳过证书验证的环境。重定向不会被跟随，应直接配置最终 endpoint。
 
@@ -739,7 +743,7 @@ bk-cli mcp report-personal search_reports --body @params.json --dry-run
 | 本地配置/参数错误 | stderr 结构化错误，退出 1；修正配置或参数，工具未调用 |
 | check/tools 成功 | stdout `ok:true`、`complete:true`；只证明本次连接/发现成功，不证明所有业务权限 |
 | 同步工具成功 | stdout `data.result`，退出 0；仍按工具业务契约判断数据，任务 ID 不代表任务已完成 |
-| 401 / 403 | 退出 2；分别检查所选 headers 的认证和该身份的服务/工具/业务权限，不会自动登录或切换凭据 |
+| 401 / 403 | 退出 2；分别检查所选配置 headers 的认证和该身份的服务/工具/业务权限，不会自动登录或切换凭据 |
 | 工具 `isError:true` | 退出 2，保留原始结果；检查 `data.result` |
 | `mcp_capability_unsupported` | 退出 2，保留输入要求或 task 标识；不自动补充输入、轮询或再次调用 |
 | `data.execution_state: "unknown"` | 工具请求可能已执行，但完整结果丢失；先通过业务查询核实，不能直接重跑写操作 |
@@ -748,13 +752,3 @@ bk-cli mcp report-personal search_reports --body @params.json --dry-run
 每次 CLI 执行最多发送一次 `tools/call`。一期不支持 OAuth 自动登录、stdio、旧 HTTP+SSE、sampling/elicitation、input_required 接续或异步 task 轮询。HTTP 200 不单独代表成功；失败 envelope 不被 jq 隐藏。默认结果及简单 jq 字段提取保留收到的 JSON 数字精度，涉及计算的 jq 表达式仍遵循 gojq 数值语义。
 
 固定限制为单个 JSON 输入/响应或 SSE 事件 16 MiB，累计发现目录 32 MiB，最多 100 页，JSON 最多嵌套 128 层。超过响应/目录上限报 `mcp_response_too_large`，超过分页上限报 `mcp_discovery_incomplete`，不会静默截断。离线 dry-run 只能校验配置、认证格式和 body 结构，不能证明远端工具存在、Schema 合法、票据有效或业务权限足够。
-
-### 人工真实环境验收清单
-
-以下清单需在有授权的测试环境手动执行。仓库 mock 测试不证明真实服务联调通过，不要求把真实票据写入测试文件。
-
-1. 为同一个可控 server 分别配置个人 Bearer、应用 + ticket、应用 + token、access_token，以及可用的匿名 server；验证 check、完整 tools 和一个明确无副作用的工具。
-2. 切换或移除 active context，确认 MCP 仍使用所选配置；换成失效票据及权限不足身份，确认 401/403 分类，检查 verbose 无票据泄漏。
-3. 根据服务端日志核对初始化、发现分页、调用使用同一身份；选择包含复杂参数、大整数和元数据的工具，核对实际 arguments、结果及 jq 字段值。
-4. 在测试服务注入延迟、断流、input_required 和异步 task 响应，确认退出码、unknown/未完成状态，且每次 CLI 最多一次 tools/call；不要在生产写工具上制造超时。
-5. 检查 JSON/SSE、会话释放、证书和最终 endpoint；记录服务版本、CLI 提交、已验证协议版本及未验证项，避免把一次发现成功当成全功能验收。

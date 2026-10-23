@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -30,8 +31,8 @@ import (
 	"github.com/TencentBlueKing/bk-cli/internal/validate"
 )
 
-// Server is the selected, structurally validated server. Headers remain literal
-// until ResolveHeaders is called, so static help requires no credentials.
+// Server is a structurally validated configuration entry. Header values are final
+// literal values; ResolveHeaders validates authentication before remote use.
 type Server struct {
 	Name       string
 	ConfigFile string
@@ -39,9 +40,30 @@ type Server struct {
 	Headers    map[string]string
 }
 
-// LoadServer selects exactly one file, validates its complete structure, and
-// returns the exact named server without resolving credentials or reading context.
+// Config contains the selected file and all structurally validated servers.
+// Loading configuration never resolves credentials or connects to a server.
+type Config struct {
+	File    string
+	Servers []*Server
+}
+
+// LoadServer selects an exact server name from one validated configuration file.
 func LoadServer(path, name string) (*Server, error) {
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	for _, server := range loaded.Servers {
+		if server.Name == name {
+			return server, nil
+		}
+	}
+	return nil, &Error{"mcp_server_not_found", "Named MCP server not found in selected file"}
+}
+
+// LoadConfig loads exactly one file and validates every server's structure.
+// Servers are sorted by name for stable local listings; headers remain literal.
+func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		path = filepath.Join(config.BaseDirectory(), "mcp.json")
 	}
@@ -69,21 +91,17 @@ func LoadServer(path, name string) (*Server, error) {
 	if !ok {
 		return nil, configError()
 	}
-	var selected *Server
+	loaded := &Config{File: path, Servers: make([]*Server, 0, len(servers))}
 	for alias, value := range servers {
 		server, err := parseServer(alias, value)
 		if err != nil {
 			return nil, err
 		}
-		if alias == name {
-			selected = server
-		}
+		server.ConfigFile = path
+		loaded.Servers = append(loaded.Servers, server)
 	}
-	if selected == nil {
-		return nil, &Error{"mcp_server_not_found", "Named MCP server not found in selected file"}
-	}
-	selected.ConfigFile = path
-	return selected, nil
+	sort.Slice(loaded.Servers, func(i, j int) bool { return loaded.Servers[i].Name < loaded.Servers[j].Name })
+	return loaded, nil
 }
 
 func parseServer(name string, raw any) (*Server, error) {
@@ -170,22 +188,15 @@ func (s Server) MaskedHeaders() map[string]string {
 	return headers
 }
 
-// ResolveHeaders expands only explicit references in this server's headers and
-// validates authentication. It never loads context or fallback credentials.
+// ResolveHeaders validates authentication and copies configured values verbatim.
+// It never expands environment variables or loads context/fallback credentials.
 func (s Server) ResolveHeaders() (http.Header, error) {
 	if err := validateHeaders(s.Headers); err != nil {
 		return nil, err
 	}
 	headers := make(http.Header)
 	for name, value := range s.Headers {
-		expanded, err := expandHeader(value)
-		if err != nil {
-			return nil, err
-		}
-		if validate.ValidateHeaderValue(expanded) != nil {
-			return nil, configError()
-		}
-		headers.Set(name, expanded)
+		headers.Set(name, value)
 	}
 	if err := validateAuth(headers); err != nil {
 		return nil, err

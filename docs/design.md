@@ -263,7 +263,8 @@ flowchart TD
 配置与输入契约：
 
 - `LoadServer` 只选择显式 `--config` 文件或 `config.BaseDirectory()/mcp.json`；相对配置路径及 `--body @file` 均按当前工作目录解析。严格校验整个文件，拒绝未知字段、重复 key、不合法的 server 名、URL 和 header，不读取 active context 或凭据。
-- `ResolveHeaders` 只展开所选 server 的 `${ENV_NAME}`，`$${` 表示字面 `${`；不递归展开、执行 shell、加载 `.env` 或回写。根帮助不读配置，server 静态帮助不展开环境变量；tool 帮助仅连接并发现，不读取 body/stdin 或执行工具。
+- `LoadConfig` 读取完整配置并按名称排序。`bk-cli mcp --list` 离线输出 `config_file/server_count/servers`；每项保留 name、transport、url 和全部脱敏 header。空配置返回空列表，结构错误仍报本地错误，不验证凭据有效性或连接状态；支持 `--config` 和最终 `--jq`，不接受 server/tool、check/tools 或 dry-run。
+- `ResolveHeaders` 校验所选 server 的认证形态，逐值原样复制 headers；配置值不做环境变量展开或模板渲染，`${...}`/`$${...}` 没有特殊含义。不读取凭据环境变量、执行 shell、加载 `.env` 或回写。根帮助不读配置，server 静态帮助只读配置结构；tool 帮助仅连接并发现，不读取 body/stdin 或执行工具。
 - 支持 Bearer、应用 code/secret + ticket 或 token、独立 access_token、其他合法 scheme 和自定义头。拒绝两种认证头并存、空票据或非法蓝鲸 JSON。所有实际 HTTP 请求使用同一份已解析 headers；不跟随重定向，默认校验 HTTPS 证书。
 - 禁止配置覆盖 Host、内容类型、长度、Accept、连接控制、Last-Event-ID 和 `Mcp-*` 协议头。诊断中的全部配置 header 值固定为 `***`；响应同名头及已知认证头也脱敏。原始工具业务结果不做通用内容 DLP。
 - `ReadArguments` 将内联 JSON、`@file`、stdin 解析为完整对象；拒绝重复字段、非对象、尾随内容、非法 UTF-8。数字保留为 `json.Number`。`BuildArguments` 拒绝重复/未知具名参数，body 完全覆盖已识别具名值，不合并、不注入 default。
@@ -292,7 +293,6 @@ SDK 与数字保真（2026-10-22 验证）：
 | 对象 | 上限与行为 |
 | --- | --- |
 | 配置/arguments JSON | 16 MiB；容器嵌套最多 128 层；错误为本地输入错误 |
-| 单个展开后的 header | 16 MiB |
 | 数值类型/enum 校验 | 字面量最多 4096 字符，显式指数绝对值最多 10000；超限明确拒绝，接受的值不截断 |
 | JSON 响应（含 HTTP 错误体）/单条 SSE 事件 | 16 MiB，在读取过程中限制；`mcp_response_too_large` |
 | 累计工具目录 | 原始分页 JSON 报文累计 32 MiB；`mcp_response_too_large` |
@@ -300,7 +300,7 @@ SDK 与数字保真（2026-10-22 验证）：
 
 远端 JSON 同样拒绝重复 key、非法 UTF-8 和超过 128 层的嵌套。限制不截断后返回成功；调用结果超限且未取得完整结果按 unknown 处理。上限容纳常规 Schema/结果并限制单次 CLI 的内存和发现成本，不提供调节 flags。
 
-验收入口：`internal/mcpclient/*_test.go` 覆盖配置/认证/精度/协议/分页/大小限制/单次调用，`cmd/mcp/*_test.go` 与 `cmd/mcp_test.go` 覆盖模式、输出、帮助、context 隔离和 jq；`tests/integration/cases/mcp/` 的 MCP-001 至 MCP-005 覆盖构建后 CLI。真实环境验收清单见用户指南，mock 通过不代表真实服务已联调。
+验收入口：`internal/mcpclient/*_test.go` 覆盖配置/认证/精度/协议/分页/大小限制/单次调用，`cmd/mcp/*_test.go` 与 `cmd/mcp_test.go` 覆盖模式、输出、帮助、context 隔离和 jq；`tests/integration/cases/mcp/` 的 MCP-001 至 MCP-005 覆盖构建后 CLI。真实环境验收清单见 `tests/integration/README.md`，mock 通过不代表真实服务已联调。
 
 ### 5.9 `cmd/*`
 

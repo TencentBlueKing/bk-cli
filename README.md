@@ -12,7 +12,6 @@
 
 ## 功能特性
 
-- **远程 MCP 工具**: 从独立 `mcp.json` 连接 Streamable HTTP server，使用 `bk-cli mcp <server> --check/--tools` 发现，再显式调用工具；认证只来自该 server 的 headers。见 [MCP 使用指南](docs/user-guide.md#11-远程-mcp-工具)
 - **三层调用方式**: 原始 API 调用、系统子命令，以及快捷指令（未来）
 - **多上下文支持**: 管理多个 BlueKing 部署的凭据
 - **环境自检**: 使用 `bk-cli doctor` 检查 context、凭据、URL 渲染和网关连通性，凭据值脱敏显示
@@ -24,6 +23,7 @@
 - **个人 token 登录**: `bk-cli auth login --personal_token='<personal-token>'`，使用个人中心生成的 token 调用支持 Bearer 鉴权的 API
 - **加密凭据存储**: 每个上下文使用 AES-256-GCM 加密
 - **单一二进制文件**: 无运行时依赖
+- **远程 MCP 工具**: 基于独立 `mcp.json` 配置连接 Streamable HTTP 服务，支持服务列表、连接检查、工具发现、动态帮助、工具调用和离线预览
 
 ## 快速开始
 

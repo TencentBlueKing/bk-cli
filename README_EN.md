@@ -12,7 +12,6 @@ For the full design contract, see [docs/design.md](docs/design.md).
 
 ## Features
 
-- **Remote MCP tools**: Connect to Streamable HTTP servers from a separate `mcp.json`, discover with `bk-cli mcp <server> --check/--tools`, then explicitly call a tool. Authentication comes only from that server's headers. See the [MCP guide (Chinese)](docs/user-guide.md#11-远程-mcp-工具).
 - **Three layers of invocation**: raw API calls, system subcommands, and shortcuts (planned)
 - **Multi-context support**: manage credentials for multiple BlueKing deployments
 - **Environment diagnostics**: use `bk-cli doctor` to check contexts, credentials, URL rendering, and gateway connectivity, with credential values masked
@@ -24,6 +23,7 @@ For the full design contract, see [docs/design.md](docs/design.md).
 - **Personal token login**: `bk-cli auth login --personal_token='<personal-token>'` uses a token from the personal center to call APIs that support Bearer authentication
 - **Encrypted credential storage**: AES-256-GCM encryption per context
 - **Single binary**: with no runtime dependencies
+- **Remote MCP tools**: Connect to Streamable HTTP services using a separate `mcp.json`, with configured server listing, connection checks, tool discovery, dynamic help, tool calls, and offline previews
 
 ## Quick Start
 

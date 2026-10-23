@@ -81,6 +81,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             return jsonify({"error": "unauthorized"}), 401
         if request.headers.get("X-Bkapi-Authorization") or request.headers.get("X-Bk-Tenant-Id"):
             return jsonify({"error": "unexpected_context_identity"}), 403
+        if request.headers.get("X-Literal") != "${MCP_TEST_TOKEN}":
+            return jsonify({"error": "header_value_changed"}), 400
         rpc = request.get_json()
         method = rpc.get("method")
         if method == "server/discover":

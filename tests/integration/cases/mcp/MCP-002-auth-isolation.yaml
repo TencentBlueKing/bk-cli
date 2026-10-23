@@ -11,8 +11,8 @@ steps:
     command: [auth, login, --access_token=unrelated]
     expect:
       exit_code: 0
-  - name: MCP ignores cached identity
-    env: {MCP_TEST_TOKEN: integration-mcp, MCP_TEST_SCENARIO: MCP-002}
+  - name: MCP ignores cached identity and environment values
+    env: {MCP_TEST_TOKEN: replaced-by-environment}
     command: [mcp, fixture, --check]
     expect:
       exit_code: 0
@@ -25,8 +25,7 @@ steps:
       checks:
         - {path: error.code, equals: unsupported_option}
   - name: rejected credentials do not fall back
-    env: {MCP_TEST_TOKEN: invalid-token, MCP_TEST_SCENARIO: MCP-002}
-    command: [mcp, fixture, --check]
+    command: [mcp, denied, --check]
     expect:
       exit_code: 2
       checks:

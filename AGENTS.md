@@ -322,7 +322,7 @@ Write final request results through `output.WriteCommandEnvelope(cmd, env)`, aft
 
 ## MCP command boundary
 
-`cmd/mcp` is a root command, not a public system. It uses only the selected `mcp.json` server headers and never resolves gateway context, credentials, stage or tenant. Keep SDK negotiation/session ownership in `internal/mcpclient`, preserve raw JSON numbers at the HTTP boundary, and never replay `tools/call`. See `docs/design.md` section 5.8 for version, resource-limit and result-state contracts. Keep MCP integration cases in `tests/integration/cases/mcp/` and user guidance in `skills/bk-cli-mcp/SKILL.md`.
+`cmd/mcp` is a root command, not a public system. `--list` reads local configuration only and masks all header values. Header values are literal and never expanded from environment variables. Remote operations use only the selected `mcp.json` server headers and never resolve gateway context, credentials, stage or tenant. Keep SDK negotiation/session ownership in `internal/mcpclient`, preserve raw JSON numbers at the HTTP boundary, and never replay `tools/call`. See `docs/design.md` section 5.8 for version, resource-limit and result-state contracts. Keep MCP integration cases in `tests/integration/cases/mcp/` and user guidance in `skills/bk-cli-mcp/SKILL.md`.
 
 ## Runtime, auth, and request behavior
 
