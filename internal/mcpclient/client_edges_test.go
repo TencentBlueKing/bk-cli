@@ -44,6 +44,111 @@ var _ = Describe("MCP remote boundaries", func() {
 		Expect(client.Connect()).To(Succeed())
 		return client
 	}
+	DescribeTable("retains SDK accepted SSE events at EOF", func(ending string) {
+		f := fixture()
+		f.sse = true
+		f.sseEnding = &ending
+		client := open(f)
+		tools, err := client.Discover()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tools).To(HaveLen(1))
+		result, err := client.Call("echo", nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result["structuredContent"]).To(Equal(map[string]any{"n": json.Number("9007199254740993")}))
+		Expect(client.ResultKnown()).To(BeTrue())
+		Expect(f.calls).To(Equal(1))
+	}, Entry("no ending", ""), Entry("LF", "\n"), Entry("CR", "\r"), Entry("CRLF", "\r\n"))
+	DescribeTable("keeps complete raw outcomes known when SDK decoding fails", func(raw, code string) {
+		f := fixture()
+		f.result = raw
+		client := open(f)
+		result, err := client.Call("echo", nil)
+		Expect(err).To(MatchError(ContainSubstring(code)))
+		Expect(result).NotTo(BeNil())
+		Expect(client.ResultKnown()).To(BeTrue())
+		Expect(f.calls).To(Equal(1))
+	}, Entry("input requests", `{"resultType":"input_required","inputRequests":{"x":{"type":"future"}}}`, "mcp_capability_unsupported"),
+		Entry("unknown content", `{"content":[{"type":"future"}]}`, "mcp_protocol_error"),
+		Entry("request state", `{"content":[],"requestState":"pending"}`, "mcp_capability_unsupported"))
+	It("preserves RPC errors in non-success HTTP responses", func() {
+		f := fixture()
+		f.rpcError = true
+		f.responseStatus = http.StatusBadRequest
+		client := open(f)
+		_, err := client.Call("echo", nil)
+		Expect(err).To(MatchError(ContainSubstring("mcp_rpc_error")))
+		Expect(
+			client.RPCError(),
+		).To(
+			Equal(map[string]any{"code": json.Number("-32602"), "message": "secret-error"}),
+		)
+		Expect(client.ResultKnown()).To(BeTrue())
+		Expect(f.calls).To(Equal(1))
+	})
+	DescribeTable("rejects a non-SSE response without a matching result immediately", func(raw string) {
+		state := &wireState{}
+		body := &observedBody{
+			source: io.NopCloser(strings.NewReader(raw)),
+			state:  state,
+			method: "tools/call",
+			id:     json.RawMessage("1"),
+		}
+		_, err := io.ReadAll(body)
+		Expect(err).To(MatchError(ContainSubstring("mcp_protocol_error")))
+		Expect(state.known).To(BeFalse())
+	}, Entry("notification", `{"jsonrpc":"2.0","method":"notifications/message","params":{}}`),
+		Entry("server request", `{"jsonrpc":"2.0","id":"server","method":"roots/list"}`))
+	It("counts both bytes of CRLF at the event size boundary", func() {
+		for _, extra := range []int{0, 1} {
+			prefix := "data: " + `{"jsonrpc":"2.0","id":1,"result":{"content":[]}}`
+			payload := prefix + strings.Repeat(" ", MaxResponseBytes-len(prefix)-4+extra) + "\r\n\r\n"
+			body := &observedBody{
+				source: io.NopCloser(strings.NewReader(payload)),
+				state:  &wireState{},
+				method: "tools/call",
+				id:     json.RawMessage("1"),
+				sse:    true,
+			}
+			_, err := io.Copy(io.Discard, body)
+			if extra == 0 {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("mcp_response_too_large")))
+			}
+		}
+	})
+	DescribeTable("keeps auxiliary responses and failures out of operation state", func(method string, status int) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Diagnostic", "auxiliary")
+			w.WriteHeader(status)
+		}))
+		DeferCleanup(server.Close)
+		state := &wireState{headers: map[string]string{"X-Diagnostic": "operation"}}
+		transport := &guardedTransport{
+			base:  http.DefaultTransport.(*http.Transport).Clone(),
+			ctx:   context.Background(),
+			state: state,
+		}
+		DeferCleanup(transport.base.CloseIdleConnections)
+		var request *http.Request
+		var err error
+		if method == "DELETE" {
+			request, err = http.NewRequest(method, server.URL, nil)
+		} else {
+			request, err = http.NewRequest(
+				"POST",
+				server.URL,
+				strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized"}`),
+			)
+		}
+		Expect(err).NotTo(HaveOccurred())
+		response, _ := transport.RoundTrip(request)
+		if response != nil {
+			Expect(response.Body.Close()).To(Succeed())
+		}
+		Expect(state.headers).To(Equal(map[string]string{"X-Diagnostic": "operation"}))
+		Expect(state.failure).To(BeNil())
+	}, Entry("notification response", "notification", 202), Entry("notification error", "notification", 503), Entry("cleanup error", "DELETE", 503))
 	DescribeTable(
 		"preserves explicit failure state",
 		func(raw, code string, known bool) {
@@ -173,7 +278,7 @@ var _ = Describe("MCP remote boundaries", func() {
 		_, err = client.Call("echo", nil)
 		Expect(err).To(MatchError(ContainSubstring(code)))
 		Expect(f.calls).To(Equal(1))
-	}, Entry("unauthorized", 401, "mcp_auth_required"), Entry("forbidden", 403, "mcp_permission_denied"), Entry("load shedding", 503, "mcp_protocol_error"))
+	}, Entry("unauthorized", 401, "mcp_auth_required"), Entry("forbidden", 403, "mcp_permission_denied"), Entry("load shedding", 503, "mcp_http_error"), Entry("rate limited", 429, "mcp_http_error"), Entry("missing endpoint", 404, "mcp_http_error"))
 	It("reports unsupported sampling without interactive handling or resending", func() {
 		f := fixture()
 		f.prefix = "data: {\"jsonrpc\":\"2.0\",\"id\":\"server-1\",\"method\":\"sampling/createMessage\",\"params\":{}}\n\n"

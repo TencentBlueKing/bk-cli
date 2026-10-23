@@ -52,6 +52,8 @@ type protocolFixture struct {
 	rawError        string
 	eventPrefix     string
 	duplicateResult bool
+	sseEnding       *string
+	responseStatus  int
 }
 
 func (f *protocolFixture) serve(w http.ResponseWriter, r *http.Request) {
@@ -146,9 +148,16 @@ func (f *protocolFixture) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, f.prefix)
 		return
 	}
+	if f.responseStatus != 0 && request.Method == "tools/call" {
+		w.WriteHeader(f.responseStatus)
+	}
 	if f.sse {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "%sevent: message\r\ndata: %s\r\n\r\n", f.eventPrefix, message)
+		ending := "\r\n\r\n"
+		if f.sseEnding != nil {
+			ending = *f.sseEnding
+		}
+		fmt.Fprintf(w, "%sevent: message\r\ndata: %s%s", f.eventPrefix, message, ending)
 		if f.duplicateResult {
 			fmt.Fprintf(
 				w,

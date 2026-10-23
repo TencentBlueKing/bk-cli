@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -142,7 +143,7 @@ func (o *options) parse(cmd *cobra.Command, args []string) error {
 				if flag.NoOptDefVal != "" {
 					value = flag.NoOptDefVal
 				} else {
-					if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+					if i+1 >= len(args) || (strings.HasPrefix(args[i+1], "-") && args[i+1] != "-") {
 						return invalidArguments()
 					}
 					i++
@@ -156,7 +157,7 @@ func (o *options) parse(cmd *cobra.Command, args []string) error {
 			return &mcpclient.Error{Code: "unsupported_option", Message: "Option is not supported by MCP"}
 		}
 		if !hasValue {
-			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+			if i+1 >= len(args) || (strings.HasPrefix(args[i+1], "-") && args[i+1] != "-") {
 				return invalidArguments()
 			}
 			i++
@@ -300,7 +301,7 @@ func (o *options) listServers(cmd *cobra.Command) error {
 }
 
 func (o *options) execute(cmd *cobra.Command, server *mcpclient.Server, headers http.Header) error {
-	interrupted, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+	interrupted, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, cancel := context.WithTimeout(interrupted, o.timeout)
 	defer cancel()
@@ -320,7 +321,10 @@ func (o *options) execute(cmd *cobra.Command, server *mcpclient.Server, headers 
 	}
 	if err := client.Connect(); err != nil {
 		checks["connection"] = "failed"
-		if client.Connected() {
+		var detail *mcpclient.Error
+		if client.Connected() && errors.As(err, &detail) &&
+			(detail.Code == "mcp_protocol_error" || detail.Code == "mcp_capability_unsupported" ||
+				detail.Code == "mcp_response_too_large") {
 			checks["connection"] = "passed"
 			checks["protocol"] = "failed"
 		}

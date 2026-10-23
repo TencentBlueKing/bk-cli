@@ -59,12 +59,13 @@ bk-cli mcp demo search --body @params.json --dry-run
 
 server、tool 和字段名使用配置/发现返回的原名，不改写大小写、下划线或点号。未知工具应先看完整目录，不猜名称。工具帮助联网但不执行工具或读取 stdin。
 
+- 以 `-` 开头的参数值使用 `--name=value`（如 `--text=-h`、`--limit=-1`），不要把短选项放在参数值位置；`--body -` 仍读取 stdin。
 - 字符串保持字符串；布尔值显式使用 `=true/false`，数组和对象使用 JSON。
 - 只发送明确提供的参数，不依赖 Schema default 自动补值。
 - body 是完整 arguments 对象，不是 HTTP/JSON-RPC 包装。body 覆盖全部具名参数，不合并；未知或重复 flag 仍报错。
 - 复杂 Schema、保留名（如 `help/body/config`）或无法表示为 flag 的字段通过 body 原名传入。
 - `--list` 不接受 server/tool 或其他执行模式；`--check`、`--tools` 与工具调用互斥。离线 dry-run 不接受具名工具参数或 `--help`，也不证明远端 Schema、工具存在性或权限。
-- 默认总超时 60 秒，`--timeout 90s` 覆盖整次连接、所有分页和调用。`--verbose` 输出脱敏诊断；`--insecure` 只在明确需要时使用。
+- 默认总超时 60 秒，`--timeout 90s` 覆盖整次连接、所有分页和调用；SIGINT/SIGTERM 会取消本次操作。`--verbose` 输出脱敏诊断；`--insecure` 只在明确需要时使用。
 
 ## 结果判断与恢复
 
@@ -73,6 +74,7 @@ server、tool 和字段名使用配置/发现返回的原名，不改写大小�
 - `invalid_mcp_config`：按错误中的 server 和字段修正配置；任意条目结构不合规都会使整份文件校验失败。
 - `invalid_mcp_auth`：所选 server 的认证格式不受支持，按错误列出的字段组合修正；`--list` 只检查结构，成功不代表认证有效。
 - `mcp_rpc_error`：在 `data.rpc_error` 查看服务端 code/message，区分参数或工具错误与协议错误；不自动重发。
+- `mcp_http_error`：服务端返回非成功 HTTP 状态，且没有可用的 RPC 错误；检查 endpoint 和服务端状态，不自动重发。
 - `mcp_auth_required`：检查所选 server 配置中的 headers，不自动 OAuth 登录或更换身份。
 - `mcp_permission_denied`：检查服务、工具与业务权限，不一律归因于票据过期。
 - `mcp_tool_not_found` / `invalid_mcp_arguments`：本地校验失败，没有调用工具；重新查看工具帮助。

@@ -55,6 +55,7 @@ func remoteError(code string) *Error {
 		"mcp_permission_denied":      "MCP permission denied; check server, tool and business permissions",
 		"mcp_connection_error":       "MCP connection failed; check the configured endpoint and TLS settings",
 		"mcp_timeout":                "MCP operation timed out or was cancelled",
+		"mcp_http_error":             "The MCP endpoint returned an unsuccessful HTTP status",
 		"mcp_rpc_error":              "The MCP server returned a JSON-RPC error",
 		"mcp_protocol_error":         "Invalid MCP response or protocol negotiation",
 		"mcp_discovery_incomplete":   "MCP tool discovery did not complete",
@@ -168,16 +169,7 @@ type guardedTransport struct {
 
 // RoundTrip applies one target's headers and enforces no-replay and read limits.
 func (t *guardedTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if t.ctx.Err() != nil {
-		return nil, t.state.fail("mcp_timeout")
-	}
-	t.state.mu.Lock()
-	failure := t.state.failure
-	t.state.mu.Unlock()
-	// A failed operation must not prevent bounded SDK session cleanup.
-	if failure != nil && request.Method != http.MethodDelete {
-		return nil, failure
-	}
+	state := t.state
 	var rpc struct {
 		Method string          `json:"method"`
 		ID     json.RawMessage `json:"id"`
@@ -185,21 +177,37 @@ func (t *guardedTransport) RoundTrip(request *http.Request) (*http.Response, err
 	if request.GetBody != nil {
 		body, err := request.GetBody()
 		if err != nil {
-			return nil, t.state.fail("mcp_protocol_error")
+			return nil, state.fail("mcp_protocol_error")
 		}
 		err = json.NewDecoder(body).Decode(&rpc)
 		_ = body.Close()
 		if err != nil {
-			return nil, t.state.fail("mcp_protocol_error")
+			return nil, state.fail("mcp_protocol_error")
 		}
 	}
+	// Cleanup, notifications and replies have private diagnostics so they
+	// cannot overwrite the current operation's headers or failure.
+	if rpc.Method != "server/discover" && rpc.Method != "initialize" &&
+		rpc.Method != "tools/list" && rpc.Method != "tools/call" {
+		state = &wireState{}
+	}
+	if t.ctx.Err() != nil {
+		return nil, state.fail("mcp_timeout")
+	}
+	state.mu.Lock()
+	failure := state.failure
+	state.mu.Unlock()
+	// A failed operation must not prevent bounded SDK session cleanup.
+	if failure != nil && request.Method != http.MethodDelete {
+		return nil, failure
+	}
 	if rpc.Method == "tools/call" {
-		t.state.mu.Lock()
-		t.state.calls++
-		calls := t.state.calls
-		t.state.mu.Unlock()
+		state.mu.Lock()
+		state.calls++
+		calls := state.calls
+		state.mu.Unlock()
 		if calls > 1 {
-			return nil, t.state.fail("mcp_protocol_error")
+			return nil, state.fail("mcp_protocol_error")
 		}
 	}
 	requestContext, cancel := context.WithCancel(request.Context())
@@ -215,56 +223,76 @@ func (t *guardedTransport) RoundTrip(request *http.Request) (*http.Response, err
 	if err != nil {
 		release()
 		if request.Context().Err() != nil || t.ctx.Err() != nil {
-			return nil, t.state.fail("mcp_timeout")
+			return nil, state.fail("mcp_timeout")
 		}
-		return nil, t.state.fail("mcp_connection_error")
+		return nil, state.fail("mcp_connection_error")
 	}
-	t.state.mu.Lock()
-	t.state.reached = true
+	state.mu.Lock()
+	state.reached = response.StatusCode >= 200 && response.StatusCode < 300
 	// SDK cleanup may run before the caller renders the failed operation.
 	if request.Method != http.MethodDelete {
-		t.state.headers = maskedResponseHeaders(response.Header, t.headers)
+		state.headers = maskedResponseHeaders(response.Header, t.headers)
 	}
-	t.state.mu.Unlock()
+	state.mu.Unlock()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		data, readErr := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
-		_ = response.Body.Close()
-		release()
-		if len(data) > MaxResponseBytes {
-			return nil, t.state.fail("mcp_response_too_large")
-		}
-		if readErr != nil {
-			return nil, t.state.fail("mcp_connection_error")
-		}
-		// The SDK owns the specified server/discover -> initialize compatibility fallback.
-		if rpc.Method == "server/discover" &&
-			(response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusNotFound ||
-				response.StatusCode == http.StatusMethodNotAllowed) {
-			response.Body = io.NopCloser(bytes.NewReader(data))
-			return response, nil
-		}
-		code := "mcp_protocol_error"
-		switch response.StatusCode {
-		case http.StatusUnauthorized:
-			code = "mcp_auth_required"
-		case http.StatusForbidden:
-			code = "mcp_permission_denied"
-		}
-		if response.StatusCode >= 300 && response.StatusCode < 400 {
-			code = "mcp_connection_error"
-		}
-		return nil, t.state.fail(code)
+		defer release()
+		return state.handleHTTPFailure(response, rpc.Method, rpc.ID)
 	}
 	sse := strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream")
 	response.Body = &observedBody{
 		source:  response.Body,
-		state:   t.state,
+		state:   state,
 		method:  rpc.Method,
 		id:      rpc.ID,
 		sse:     sse,
 		release: release,
 	}
 	return response, nil
+}
+
+// handleHTTPFailure bounds error bodies and preserves RPC errors without changing
+// authentication, redirect or SDK discovery-fallback precedence.
+func (s *wireState) handleHTTPFailure(
+	response *http.Response,
+	method string,
+	id json.RawMessage,
+) (*http.Response, error) {
+	data, readErr := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
+	_ = response.Body.Close()
+	if len(data) > MaxResponseBytes {
+		return nil, s.fail("mcp_response_too_large")
+	}
+	if readErr != nil {
+		return nil, s.fail("mcp_connection_error")
+	}
+	// The SDK owns the specified server/discover -> initialize compatibility fallback.
+	if method == "server/discover" &&
+		(response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusNotFound ||
+			response.StatusCode == http.StatusMethodNotAllowed) {
+		response.Body = io.NopCloser(bytes.NewReader(data))
+		return response, nil
+	}
+	code := "mcp_http_error"
+	switch response.StatusCode {
+	case http.StatusUnauthorized:
+		code = "mcp_auth_required"
+	case http.StatusForbidden:
+		code = "mcp_permission_denied"
+	}
+	if response.StatusCode >= 300 && response.StatusCode < 400 {
+		code = "mcp_connection_error"
+	}
+	if code == "mcp_http_error" && (method == "tools/list" || method == "tools/call") {
+		// HTTP status errors may still contain a valid JSON-RPC error. Keep
+		// HTTP auth/permission/redirect classifications authoritative.
+		raw, decodeErr := decodeJSON(bytes.NewReader(data))
+		object, ok := raw.(map[string]any)
+		if decodeErr == nil && ok && validRPCError(object) {
+			_, rpcErr := s.observe(data, method, id)
+			return nil, rpcErr
+		}
+	}
+	return nil, s.fail(code)
 }
 
 func maskedResponseHeaders(headers, configured http.Header) map[string]string {
@@ -324,14 +352,29 @@ func (b *observedBody) Read(p []byte) (int, error) {
 				return 0, observeErr
 			}
 		}
+		if errors.Is(err, io.EOF) && !b.terminal {
+			if b.afterCR || len(b.line) > 0 {
+				b.afterCR = false
+				if observeErr := b.observeLine(); observeErr != nil {
+					return 0, observeErr
+				}
+			}
+			if observeErr := b.dispatchEvent(); observeErr != nil {
+				return 0, observeErr
+			}
+		}
 	} else {
 		if len(b.data)+n > MaxResponseBytes {
 			return 0, b.state.fail("mcp_response_too_large")
 		}
 		b.data = append(b.data, p[:n]...)
 		if errors.Is(err, io.EOF) && len(bytes.TrimSpace(b.data)) > 0 {
-			if _, observeErr := b.state.observe(b.data, b.method, b.id); observeErr != nil {
+			terminal, observeErr := b.state.observe(b.data, b.method, b.id)
+			if observeErr != nil {
 				return 0, observeErr
+			}
+			if !terminal {
+				return 0, b.state.fail("mcp_protocol_error")
 			}
 		}
 	}
@@ -339,49 +382,66 @@ func (b *observedBody) Read(p []byte) (int, error) {
 }
 
 func (b *observedBody) observeByte(char byte) error {
-	// The SDK ends this request at its first matching response. Later frames
-	// may be drained, but must not overwrite this or the next request's state.
+	// Delay a CR terminator until the next byte so a CRLF pair is counted
+	// together before dispatching/resetting the event budget.
 	if b.terminal {
 		return nil
 	}
-	if b.afterCR && char == '\n' {
+	if b.afterCR {
 		b.afterCR = false
-		return nil
+		if char != '\n' {
+			if err := b.observeLine(); err != nil || b.terminal {
+				return err
+			}
+		}
 	}
-	b.afterCR = char == '\r'
 	b.eventBytes++
 	if b.eventBytes > MaxResponseBytes {
 		return b.state.fail("mcp_response_too_large")
 	}
-	if char != '\r' && char != '\n' {
-		b.line = append(b.line, char)
+	if char == '\r' {
+		b.afterCR = true
 		return nil
 	}
+	if char == '\n' {
+		return b.observeLine()
+	}
+	b.line = append(b.line, char)
+	return nil
+}
+
+func (b *observedBody) observeLine() error {
 	line := b.line
 	b.line = nil
 	if len(line) == 0 {
-		data := bytes.TrimSuffix(b.data, []byte{'\n'})
-		if len(data) > 0 && (b.eventName == "" || b.eventName == "message") {
-			terminal, err := b.state.observe(data, b.method, b.id)
-			b.terminal = terminal
-			if err != nil {
-				return err
-			}
-		}
-		b.data = nil
-		b.eventBytes = 0
-		b.eventName = ""
-		return nil
+		return b.dispatchEvent()
 	}
-	if value, ok := bytes.CutPrefix(line, []byte("data:")); ok {
-		value = bytes.TrimPrefix(value, []byte{' '})
+	field, value, _ := bytes.Cut(line, []byte{':'})
+	value = bytes.TrimPrefix(value, []byte{' '})
+	switch string(field) {
+	case "data":
 		b.data = append(b.data, value...)
 		b.data = append(b.data, '\n')
+	case "event":
+		b.eventName = string(value)
 	}
-	if value, ok := bytes.CutPrefix(line, []byte("event:")); ok {
-		b.eventName = string(bytes.TrimPrefix(value, []byte{' '}))
-	} else if bytes.Equal(line, []byte("event")) {
-		b.eventName = ""
+	return nil
+}
+
+func (b *observedBody) dispatchEvent() error {
+	if b.terminal {
+		return nil
 	}
+	data := bytes.TrimSuffix(b.data, []byte{'\n'})
+	if len(data) > 0 && (b.eventName == "" || b.eventName == "message") {
+		terminal, err := b.state.observe(data, b.method, b.id)
+		b.terminal = terminal
+		if err != nil {
+			return err
+		}
+	}
+	b.data = nil
+	b.eventBytes = 0
+	b.eventName = ""
 	return nil
 }

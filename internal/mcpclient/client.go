@@ -89,7 +89,7 @@ func (c *Client) Close() {
 	c.transport.base.CloseIdleConnections()
 }
 
-// Connected reports whether any target HTTP response was received.
+// Connected reports whether the last operation received a successful HTTP status.
 func (c *Client) Connected() bool {
 	c.state.mu.Lock()
 	defer c.state.mu.Unlock()
@@ -212,10 +212,10 @@ func (c *Client) Call(name string, arguments map[string]any) (map[string]any, er
 	c.state.begin()
 	_, err := c.session.CallTool(c.ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
 	result, _ := c.result()
-	if err != nil {
-		return result, c.classify(err)
-	}
 	if result == nil {
+		if err != nil {
+			return nil, c.classify(err)
+		}
 		return nil, remoteError("mcp_protocol_error")
 	}
 	if unsupportedResult(result) {
@@ -236,6 +236,9 @@ func (c *Client) Call(name string, arguments map[string]any) (map[string]any, er
 		}
 	}
 	c.markKnown()
+	if err != nil {
+		return result, c.classify(err)
+	}
 	return result, nil
 }
 
@@ -245,7 +248,7 @@ func unsupportedResult(result map[string]any) bool {
 	if kind, ok := result["resultType"].(string); ok && kind != "" && kind != "complete" {
 		return true
 	}
-	for _, key := range []string{"task", "taskId", "inputRequests", "unsupported_request"} {
+	for _, key := range []string{"task", "taskId", "inputRequests", "requestState", "unsupported_request"} {
 		if _, ok := result[key]; ok {
 			return true
 		}

@@ -103,9 +103,11 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         elif method == "tools/call":
             params = rpc.get("params", {})
             name = params.get("name")
-            if name == "echo" and params.get("arguments", {}).get("text") == "rpc-error":
+            if name == "echo" and params.get("arguments", {}).get("text") in ("rpc-error", "rpc-http-error"):
                 response = jsonify({"jsonrpc": "2.0", "id": rpc["id"], "error": {"code": -32602, "message": "Unknown tool"}})
                 response.headers["Mcp-Session-Id"] = "integration-private-session"
+                if params.get("arguments", {}).get("text") == "rpc-http-error":
+                    response.status_code = 400
                 return response
             if name == "slow":
                 time.sleep(0.3)
@@ -116,6 +118,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         else:
             return jsonify({"jsonrpc": "2.0", "id": rpc.get("id"), "error": {"code": -32601, "message": "unknown method"}})
         message = json.dumps({"jsonrpc": "2.0", "id": rpc["id"], "result": result})
+        if method == "tools/call" and rpc.get("params", {}).get("arguments", {}).get("text") == "sse-eof":
+            return Response("data: " + message + "\n", content_type="text/event-stream")
         if request.headers.get("X-Mock-Scenario") == "MCP-004":
             return Response("event: message\ndata: " + message + "\n\n", content_type="text/event-stream")
         return Response(message, content_type="application/json")

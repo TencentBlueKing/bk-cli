@@ -267,9 +267,9 @@ flowchart TD
 - `ResolveHeaders` 校验所选 server 的认证形态，逐值原样复制 headers；配置值不做环境变量展开或模板渲染，`${...}`/`$${...}` 没有特殊含义。不读取凭据环境变量、执行 shell、加载 `.env` 或回写。根帮助不读配置，server 静态帮助只读配置结构；tool 帮助仅连接并发现，不读取 body/stdin 或执行工具。
 - 支持 Bearer、应用 code/secret + ticket 或 token、独立 access_token、其他合法 scheme 和自定义头。拒绝两种认证头并存、空票据或非法蓝鲸 JSON。不支持仅含应用 code/secret 的组合；认证形态错误使用 `invalid_mcp_auth` 并说明 server 和支持格式，双认证头冲突仍为 `mcp_auth_conflict`。`--list` 成功只证明结构有效，不代表认证形态通过。所有实际 HTTP 请求使用同一份已解析 headers；不跟随重定向，默认校验 HTTPS 证书。
 - 禁止配置覆盖 Host、内容类型、长度、Accept、连接控制、Last-Event-ID 和 `Mcp-*` 协议头。诊断中的全部配置 header 值固定为 `***`；响应同名头、已知认证头和 `Mcp-Session-Id` 也脱敏。原始工具业务结果不做通用内容 DLP。
-- `ReadArguments` 将内联 JSON、`@file`、stdin 解析为完整对象；拒绝重复字段、非对象、尾随内容、非法 UTF-8。数字保留为 `json.Number`。`BuildArguments` 拒绝重复/未知具名参数，body 完全覆盖已识别具名值，不合并、不注入 default。
+- `ReadArguments` 将内联 JSON、`@file`、stdin 解析为完整对象；拒绝重复字段、非对象、尾随内容、非法 UTF-8。数字保留为 `json.Number`。`BuildArguments` 拒绝重复/未知具名参数；参数值以 `-` 开头时使用 `--name=value`，独立 `-`（如 `--body -`）仍可作为值，避免把 `-h` 等选项吞作参数。body 完全覆盖已识别具名值，不合并、不注入 default。
 - `Parameters` 映射可明确表示的 string/integer/number/boolean/array/object 字段；保留名、组合、引用和无法表示的名字仅用 body 原名传入。校验明确的类型、required、enum、嵌套 properties/items；数值 enum 精确比较。其他 JSON Schema 关键字交由服务端，不访问远程 `$ref`。
-- 显式 `--context` 报 `unsupported_option`。不支持 `--header/--stage/--tenant`；`--timeout` 默认 60 秒，覆盖连接、全部分页和调用的总预算，不读取 context。取消或超时结束本次会话。离线 dry-run 必须带完整 body，拒绝具名工具参数及与 `--help` 组合，零网络并标记未验证远端。
+- 显式 `--context` 报 `unsupported_option`。不支持 `--header/--stage/--tenant`；`--timeout` 默认 60 秒，覆盖连接、全部分页和调用的总预算，不读取 context。SIGINT、SIGTERM、调用方取消或超时结束本次会话。离线 dry-run 必须带完整 body，拒绝具名工具参数及与 `--help` 组合，零网络并标记未验证远端。
 
 SDK 与数字保真（2026-10-22 验证）：
 
@@ -280,11 +280,11 @@ SDK 与数字保真（2026-10-22 验证）：
 生命周期和结果契约：
 
 - 测试覆盖 `2025-03-26`、`2025-06-18`、`2025-11-25`、`2026-07-28` 的 JSON/SSE 发现与调用。由 SDK 处理 `server/discover` 及旧协议初始化差异，不自行降级 transport。
-- 显式关闭 SDK 多轮输入、负载退避重发、独立 SSE 及重连；HTTP 请求移除 replay body，并统计/拒绝第二次 `tools/call`。发现和调用复用一次 client 生命周期，结束关闭会话和空闲连接。失败短路允许 SDK DELETE 清理通过，但仍受总超时/取消预算约束，不允许重发工具调用；清理响应不覆盖业务请求的响应头诊断。
+- 显式关闭 SDK 多轮输入、负载退避重发、独立 SSE 及重连；HTTP 请求移除 replay body，并统计/拒绝第二次 `tools/call`。发现和调用复用一次 client 生命周期，结束关闭会话和空闲连接。失败短路允许 SDK DELETE 清理通过，但仍受总超时/取消预算约束，不允许重发工具调用；清理、通知和服务端请求回复的 HTTP 响应/错误使用独立状态，不覆盖业务请求的响应头或错误。
 - 分页直到 nextCursor 缺省、空字符串或 null，拒绝循环游标、重名工具、畸形目录；任何中途错误不得输出完整成功。空 tools 列表成功。目录不持久缓存。
-- `--check` 输出 config/connection/protocol/tools 阶段以及 `complete`；发现通过只表示该请求被接受，不证明 token 或所有业务权限有效。`--tools` 保留完整描述和元数据。
-- 本地输入/配置/参数错误走 stderr、退出 1，即使参数错误发生在发现之后。远程错误走一个 stdout 失败 envelope、退出 2；401/403 分别为 `mcp_auth_required`/`mcp_permission_denied`，不换身份或重试。
-- `tools/list` 和 `tools/call` 的合法 JSON-RPC error 使用 `mcp_rpc_error`，在 `data.rpc_error` 保留服务端 code/message（与工具结果一样不做通用内容 DLP）；安全诊断不包含这段远端文本。合法调用错误属于已知结果，不标记 unknown；畸形错误仍为 `mcp_protocol_error`。
+- `--check` 输出 config/connection/protocol/tools 阶段以及 `complete`；连接失败、重定向和 HTTP 拒绝时 connection 为 failed、protocol 为 not_run，成功 HTTP 响应中的协议问题才标记 protocol 为 failed；发现通过只表示该请求被接受，不证明 token 或所有业务权限有效。`--tools` 保留完整描述和元数据。
+- 本地输入/配置/参数错误走 stderr、退出 1，即使参数错误发生在发现之后。远程错误走一个 stdout 失败 envelope、退出 2；401/403 分别为 `mcp_auth_required`/`mcp_permission_denied`，不换身份或重试。其他非 2xx HTTP 状态在没有可用 RPC 错误时为 `mcp_http_error`，与协议报文错误区分。
+- `tools/list` 和 `tools/call` 的合法 JSON-RPC error 使用 `mcp_rpc_error`，包括非 2xx 响应中的合法 RPC 错误（401/403 和重定向仍优先使用 HTTP 分类），在 `data.rpc_error` 保留服务端 code/message（与工具结果一样不做通用内容 DLP）；安全诊断不包含这段远端文本。合法调用错误属于已知结果，不标记 unknown；完整且可判定的原始工具结果先分类，再处理 SDK 解码错误，SDK 不支持的 content 类型保留原始结果并报协议错误，不标记 unknown；`requestState` 等异步/输入接续字段按不支持能力处理；畸形错误仍为 `mcp_protocol_error`。
 - 调用保留 `data.server/tool/result`。`isError:true` 为 `mcp_tool_error`；input_required、sampling、elicitation 或 task 状态为 `mcp_capability_unsupported`，保留可用原始要求/标识，不接续、不伪报完成。
 - 调用已尝试但没有完整可判定结果时设 `data.execution_state: "unknown"`，保留实际错误码，提示先业务查询再决定重试。完整结果后的 jq/输出错误不改为 unknown，不重发。`ok:true` 不解释业务 JSON 的 code/result/status，不证明异步任务完成。
 - jq 在本地解析阶段编译，只对聚合/分类后的最终 envelope 执行一次；失败 envelope 不被投影隐藏，投影失败保留原结果。
@@ -298,6 +298,8 @@ SDK 与数字保真（2026-10-22 验证）：
 | JSON 响应（含 HTTP 错误体）/单条 SSE 事件 | 16 MiB，在读取过程中限制；`mcp_response_too_large` |
 | 累计工具目录 | 原始分页 JSON 报文累计 32 MiB；`mcp_response_too_large` |
 | 发现页数 | 最多 100 页；仍有 nextCursor 时 `mcp_discovery_incomplete` |
+
+SSE 观察与固定 SDK 保持一致：EOF 会提交待处理事件，CRLF 的两个字节都计入事件上限。非 SSE JSON 响应若只有通知/反向请求、缺少终结结果，立即报协议错误。
 
 远端 JSON 同样拒绝重复 key、非法 UTF-8 和超过 128 层的嵌套。限制不截断后返回成功；调用结果超限且未取得完整结果按 unknown 处理。上限容纳常规 Schema/结果并限制单次 CLI 的内存和发现成本，不提供调节 flags。
 

@@ -38,3 +38,18 @@ steps:
         - {path: data.rpc_error.code, equals: -32602}
         - {path: data.rpc_error.message, equals: Unknown tool}
         - {path: headers.Mcp-Session-Id, equals: '***'}
+  - name: retain the terminal SSE event at EOF
+    command: [mcp, fixture, echo, --text, sse-eof]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.result.structuredContent.arguments.text, equals: sse-eof}
+        - {path: data.result.structuredContent.big, equals: 9007199254740993}
+  - name: preserve RPC errors carried by HTTP 400
+    command: [mcp, fixture, echo, --text, rpc-http-error]
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: mcp_rpc_error}
+        - {path: data.rpc_error.code, equals: -32602}
+        - {path: data.rpc_error.message, equals: Unknown tool}

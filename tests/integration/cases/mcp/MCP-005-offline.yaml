@@ -29,3 +29,9 @@ steps:
       exit_code: 1
       checks:
         - {path: error.code, equals: invalid_mcp_arguments}
+  - name: short help cannot become a tool argument
+    command: [mcp, offline, unverified, --text, -h]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_mcp_arguments}

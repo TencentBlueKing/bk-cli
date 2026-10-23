@@ -51,6 +51,7 @@ var _ = Describe("MCP command", func() {
 	var endpoint, dir string
 	var result string
 	var rpcError bool
+	var connectionStatus int
 	var callDelay time.Duration
 	var receivedHeaders chan http.Header
 	run := func(args ...string) (string, string, error) {
@@ -71,9 +72,14 @@ var _ = Describe("MCP command", func() {
 		result = `{"content":[],"structuredContent":{"n":9007199254740993,"decimal":0.123456789012345678901}}`
 		callDelay = 0
 		rpcError = false
+		connectionStatus = 0
 		receivedHeaders = make(chan http.Header, 64)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests.Add(1)
+			if connectionStatus != 0 {
+				w.WriteHeader(connectionStatus)
+				return
+			}
 			receivedHeaders <- r.Header.Clone()
 			if r.Method == "DELETE" {
 				w.WriteHeader(204)
@@ -131,6 +137,34 @@ var _ = Describe("MCP command", func() {
 		endpoint = server.URL
 		writeConfig(dir, endpoint)
 	})
+	DescribeTable("rejects flag tokens used as implicit values before contacting a server", func(args []string) {
+		out, stderr, err := run(args...)
+		Expect(err).To(HaveOccurred())
+		Expect(out).To(BeEmpty())
+		Expect(stderr).To(ContainSubstring("invalid_mcp_arguments"))
+		Expect(requests.Load()).To(BeZero())
+	}, Entry("dynamic short help", []string{"test", "echo", "--text", "-h"}),
+		Entry("config short help", []string{"--config", "-h"}),
+		Entry("unknown short flag", []string{"test", "echo", "--text", "-x"}))
+	It("allows explicit dash-prefixed string values", func() {
+		_, _, err := run("test", "echo", "--text=-h")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(calls.Load()).To(Equal(int32(1)))
+	})
+	DescribeTable("keeps check stages consistent with HTTP connection failures", func(status int, code string) {
+		connectionStatus = status
+		out, stderr, err := run("test", "--check")
+		Expect(err).To(HaveOccurred())
+		Expect(stderr).To(BeEmpty())
+		var env struct {
+			Error struct{ Code string }
+			Data  struct{ Checks map[string]string }
+		}
+		Expect(json.Unmarshal([]byte(out), &env)).To(Succeed())
+		Expect(env.Error.Code).To(Equal(code))
+		Expect(env.Data.Checks["connection"]).To(Equal("failed"))
+		Expect(env.Data.Checks["protocol"]).To(Equal("not_run"))
+	}, Entry("unauthorized", 401, "mcp_auth_required"), Entry("forbidden", 403, "mcp_permission_denied"), Entry("redirect", 302, "mcp_connection_error"), Entry("server failure", 503, "mcp_http_error"))
 	It("preserves RPC code and message in a known failure envelope", func() {
 		rpcError = true
 		out, stderr, err := run("test", "echo", "--text", "hello")
