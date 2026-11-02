@@ -7,8 +7,8 @@ steps:
   - name: login
     command: [auth, login, --access_token, integration-token]
     expect: {exit_code: 0}
-  - name: derive scope after named override
-    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"900001"}', --bk_biz_id, '100100', --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+  - name: derive scope from an explicit body that named flags do not rewrite
+    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"100100","start_time":"1799996400","end_time":"1800000000"}', --bk_biz_id, '200200', --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
     expect:
       exit_code: 0
       checks:
@@ -34,7 +34,7 @@ steps:
       checks:
         - {path: data.scope.0, equals: '100100'}
   - name: reject conflicting raw business array before sending
-    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"100100","bk_biz_ids":["100200"]}', --since, 1h, --header, 'X-Mock-Scenario:MONITOR-013']
+    command: [monitor, alert, list_alerts, --body, '{"bk_biz_id":"100100","start_time":"1799996400","end_time":"1800000000","bk_biz_ids":["100200"]}', --header, 'X-Mock-Scenario:MONITOR-013']
     expect:
       exit_code: 1
       checks:

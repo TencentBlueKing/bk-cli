@@ -45,13 +45,16 @@ func validateLogFilters(filters map[string]string) error {
 
 // Row filters are distinct from table routing. Compile literal field phrases into
 // the existing query_string API; never invent a new backend parameter or switch sources.
-func applyLogFilters(cmd *cobra.Command, args map[string]any) error {
+func applyLogFilters(cmd *cobra.Command, args map[string]any, includeFlags bool) error {
 	filters := map[string]string{}
 	selection := currentProfile(cmd)
 	if selection != nil && selection.Profile.Log != nil {
 		maps.Copy(filters, selection.Profile.Log.Filters)
 	}
-	flags, _ := cmd.Flags().GetStringArray("filter")
+	var flags []string
+	if includeFlags {
+		flags, _ = cmd.Flags().GetStringArray("filter")
+	}
 	for _, raw := range flags {
 		key, value, ok := strings.Cut(raw, "=")
 		if !ok {

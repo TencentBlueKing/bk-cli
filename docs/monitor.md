@@ -67,7 +67,7 @@ bk-cli monitor profile check --profile_file ./multi-source-profiles.yaml \
 - `fail`：按结果中的错误及下一步处理；不要扩大权限或换来源掩盖错误。
 - `warn` / `skipped`：分别表示警告或未检查，不等于通过。
 
-预检不会执行 SQL、PromQL 或 Span 检索。工具级预设覆盖表或索引时，检查的必须是覆盖后的同一资源。
+预检不会执行 SQL、PromQL 或 Span 检索。工具级预设覆盖表或索引时，检查的必须是覆盖后的同一资源。`execute_sql_query` 使用 BkBase 结果表，时序分组接口无法验证，结果为 `permission_only`。
 
 ## 5. 查询与维护
 

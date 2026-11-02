@@ -48,7 +48,8 @@ func hasTimeInput(item tool) bool {
 
 // applyTimeInputs normalizes only catalog-declared top-level time parameters.
 // Nested query_list times and exact --from anchor fields are not interpreted here.
-func applyTimeInputs(cmd *cobra.Command, item tool, args map[string]any, since string) error {
+// relative selects the --since window; callers disable it when an explicit --body owns the times.
+func applyTimeInputs(cmd *cobra.Command, item tool, args map[string]any, since string, relative bool) error {
 	if !hasTimeInput(item) {
 		return nil
 	}
@@ -65,7 +66,7 @@ func applyTimeInputs(cmd *cobra.Command, item tool, args map[string]any, since s
 	}
 	reference := now() // One clock sample for both endpoints, including calendar keywords.
 	parsed := map[string]time.Time{}
-	if since != "" || cmd.Flags().Changed(sinceFlag) {
+	if relative {
 		if _, exists := args["start_time"]; exists {
 			return timeConflict()
 		}
@@ -118,7 +119,7 @@ func applyTimeInputs(cmd *cobra.Command, item tool, args map[string]any, since s
 }
 
 func timeConflict() error {
-	return monitorapi.InputError("conflicting_time", "--since 不能与 start_time/end_time 同时使用（命名参数和 --body 都算）。")
+	return monitorapi.InputError("conflicting_time", "--since 不能与命名参数 start_time/end_time 同时使用；提供 --body 时时间以 body 为准。")
 }
 
 func timeResolution(unit string) time.Duration {

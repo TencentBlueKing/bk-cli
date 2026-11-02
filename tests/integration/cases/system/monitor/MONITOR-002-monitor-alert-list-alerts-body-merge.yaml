@@ -1,5 +1,5 @@
 id: MONITOR-002
-name: monitor alert list_alerts merges body and flags
+name: monitor alert list_alerts keeps an explicit body authoritative
 tags:
   - coverage-system_go
   - suite-integration
@@ -32,9 +32,9 @@ steps:
       - alert
       - list_alerts
       - --body
-      - '{"bk_biz_id":"1","page_size":"50"}'
+      - '{"bk_biz_id":"100100","page_size":"50","status":["CLOSED"],"start_time":"1799996400","end_time":"1800000000"}'
       - --bk_biz_id
-      - "100100"
+      - "200200"
       - --status
       - ABNORMAL
       - --since
@@ -51,4 +51,6 @@ steps:
         - path: data.tool_args.page_size
           equals: "50"
         - path: data.tool_args.status.0
-          equals: ABNORMAL
+          equals: CLOSED
+        - path: data.tool_args.start_time
+          equals: "1799996400"

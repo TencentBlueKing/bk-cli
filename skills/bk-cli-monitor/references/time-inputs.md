@@ -7,7 +7,7 @@
 - 最近一段时间：`--since 15m`、`--since 1h30m`，结束点是本次执行时刻，最大 24h。
 - 明确时间边界：`--start_time VALUE --end_time VALUE`。支持日期时间、RFC3339、日历关键词、整型时间戳。
 
-两种模式互斥，包括 `--body` 中的时间字段；不会用 since 悄悄覆盖已有边界。显式命名 start/end 仍覆盖 body 中的同名字段。
+两种模式互斥：`--since` 与具名 start/end 同时出现会报错。提供 `--body` 时 body 就是请求参数，其中的时间优先，`--since` 和具名 start/end 都不会改写 body。
 
 ## 可直接输入的格式
 

@@ -186,26 +186,55 @@ var _ = Describe("monitor command tree", func() {
 		Expect(args["end_time"]).To(Equal("1800000000000"))
 	})
 
-	It("merges --body and lets named flags override matching keys", func() {
+	It("sends an explicit --body without applying named or convenience flags", func() {
 		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
-		cmd := toolCommand("list_alerts", true)
+		cmd := toolCommand("search_logs", true)
+		body := `{"bk_biz_id":"100100","index_set_id":101001,"query_string":"ERROR",` +
+			`"start_time":"1799996400","end_time":"1800000000"}`
 		setFlags(
 			cmd,
 			"body",
-			`{"bk_biz_id":"1","page_size":"50","conditions":[{"key":"severity","value":[1]}]}`,
+			body,
 			"bk_biz_id",
-			"100100",
-			"status",
-			"ABNORMAL",
+			"200200",
+			"query_string",
+			"WARN",
+			"filter",
+			"level=warn",
 			"since",
-			"1h",
+			"15m",
 		)
 
 		args := dryRunArgs(cmd)
-		Expect(args["bk_biz_id"]).To(Equal("100100"))
-		Expect(args["page_size"]).To(Equal("50"))
-		Expect(args["status"]).To(Equal([]any{"ABNORMAL"}))
-		Expect(args["conditions"]).To(HaveLen(1))
+		Expect(args).To(Equal(map[string]any{
+			"bk_biz_id":    "100100",
+			"index_set_id": float64(101001),
+			"query_string": "ERROR",
+			"start_time":   "1799996400",
+			"end_time":     "1800000000",
+		}))
+	})
+
+	It("does not let --scene, --where or --since rewrite an explicit --body", func() {
+		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
+		cmd := toolCommand("search_logs", true)
+		setFlags(
+			cmd,
+			"body",
+			`{"bk_biz_id":"100100","index_set_id":101001}`,
+			"scene",
+			"k8s",
+			"where",
+			"cluster_id=BCS-K8S-00000",
+			"since",
+			"15m",
+		)
+		stderr := &bytes.Buffer{}
+		cmd.SetErr(stderr)
+
+		err := cmd.RunE(cmd, nil)
+		Expect(err.(*output.CLIError).Code).To(Equal("missing_arguments"))
+		Expect(err.Error() + stderr.String()).To(ContainSubstring("--body"))
 	})
 
 	It("explains a missing log target before sending a request", func() {

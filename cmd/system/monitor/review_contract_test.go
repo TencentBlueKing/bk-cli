@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,6 +87,29 @@ var _ = Describe("reviewed Monitor request contracts", func() {
 		Expect(cmd.RunE(cmd, nil)).To(Succeed())
 		Expect(stdout.String()).To(Equal("[]\n"))
 		Expect(calls.Load()).To(Equal(int32(1)))
+	})
+
+	It("sends scalar array query values as repeated form keys", func() {
+		var rawQuery string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			Expect(r.Method).To(Equal(http.MethodGet))
+			Expect(r.URL.Path).To(Equal("/bk-monitor/prod/mcp/list_log_collectors/"))
+			rawQuery = r.URL.RawQuery
+			_, err := io.WriteString(w, `{"result":true,"data":{"list":[]}}`)
+			Expect(err).NotTo(HaveOccurred())
+		}))
+		DeferCleanup(server.Close)
+		Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
+		cmd := toolCommand("list_log_collectors", false)
+		setFlags(cmd, "bk_biz_id", "100100", "log_access_type", "linux", "log_access_type", "bkdata")
+		cmd.SetOut(io.Discard)
+		Expect(cmd.RunE(cmd, nil)).To(Succeed())
+		query, err := url.ParseQuery(rawQuery)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(query["log_access_type"]).To(Equal([]string{"linux", "bkdata"}))
+		Expect(query["bk_biz_id"]).To(Equal([]string{"100100"}))
+		Expect(rawQuery).NotTo(ContainSubstring("%5B"))
 	})
 
 	DescribeTable(
@@ -166,7 +190,7 @@ var _ = Describe("reviewed Monitor request contracts", func() {
 
 	DescribeTable(
 		"checks the resource resolved for the original tool, with options on every intermediate request",
-		func(table string, valid bool) {
+		func(preset, table, validation string) {
 			tables := []string{}
 			sqlCalls := 0
 			calls := 0
@@ -203,7 +227,7 @@ var _ = Describe("reviewed Monitor request contracts", func() {
 				case "list_time_series_metrics":
 					Expect(r.Method).To(Equal(http.MethodGet))
 					tables = append(tables, r.URL.Query().Get("table_id"))
-					if !valid {
+					if validation != "metadata" {
 						_, _ = io.WriteString(
 							w,
 							`{"result":false,"message":"table does not exist"}`,
@@ -237,9 +261,10 @@ profiles:
             source: sample-source
             args: {table_id: existing.table}
             tools:
-              execute_sql_query: {table_id: TABLE, sql: 'SELECT 1'}
+              PRESET
 `
 			file := filepath.Join(dir, "profiles.yaml")
+			profile = strings.ReplaceAll(profile, "PRESET", preset)
 			Expect(
 				os.WriteFile(file, []byte(strings.ReplaceAll(profile, "TABLE", table)), 0o600),
 			).To(
@@ -260,18 +285,27 @@ profiles:
 			var stdout bytes.Buffer
 			cmd.SetOut(&stdout)
 			err := cmd.RunE(cmd, nil)
-			if valid {
+			switch validation {
+			case "metadata", "permission_only":
 				Expect(err).NotTo(HaveOccurred())
-				Expect(stdout.String()).To(ContainSubstring(`"validation": "metadata"`))
-			} else {
+				Expect(stdout.String()).To(ContainSubstring(`"validation": "` + validation + `"`))
+			default:
 				Expect(err).To(HaveOccurred())
 				Expect(stdout.String()).To(ContainSubstring("resource_not_found"))
 			}
-			Expect(tables).To(Equal([]string{table}))
+			if validation == "permission_only" {
+				Expect(tables).To(BeEmpty())
+			} else {
+				Expect(tables).To(Equal([]string{table}))
+			}
 			Expect(sqlCalls).To(BeZero())
-			Expect(calls).To(BeNumerically(">", 3))
+			Expect(calls).To(BeNumerically(">=", 3))
 		},
-		Entry("overridden missing table", "missing.table", false),
-		Entry("overridden visible table", "override.table", true),
+		Entry("overridden missing time-series table",
+			"list_time_series_metrics: {table_id: TABLE}", "missing.table", "resource_not_found"),
+		Entry("overridden visible time-series table",
+			"list_time_series_metrics: {table_id: TABLE}", "override.table", "metadata"),
+		Entry("BkBase SQL table without a TimeSeriesGroup",
+			"execute_sql_query: {table_id: TABLE, sql: 'SELECT 1'}", "bkbase.valid_table", "permission_only"),
 	)
 })

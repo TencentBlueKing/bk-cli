@@ -39,12 +39,12 @@ steps:
         - {path: data.tool_args.target_type, equals: scene}
         - {path: data.tool_args.table_id_conditions.0.1.value.0, equals: test-cluster}
         - {path: data.tool_args.query_string, equals: '__ext.io_kubernetes_pod_namespace:"ns-a"'}
-  - name: explicit flag wins over body and profile
+  - name: explicit body wins over named flags and profile
     command: [monitor, log, get_index_set_fields, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --body, '{"index_set_id":111}', --index_set_id, '222']
     expect:
       exit_code: 0
       checks:
-        - {path: data.tool_args.index_set_id, equals: 222}
+        - {path: data.tool_args.index_set_id, equals: 111}
   - name: permission check reuses profile scope
     command: [monitor, permission, check, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --tool, get_index_set_fields]
     expect:

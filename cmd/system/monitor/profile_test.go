@@ -197,7 +197,7 @@ var _ = Describe("SRE profiles", func() {
 		Expect(err.(*output.CLIError).Code).To(Equal("profile_not_found"))
 	})
 
-	It("fills only accepted tool parameters, preserving flags > body > profile", func() {
+	It("fills only accepted tool parameters, preserving body > profile and ignoring named flags with --body", func() {
 		Expect(systemtest.SetupTestContext("https://bkapi.example.com/api")).To(Succeed())
 		cmd := toolCommand("get_index_set_fields", true)
 		setFlags(
@@ -212,6 +212,10 @@ var _ = Describe("SRE profiles", func() {
 			"222",
 		)
 		args := dryRunArgs(cmd)
+		Expect(args).To(Equal(map[string]any{"bk_biz_id": "100100", "index_set_id": float64(111)}))
+		cmd = toolCommand("get_index_set_fields", true)
+		setFlags(cmd, "profile", "worker", "profile_file", file, "index_set_id", "222")
+		args = dryRunArgs(cmd)
 		Expect(args).To(Equal(map[string]any{"bk_biz_id": "100100", "index_set_id": float64(222)}))
 		cmd = toolCommand("list_time_series_metrics", true)
 		setFlags(cmd, "profile", "worker", "profile_file", file)

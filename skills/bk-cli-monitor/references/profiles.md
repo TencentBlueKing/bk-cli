@@ -39,7 +39,7 @@ bk-cli monitor metric execute_range_query --profile game-production --component 
 多组件必须指定 `--component`，同 module 有多个绑定必须指定 `--binding`；缺失的能力不回退到其他组件或默认环境。Source 冲突依旧停止，不修改 active context。
 
 - binding 的 `args` 只放跨工具含义稳定的资源字段，如索引集、应用、指标表、仪表盘 UID。
-- 其他固定参数放在 `tools.<精确工具名>`；不得引用写入/导出工具、未知参数或预填时间/关联批次。优先级：显式 flag > body > 精确工具预设 > 公共资源参数。
+- 其他固定参数放在 `tools.<精确工具名>`；不得引用写入/导出工具、未知参数或预填时间/关联批次。优先级：显式 body（或未提供 body 时的具名 flag）> 精确工具预设 > 公共资源参数。
 - `options.scene/where/filters` 仅供日志绑定使用；不要把日志的过滤语法套给 APM、事件或告警。
 - `status/check` 分 Source 和 binding 报告；`permission_only` 没有执行数据查询，`metadata` 也不证明每条表达式有效。一次最多预检 20 个工具，可用组件/绑定缩小范围。
 - V2 诊断的 `--dry-run` 只输出本地计划。`list/show` 不要求已登录；离线状态不证明 Token 有效。
@@ -79,7 +79,7 @@ SRE 按业务仓库或内部配置渠道维护文件，业务研发只用自己�
 ## 覆盖和安全边界
 
 - 参数只补给声明了该字段的工具；不会把日志 `conditions` 错塞到告警过滤中。
-- 普通参数优先级：显式 flag > `--body` > Profile。`conditions` 或 `table_id_conditions` 是整体替换，不尝试深合并布尔表达式。
+- 普通参数优先级：`--body` > Profile；未提供 body 时为具名 flag > Profile。提供 `--body` 时具名 flag 和 `--scene/--where/--filter` 不再改写它，Profile 只补齐缺失字段，`log.filters` 仍会叠加到 `query_string`。`conditions` 或 `table_id_conditions` 是整体替换，不尝试深合并布尔表达式。
 - 场景 `--where KEY=VALUE` 按 key 覆盖选表路由，不能与显式 `table_id_conditions` 混用。日志行过滤用 `log.filters` 或可重复的 `--filter FIELD=VALUE`；显式 filter 按 key 覆盖 Profile 并保留其他字段，最终与 `query_string` 按 AND 组合。
 - `filters` 的值会转义为字段短语；文本字段的匹配行为仍由服务端字段映射决定。复杂正则、范围或 OR 条件用 `--query_string`，CLI 不推断查询语言。
 - `--context`、`bk_biz_id`、日志模式或 `scene` 与 Profile 冲突会停止，避免在另一环境/业务复用同一个数字 ID。需要改这些范围时换 Profile 或不带 `--profile`。

@@ -335,16 +335,26 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 return jsonify({"result": False, "message": "generic dispatch is not supported"}), 404
             args = request_body() or {}
             if request.method == "GET":
-                args = dict(request.args)
-                for key, value in list(args.items()):
+                args = {}
+                for key, values in request.args.lists():
+                    if len(values) > 1:
+                        args[key] = values
+                        continue
+                    value = values[0]
+                    args[key] = value
                     if key != "bk_biz_id":
                         try:
-                            args[key] = json.loads(value)
+                            decoded = json.loads(value)
                         except (TypeError, ValueError):
-                            pass
+                            continue
+                        if isinstance(decoded, list):
+                            return jsonify({"result": False, "message": "array query must use repeated keys"}), 400
+                        args[key] = decoded
             if active_scenario() == "MONITOR-012" and tool_name == "list_time_series_metrics":
-                if args.get("table_id") == "missing.table":
+                if args.get("table_id") in ("missing.table", "bkbase.valid_table"):
                     return jsonify({"result": False, "message": "table does not exist"})
+            if active_scenario() == "MONITOR-012" and tool_name == "execute_sql_query":
+                return jsonify({"result": False, "message": "profile check must not execute SQL"}), 500
             if active_scenario() == "MONITOR-013":
                 if tool_name in ("list_alerts", "get_alert_top_n"):
                     if args.get("bk_biz_ids") != [str(args.get("bk_biz_id"))]:

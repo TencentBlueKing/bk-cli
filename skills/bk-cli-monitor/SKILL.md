@@ -208,7 +208,7 @@ bk-cli monitor log search_logs \
 ```
 
 - 无时区偏移的日期默认按 **Asia/Shanghai（北京时间）** 解释，可用 `--timezone UTC` 等名称覆盖。
-- `--since` 与显式起止时间二选一，包括 `--body` 中的时间；不会静默覆盖。
+- `--since` 与具名起止时间二选一；提供 `--body` 时时间以 body 为准，`--since` 不改写 body。
 - `--since` 最大 24 小时，日志单次窗口也不超过 24 小时；其他查询还受服务端保留期和查询限制约束。
 - 裸整数按具体工具的秒或毫秒单位解释，不按位数猜测。日期格式通常更容易核对。
 - 资源关联批次中的嵌套时间、日志上下文定位字段不适用上述自动转换规则。
@@ -314,7 +314,7 @@ bk-cli monitor status --offline
 
 ## 通用请求参数与输出
 
-业务命令逐一调用对应的 HTTP API；GET 参数位于 query，POST 参数位于 JSON body。`--body` 接受完整业务参数对象、`@file` 或 stdin；同名具名参数覆盖对应字段。结构化参数按当前命令帮助传 JSON。
+业务命令逐一调用对应的 HTTP API；GET 参数位于 query（数组按重复 key 发送），POST 参数位于 JSON body。`--body` 接受完整业务参数对象、`@file` 或 stdin；提供 `--body` 时它就是请求参数，具名参数、`--since`、`--scene/--where/--filter`、`--from` 等本地合成都不会改写它，只有 Profile 补齐缺失字段并检查范围冲突。结构化参数按当前命令帮助传 JSON。
 
 - `--stage` 选择网关 stage，默认 `prod`；context 选择部署，两者独立。
 - `--header` 可重复，支持本次请求的租户和其他 header 覆盖；相同选项也用于权限与 Profile 预检的中间请求。认证规则和脱敏约定见共享 Skill。
@@ -328,4 +328,4 @@ bk-cli monitor log search_logs --profile checkout-prod --since 15m \
   --dry-run --jq '{source:.profile.name,args:.request.body}'
 ```
 
-Profile `check` 验证当前工具最终解析出的资源。工具预设覆盖公共 `table_id` 时，元数据检查必须指向覆盖后的表；`permission_only` 表示没有完成该资源的元数据验证，不能写成资源已验证或 SQL 已执行。
+Profile `check` 验证当前工具最终解析出的资源。只有元数据工具本身（如 `list_time_series_metrics`、`get_index_set_fields`）会做元数据检查，工具预设覆盖的表或索引按覆盖后的值检查；`execute_sql_query` 使用 BkBase 结果表，不能用时序分组接口验证，结果保持 `permission_only`。`permission_only` 表示没有完成该资源的元数据验证，不能写成资源已验证或 SQL 已执行。

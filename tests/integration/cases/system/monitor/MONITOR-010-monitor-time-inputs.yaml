@@ -42,8 +42,14 @@ steps:
       exit_code: 0
       checks:
         - {path: data.tool_args.start_time, equals: '1791871200'}
-  - name: relative window cannot silently override body times
+  - name: relative window does not rewrite body times
     command: [monitor, log, search_logs, --body, '{"bk_biz_id":"100100","index_set_id":101003,"start_time":"yesterday","end_time":"today"}', --since, 1h]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.index_set_id, equals: 101003}
+  - name: relative window cannot combine with named times
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --start_time, '2026-10-13 14:00', --since, 1h]
     expect:
       exit_code: 1
       checks:

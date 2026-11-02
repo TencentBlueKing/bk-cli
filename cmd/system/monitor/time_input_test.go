@@ -117,7 +117,7 @@ var _ = Describe("explicit monitor time inputs", func() {
 		Expect(args["start_time"]).NotTo(BeAssignableToTypeOf(""))
 	})
 
-	It("normalizes body time fields and retains the named-flag override precedence", func() {
+	It("normalizes body time fields and keeps them authoritative over named flags", func() {
 		cmd := toolCommand("search_logs", true)
 		setFlags(
 			cmd,
@@ -130,7 +130,7 @@ var _ = Describe("explicit monitor time inputs", func() {
 		Expect(
 			args["end_time"],
 		).To(
-			Equal(strconv.FormatInt(time.Date(2026, 10, 13, 11, 0, 0, 0, shanghai).Unix(), 10)),
+			Equal(strconv.FormatInt(time.Date(2026, 10, 13, 12, 0, 0, 0, shanghai).Unix(), 10)),
 		)
 	})
 
@@ -205,7 +205,7 @@ var _ = Describe("explicit monitor time inputs", func() {
 		Expect(err).To(MatchError(ContainSubstring("invalid_time_precision")))
 	})
 
-	It("rejects --since with body endpoints and too-small relative windows", func() {
+	It("keeps body endpoints over --since and rejects too-small relative windows", func() {
 		cmd := toolCommand("search_logs", true)
 		setFlags(
 			cmd,
@@ -214,6 +214,11 @@ var _ = Describe("explicit monitor time inputs", func() {
 			"since",
 			"1h",
 		)
+		args := dryRunArgs(cmd)
+		Expect(args["start_time"]).To(Equal(strconv.FormatInt(time.Date(2026, 10, 13, 0, 0, 0, 0, shanghai).Unix(), 10)))
+		Expect(args["end_time"]).To(Equal(strconv.FormatInt(time.Date(2026, 10, 14, 0, 0, 0, 0, shanghai).Unix(), 10)))
+		cmd = toolCommand("search_logs", true)
+		setFlags(cmd, "bk_biz_id", "200200", "index_set_id", "101001", "start_time", "yesterday", "since", "1h")
 		_, err := runProfileCommand(cmd)
 		Expect(err.(*output.CLIError).Code).To(Equal("conflicting_time"))
 		cmd = toolCommand("search_logs", true)

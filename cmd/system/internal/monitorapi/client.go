@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -155,17 +156,24 @@ func Call(rt *Runtime, name string, body map[string]any) (*Reply, error) {
 
 func request(rt *Runtime, endpoint Endpoint, args map[string]any) (*Reply, error) {
 	query, body := map[string]any{}, map[string]any{}
+	repeated := url.Values{}
 	for key, value := range args {
 		inQuery := endpoint.Method == http.MethodGet || slices.Contains(endpoint.QueryParams, key)
-		if inQuery {
-			query[key] = value
-		} else {
+		if !inQuery {
 			body[key] = value
+		} else if values := scalarList(value); values != nil {
+			repeated[key] = values
+		} else {
+			query[key] = value
 		}
 	}
 	spec := syslib.RequestSpec{
 		GatewayName: gatewayName, Method: endpoint.Method,
 		Path: endpoint.Path, Stage: rt.Stage, Headers: rt.Headers, AuthConfig: &endpoint.Auth,
+	}
+	if len(repeated) > 0 {
+		// OpenAPI form/explode arrays are repeated keys; the shared JSON-query encoder stays unchanged.
+		spec.Path += "?" + repeated.Encode()
 	}
 	var err error
 	if len(query) > 0 {
@@ -205,6 +213,28 @@ func request(rt *Runtime, endpoint Endpoint, args map[string]any) (*Reply, error
 		}
 	}
 	return &Reply{Data: wrapped["data"], RequestID: rid, envelope: env}, nil
+}
+
+// scalarList returns query values for a non-empty array of scalars, or nil for any other value.
+func scalarList(value any) []string {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		switch typed := item.(type) {
+		case string:
+			values = append(values, typed)
+		case float64:
+			values = append(values, strconv.FormatFloat(typed, 'f', -1, 64))
+		case bool, int, int64, json.Number:
+			values = append(values, fmt.Sprint(typed))
+		default:
+			return nil
+		}
+	}
+	return values
 }
 
 // Execute calls the selected tool's own HTTP operation. No generic execute dispatcher is used.

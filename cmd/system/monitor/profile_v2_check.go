@@ -127,36 +127,21 @@ func checkV2Binding(rt *monitorapi.Runtime, p *selectedProfile, toolName string)
 		return nil, err
 	}
 	result["validation"] = "permission_only"
-	metadataTool := toolName
-	if p.Route.Module == "metric" && values["table_id"] != nil {
-		metadataTool = "list_time_series_metrics"
-	}
-	if !profileMetadataTools[metadataTool] {
+	// Only metadata reads validate their own resource. SQL reads BkBase result tables, which the
+	// TimeSeriesGroup metadata API cannot confirm, so it stays permission_only.
+	if !profileMetadataTools[toolName] {
 		return result, nil
 	}
-	copy := *p
-	if err := activateBinding(&copy, p.Component, p.Binding, metadataTool); err != nil {
-		return nil, err
-	}
-	metadataArgs, err := v2ToolValues(&copy, metadataTool)
-	if err != nil {
-		return nil, err
-	}
-	for key := range bindingResourceArgs {
-		if value, ok := values[key]; ok && hasParam(toolsByName[metadataTool], key) {
-			metadataArgs[key] = value
-		}
-	}
-	for _, param := range toolsByName[metadataTool].Params {
-		if param.Required && metadataArgs[param.Name] == nil {
+	for _, param := range toolsByName[toolName].Params {
+		if param.Required && values[param.Name] == nil {
 			return result, nil
 		}
 	}
-	reply, err := monitorapi.Execute(rt, metadataTool, metadataArgs)
+	reply, err := monitorapi.Execute(rt, toolName, values)
 	if err != nil {
 		return nil, err
 	}
-	result["validation"], result["metadata_tool"], result["request_id"] = "metadata", metadataTool, reply.RequestID
+	result["validation"], result["metadata_tool"], result["request_id"] = "metadata", toolName, reply.RequestID
 	return result, nil
 }
 

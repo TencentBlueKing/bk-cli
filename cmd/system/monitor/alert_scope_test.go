@@ -27,6 +27,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 
 	json "github.com/goccy/go-json"
@@ -50,7 +51,11 @@ var _ = Describe("native alert business scope", func() {
 		func(tool, body, biz string, profile bool) {
 			Expect(systemtest.SetupTestContext("https://gateway.example.test/api")).To(Succeed())
 			cmd := toolCommand(tool, true)
-			setFlags(cmd, "since", "1h")
+			if body == "" {
+				setFlags(cmd, "since", "1h")
+			} else {
+				body = strings.TrimSuffix(body, "}") + `,"start_time":"1799996400","end_time":"1800000000"}`
+			}
 			if tool == "get_alert_top_n" {
 				setFlags(cmd, "fields", "severity")
 			}
@@ -67,12 +72,12 @@ var _ = Describe("native alert business scope", func() {
 			}
 			args := dryRunArgs(cmd)
 			expected := "100100"
-			if biz == "9007199254740993" || body == `{"bk_biz_id":9007199254740993}` {
+			if biz == "9007199254740993" || strings.HasPrefix(body, `{"bk_biz_id":9007199254740993`) {
 				expected = "9007199254740993"
 			}
 			Expect(args["bk_biz_ids"]).To(Equal([]any{expected}))
 		},
-		Entry("named override", "list_alerts", `{"bk_biz_id":"900001"}`, "100100", false),
+		Entry("body wins over named flag", "list_alerts", `{"bk_biz_id":"100100"}`, "200200", false),
 		Entry("matching raw array", "list_alerts", `{"bk_biz_id":"100100","bk_biz_ids":["100100"]}`, "", false),
 		Entry(
 			"numeric matching array",
@@ -96,7 +101,8 @@ var _ = Describe("native alert business scope", func() {
 			DeferCleanup(server.Close)
 			Expect(systemtest.SetupTestContext(server.URL)).To(Succeed())
 			cmd := toolCommand("list_alerts", false)
-			setFlags(cmd, "body", `{"bk_biz_id":"100100","bk_biz_ids":`+raw+`}`, "since", "1h")
+			setFlags(cmd, "body", `{"bk_biz_id":"100100","start_time":"1799996400","end_time":"1800000000",`+
+				`"bk_biz_ids":`+raw+`}`)
 			_, err := runProfileCommand(cmd)
 			Expect(err).To(HaveOccurred())
 			Expect(err.(*output.CLIError).Code).To(Equal("invalid_arguments"))

@@ -93,7 +93,14 @@ func addConvenienceFlags(cmd *cobra.Command, item tool) {
 }
 
 // applyConvenienceFlags only builds documented API arguments; it does not infer resources or permissions.
-func applyConvenienceFlags(cmd *cobra.Command, item tool, args map[string]any) error {
+// An explicit --body skips flag synthesis; Profile row filters still narrow the selected scope.
+func applyConvenienceFlags(cmd *cobra.Command, item tool, args map[string]any, explicitBody bool) error {
+	if explicitBody {
+		if item.Name == "search_logs" {
+			return applyLogFilters(cmd, args, false)
+		}
+		return nil
+	}
 	switch item.Name {
 	case "search_logs", "get_scene_log_fields":
 		p := currentProfile(cmd)
@@ -103,7 +110,7 @@ func applyConvenienceFlags(cmd *cobra.Command, item tool, args map[string]any) e
 			}
 		}
 		if item.Name == "search_logs" {
-			return applyLogFilters(cmd, args)
+			return applyLogFilters(cmd, args, true)
 		}
 		return nil
 	case "search_index_set_context":

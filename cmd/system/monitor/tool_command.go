@@ -86,7 +86,7 @@ func newToolCmd(item tool, deps systemcmd.BuildDeps) *cobra.Command {
 		&body,
 		syslib.ActionBodyFlagName,
 		"",
-		"Full tool_args JSON, @file, or - for stdin; named flags override matching keys",
+		"Full tool_args JSON, @file, or - for stdin; overrides synthesized inputs (named and convenience flags) when provided",
 	)
 	return cmd
 }
@@ -121,11 +121,13 @@ func addParamFlag(cmd *cobra.Command, p param) {
 	}
 }
 
-// toolArgs merges --body with named flags, converts only by the reviewed schema type, and leaves
-// all ownership and permission checks to the server.
+// toolArgs follows the shared body contract: an explicit --body is the request arguments and skips
+// local synthesis from named or convenience flags. Profiles only fill absent keys. Values are converted
+// only by the reviewed schema type; ownership and permission checks stay on the server.
 func toolArgs(cmd *cobra.Command, item tool, body, since string, hasWindow bool) (map[string]any, error) {
 	args := map[string]any{}
-	if body != "" {
+	explicitBody := body != ""
+	if explicitBody {
 		raw, err := readBody(cmd, body)
 		if err != nil {
 			return nil, err
@@ -133,27 +135,28 @@ func toolArgs(cmd *cobra.Command, item tool, body, since string, hasWindow bool)
 		if err := jsonObject(raw, &args); err != nil {
 			return nil, err
 		}
-	}
-	for _, p := range item.Params {
-		flag := cmd.Flags().Lookup(p.Name)
-		if flag == nil || !flag.Changed {
-			continue
+	} else {
+		for _, p := range item.Params {
+			flag := cmd.Flags().Lookup(p.Name)
+			if flag == nil || !flag.Changed {
+				continue
+			}
+			value, err := convertFlag(cmd, p)
+			if err != nil {
+				return nil, err
+			}
+			args[p.Name] = value
 		}
-		value, err := convertFlag(cmd, p)
-		if err != nil {
-			return nil, err
-		}
-		args[p.Name] = value
 	}
-	scene, _ := cmd.Flags().GetString(sceneFlag)
-	where, _ := cmd.Flags().GetStringArray(whereFlag)
+	scene, where := synthesisRoute(cmd, explicitBody)
 	if err := profileArgs(currentProfile(cmd), item, args, scene, where); err != nil {
 		return nil, err
 	}
-	if err := applyConvenienceFlags(cmd, item, args); err != nil {
+	if err := applyConvenienceFlags(cmd, item, args, explicitBody); err != nil {
 		return nil, err
 	}
-	if err := applyTimeInputs(cmd, item, args, since); err != nil {
+	relative := !explicitBody && (since != "" || cmd.Flags().Changed(sinceFlag))
+	if err := applyTimeInputs(cmd, item, args, since, relative); err != nil {
 		return nil, err
 	}
 	var missing []string
@@ -165,13 +168,26 @@ func toolArgs(cmd *cobra.Command, item tool, body, since string, hasWindow bool)
 	if len(missing) > 0 {
 		next := monitorapi.NextCommands(item.Name, fmt.Sprint(args["bk_biz_id"]))
 		hint := "缺少必填参数：" + strings.Join(missing, ", ")
-		if hasWindow && (args["start_time"] == nil || args["end_time"] == nil) {
+		switch {
+		case explicitBody:
+			hint += "；已提供 --body 时请在 body 中补齐，具名参数和 --since 不会改写 body"
+		case hasWindow && (args["start_time"] == nil || args["end_time"] == nil):
 			hint += "；时间可用 --since 15m"
 		}
 		return nil, monitorapi.InputError("missing_arguments", hint+"。", next...)
 	}
 	recordProfileArgs(currentProfile(cmd), args)
 	return args, nil
+}
+
+// synthesisRoute returns the scene route flags used for local synthesis; an explicit body skips them.
+func synthesisRoute(cmd *cobra.Command, explicitBody bool) (string, []string) {
+	if explicitBody {
+		return "", nil
+	}
+	scene, _ := cmd.Flags().GetString(sceneFlag)
+	where, _ := cmd.Flags().GetStringArray(whereFlag)
+	return scene, where
 }
 
 func readBody(cmd *cobra.Command, body string) ([]byte, error) {
@@ -283,7 +299,11 @@ func longHelp(item tool, hasWindow bool) string {
 			"Only catalog top-level time fields are converted; query_list and --from anchor timestamps remain native.",
 		)
 	}
-	lines = append(lines, "Use --body for the full tool_args JSON; named flags override matching keys.", "")
+	lines = append(
+		lines,
+		"Use --body for the full tool_args JSON; when provided it is sent as-is and named/convenience flags are not applied.",
+		"",
+	)
 	lines = append(lines, permissionLines(item)...)
 	return strings.Join(lines, "\n")
 }
