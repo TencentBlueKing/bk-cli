@@ -119,7 +119,10 @@ func applyTimeInputs(cmd *cobra.Command, item tool, args map[string]any, since s
 }
 
 func timeConflict() error {
-	return monitorapi.InputError("conflicting_time", "--since 不能与命名参数 start_time/end_time 同时使用；提供 --body 时时间以 body 为准。")
+	return monitorapi.InputError(
+		"conflicting_time",
+		"--since 不能与命名参数 start_time/end_time 同时使用；提供 --body 时时间以 body 为准。",
+	)
 }
 
 func timeResolution(unit string) time.Duration {

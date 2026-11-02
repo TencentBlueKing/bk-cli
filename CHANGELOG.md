@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-11-02
+
+### Highlights
+
+- **统一观测查询入口**：新增 `bk-cli monitor <模块> <工具>`，提供 11 个模块、65 个只读业务工具，覆盖业务空间、指标、日志、告警、事件、APM/Trace/Profiling、仪表盘、资源关联、告警配置、日志采集和日志提取状态；每个工具直接调用对应的网关 HTTP API，复用现有 context、用户凭据和结构化输出。([#45](https://github.com/TencentBlueKing/bk-cli/pull/45), @EASYGOING45)
+- **可复用的观测 Profile**：支持 V1 单来源和 V2 多组件、多来源配置，保存业务、资源及工具默认参数，通过 `--profile`、`--component` 和 `--binding` 选择；提供本地查看、资源与权限预检，以及 `monitor status` 诊断入口。([#45](https://github.com/TencentBlueKing/bk-cli/pull/45), @EASYGOING45)
+
+### Improvements
+
+- Monitor 支持可读时间与相对时间窗口、日志过滤、从查询结果定位日志上下文，并支持 `--stage`、重复 `--header` 和最终结果 `--jq` 投影。([#45](https://github.com/TencentBlueKing/bk-cli/pull/45), @EASYGOING45)
+- 提供 `monitor tools search/schema` 和 `monitor permission list/check/apply`，用于发现工具、查看服务端契约、检查当前身份权限及获取 IAM 申请链接；补充 Profile 配置模板和查询、排障使用指引。([#45](https://github.com/TencentBlueKing/bk-cli/pull/45), @EASYGOING45)
+
+### Fixes
+
+- **限制网关权限申请的认证方式**：`apigateway apply_gateway_permission` 要求含非空应用代码和密钥的 `app_user` 凭据，本地拒绝 access token、个人 token、Bearer 请求头及不符合要求的认证头覆盖，dry-run 同样执行检查。([#52](https://github.com/TencentBlueKing/bk-cli/pull/52), @wklken)
+- 移除 monitor 内部各层帮助中的 `[system]` 标识，保留顶层命令列表中的系统标识。
+
+### Upgrade Guide
+
+- 网关权限申请请切换到包含 `bk_app_code` 和 `bk_app_secret` 的应用凭据 context；仅有 token 的调用会返回 `unsupported_credential_type`。提交申请仍需确认具体范围并传入 `--confirmed`。
+- Monitor Profile 不保存凭据、不授予权限，也不修改当前激活的 context；使用者须自行登录并具备目标资源权限。V2 配置中出现多个候选组件或绑定时，应显式选择。
+- `monitor profile check` 检查权限和可验证的资源元数据，不执行日志、SQL 或指标查询；`permission_only` 不代表资源已验证，预检通过也不替代查询时的服务端鉴权。
+
 ## [0.2.9] - 2026-10-21
 
 ### Highlights

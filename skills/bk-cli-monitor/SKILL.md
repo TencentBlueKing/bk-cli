@@ -76,6 +76,8 @@ bk-cli monitor metric execute_range_query \
 bk-cli monitor <模块> <工具> [参数]
 ```
 
+使用 `bk-cli monitor -h` 查看模块，再用 `bk-cli monitor <模块> -h` 和 `bk-cli monitor <模块> <工具> -h` 逐层查看命令与参数。`[system]` 仅在 `bk-cli -h` 的顶层命令列表中标识 monitor，monitor 内部帮助不显示该标识。
+
 下文用引号包住的 `<业务ID>`、`<索引集ID>` 等都是占位符，执行前替换为当前账号可见的真实值。不要直接照抄示例标识，也不要让 Agent 猜测资源 ID。
 
 ```bash
