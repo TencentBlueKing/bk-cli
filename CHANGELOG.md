@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-11-02
+
+### Highlights
+
+- **统一观测查询入口**：新增 `bk-cli monitor <模块> <工具>`，提供 11 个模块、65 个只读业务工具，覆盖业务空间、指标、日志、告警、事件、APM/Trace/Profiling、仪表盘、资源关联、告警配置、日志采集和日志提取状态；复用现有 context、用户凭据和结构化输出，支持 V1/V2 Profile 配置复用、资源与权限预检及状态诊断。([#45](https://github.com/TencentBlueKing/bk-cli/pull/45), @EASYGOING45)
+
+### Fixes
+
+- **限制网关权限申请的认证方式**：`apigateway apply_gateway_permission` 要求含非空应用代码和密钥的 `app_user` 凭据，本地拒绝 access token、个人 token、Bearer 请求头及不符合要求的认证头覆盖，dry-run 同样执行检查。([#52](https://github.com/TencentBlueKing/bk-cli/pull/52), @wklken)
+
+### Upgrade Guide
+
+- 网关权限申请请切换到包含 `bk_app_code` 和 `bk_app_secret` 的应用凭据 context；仅有 token 的调用会返回 `unsupported_credential_type`。提交申请仍需确认具体范围并传入 `--confirmed`。
+
 ## [0.2.9] - 2026-10-21
 
 ### Highlights

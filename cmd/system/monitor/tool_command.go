@@ -86,7 +86,8 @@ func newToolCmd(item tool, deps systemcmd.BuildDeps) *cobra.Command {
 		&body,
 		syslib.ActionBodyFlagName,
 		"",
-		"Full tool_args JSON, @file, or - for stdin; overrides synthesized inputs (named and convenience flags) when provided",
+		"Full tool_args JSON, @file, or - for stdin; "+
+			"overrides synthesized inputs (named and convenience flags) when provided",
 	)
 	return cmd
 }

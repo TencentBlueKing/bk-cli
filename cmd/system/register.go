@@ -125,8 +125,12 @@ func registerCommandGroups(
 
 		groupCmd := &cobra.Command{
 			Use:   spec.Name,
-			Short: withSystemCommandPrefix(spec.Description),
+			Short: spec.Description,
 			Args:  cobra.NoArgs,
+		}
+		if depth == 0 {
+			groupCmd.Long = spec.Description
+			groupCmd.Short = withSystemCommandPrefix(spec.Description)
 		}
 
 		if spec.YAMLFile != "" {
