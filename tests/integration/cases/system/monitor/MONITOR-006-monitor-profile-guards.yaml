@@ -1,0 +1,32 @@
+id: MONITOR-006
+name: Profile scope conflicts fail closed
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: reject unknown profile without trying login
+    command: [monitor, profile, show, --profile, typo, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: profile_not_found}
+  - name: reject context conflict before context resolution
+    command: [monitor, log, get_index_set_fields, --context, other, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: profile_context_mismatch}
+  - name: reject business conflict before context resolution
+    command: [monitor, log, get_index_set_fields, --bk_biz_id, '200200', --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: profile_business_mismatch}
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: reject mixed log modes without credentials
+    command: [monitor, log, search_logs, --profile, worker, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --scene, host, --since, 15m]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: profile_log_mode_mismatch}

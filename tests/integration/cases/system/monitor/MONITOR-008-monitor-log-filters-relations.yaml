@@ -1,0 +1,44 @@
+id: MONITOR-008
+name: Log row filters and relation batch outcome checks
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: filter rows without changing table routing
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --scene, k8s, --where, cluster_id=test-cluster, --filter, namespace=ns-a, --query_string, 'ERROR OR WARN', --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.query_string, equals: '(ERROR OR WARN) AND (namespace:"ns-a")'}
+        - {path: data.tool_args.table_id_conditions.0.1.field_name, equals: cluster_id}
+  - name: explicitly override the profile namespace row filter
+    command: [monitor, log, search_logs, --profile, ns-a, --profile_file, /workspace/tests/integration/fixtures/monitor-profiles.yaml, --filter, __ext.io_kubernetes_pod_namespace=ns-b, --since, 15m]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_args.query_string, equals: '__ext.io_kubernetes_pod_namespace:"ns-b"'}
+        - {path: data.tool_args.table_id_conditions.0.1.field_name, equals: cluster_id}
+  - name: reject a malformed filter before calling a backend
+    command: [monitor, log, search_logs, --bk_biz_id, '100100', --index_set_id, '101003', --filter, 'field) OR *=x', --since, 15m]
+    expect:
+      exit_code: 1
+      checks:
+        - {path: error.code, equals: invalid_log_filter}
+  - name: a successful empty relation is still a successful query
+    command: [monitor, relation, find_relations, --bk_biz_id, '100100', --query_list, '[{"timestamp":1,"source_info":{}}]']
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.data.0.code, equals: 200}
+  - name: a failed relation item must not be hidden by HTTP success
+    command: [monitor, relation, find_relations, --bk_biz_id, '900008', --query_list, '[{"timestamp":1,"source_info":{}}]']
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: relation_query_failed}

@@ -180,7 +180,7 @@ bk-cli auth login \
   --bk_app_secret='your_secret' \
   --bk_ticket='your_bk_ticket'
 
-# 其他版本网关，例如 bk-dev/bkop/sg/bk2game 等
+# 使用 bk_token 的网关部署
 
 bk-cli auth login \
   --bk_app_code='your_app' \

@@ -157,6 +157,7 @@ These are the current registered systems in `cmd/system/register.go`:
 | `gse` | `cmd/system/gse` | Go-implemented |
 | `devops` | `cmd/system/devops` | subsystem-based mixed YAML + Go |
 | `nodeman` | `cmd/system/nodeman` | Go-implemented |
+| `monitor` | `cmd/system/monitor` | reviewed per-tool HTTP routes; V1/V2 Profiles; context/auth and final output remain shared |
 
 ## Command registration model
 
@@ -318,7 +319,7 @@ When a Go-implemented action supports both named flags and raw `--body`, treat `
 
 `api` and public system actions register `output.AddJQFlag(cmd)` locally. Go actions inherit it through `AddCommonRequestFlags` / `AddCommonRequestFlagsWithoutBody`; YAML actions register it in their builder. `jq` is reserved for generated flags.
 
-Write final request results through `output.WriteCommandEnvelope(cmd, env)`, after any result checks, redaction, response mutation, or pagination aggregation. Keep intermediate requests in the shared request layer without projecting them. The output helper compiles during flag parsing, buffers JSON Lines with finite execution/output budgets, bypasses failed envelopes, and preserves completed request results on projection failures. Keep unsupported commands explicit instead of adding a root flag that can be silently ignored. Detailed semantics are defined in `docs/design.md`.
+Write final request results through `output.WriteCommandEnvelope(cmd, env)` (or `WriteCommandEnvelopeWithMetadata` for command-local provenance), after any result checks, redaction, response mutation, or pagination aggregation. Keep intermediate requests in the shared request layer without projecting them. The output helper compiles during flag parsing, buffers JSON Lines with finite execution/output budgets, bypasses failed envelopes, and preserves completed request results on projection failures. Keep unsupported commands explicit instead of adding a root flag that can be silently ignored. Detailed semantics are defined in `docs/design.md`.
 
 ## Runtime, auth, and request behavior
 

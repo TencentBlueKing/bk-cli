@@ -1,0 +1,58 @@
+# Synthetic template. Replace context names, business IDs and all resources with verified values.
+version: 2
+sources:
+  game-logs: {context: logs-prod, bk_biz_id: "100100"}
+  game-observe: {context: observe-prod, bk_biz_id: "200200"}
+profiles:
+  game-production:
+    description: 游戏生产环境；各类观测数据可以在不同部署/业务
+    environment: production
+    components:
+      backend:
+        bindings:
+          logs:
+            module: log
+            source: game-logs
+            args: {index_set_id: 101001}
+          traces: &shared-traces
+            module: apm
+            source: game-observe
+            args: {app_name: example-game}
+            tools:
+              list_apm_services: {service_names: [api]}
+              search_spans:
+                filters: [{key: resource.service.name, operator: equal, value: [api]}]
+          traffic:
+            module: metric
+            source: game-observe
+            args: {table_id: example.request_metrics}
+            tools:
+              execute_range_query: {promql: 'sum(rate(request_total{service="api"}[5m]))'}
+          latency:
+            module: metric
+            source: game-observe
+            args: {table_id: example.latency_metrics}
+            tools:
+              execute_range_query: {promql: 'max(request_latency_ms{service="api"})'}
+          policy:
+            module: alarm
+            source: game-observe
+            tools:
+              get_alarm_strategy:
+                conditions: [{key: strategy_id, value: ["301001"]}]
+          dashboard:
+            module: dashboard
+            source: game-observe
+            args: {dashboard_uid: example-dashboard}
+      worker:
+        bindings:
+          logs:
+            module: log
+            source: game-logs
+            args: {index_set_id: 101002}
+          traces:
+            <<: *shared-traces
+            tools:
+              list_apm_services: {service_names: [worker]}
+              search_spans:
+                filters: [{key: resource.service.name, operator: equal, value: [worker]}]

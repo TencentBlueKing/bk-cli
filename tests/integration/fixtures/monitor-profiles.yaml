@@ -1,0 +1,24 @@
+# Synthetic data for the isolated integration harness, not a real deployment.
+version: 1
+profiles:
+  worker: &worker
+    context: default
+    bk_biz_id: "100100"
+    log: {index_set_id: 101003}
+    metric: {table_id: example.table}
+  ns-a:
+    <<: *worker
+    log:
+      scene: k8s
+      where:
+        cluster_id: test-cluster
+      filters:
+        __ext.io_kubernetes_pod_namespace: ns-a
+  ns-b:
+    <<: *worker
+    log:
+      scene: k8s
+      where:
+        cluster_id: test-cluster
+      filters:
+        __ext.io_kubernetes_pod_namespace: ns-b

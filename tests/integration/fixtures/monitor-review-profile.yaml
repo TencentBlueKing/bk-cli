@@ -1,0 +1,24 @@
+# Synthetic resources only. Time-series presets are checked through metadata; SQL stays permission_only.
+version: 2
+sources: {sample-source: {context: default, bk_biz_id: "10007"}}
+profiles:
+  sample:
+    components:
+      api:
+        bindings:
+          metrics:
+            module: metric
+            source: sample-source
+            args: {table_id: existing.table}
+            tools:
+              list_time_series_metrics: {table_id: missing.table}
+  bkbase:
+    components:
+      api:
+        bindings:
+          sql:
+            module: metric
+            source: sample-source
+            args: {table_id: existing.table}
+            tools:
+              execute_sql_query: {table_id: bkbase.valid_table, sql: 'SELECT 1'}

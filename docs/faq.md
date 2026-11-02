@@ -60,7 +60,7 @@ skills 所在目录：[bk-cli/skills](https://github.com/TencentBlueKing/bk-cli/
 
 context 本身是逻辑上的设计，可以用于隔离：
 
-- 作为环境隔离，例如内部上云一个 context，bkop 一个 context，在同一台机器上用 `bk-cli` 操作多个环境
+- 作为环境隔离，例如测试环境和生产环境各使用一个 context，在同一台机器上用 `bk-cli` 操作多个环境
 - 作为账号隔离，可以登录不同的账号（应用身份/用户身份），调用时按需切换
 
 ### `"context \"default\" already exists"`

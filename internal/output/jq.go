@@ -82,9 +82,13 @@ func AddJQFlag(cmd *cobra.Command) {
 // WriteCommandEnvelope projects only successful final envelopes. Projection
 // failures preserve the completed request's original result; I/O failures stop.
 func WriteCommandEnvelope(cmd *cobra.Command, env *Envelope) error {
+	return writeCommandEnvelope(cmd, env, env)
+}
+
+func writeCommandEnvelope(cmd *cobra.Command, env *Envelope, document any) error {
 	flag := cmd.Flags().Lookup("jq")
 	if flag == nil || !flag.Changed || !env.OK {
-		return env.WriteJSON(cmd.OutOrStdout())
+		return writeFinalDocument(cmd.OutOrStdout(), document)
 	}
 	value, ok := flag.Value.(*jqValue)
 	if !ok || value.code == nil {
@@ -94,9 +98,9 @@ func WriteCommandEnvelope(cmd *cobra.Command, env *Envelope) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	projected, err := value.project(ctx, env)
+	projected, err := value.project(ctx, document)
 	if err != nil {
-		if writeErr := env.WriteJSON(cmd.OutOrStdout()); writeErr != nil {
+		if writeErr := writeFinalDocument(cmd.OutOrStdout(), document); writeErr != nil {
 			return writeErr
 		}
 		var cliErr *CLIError
@@ -128,7 +132,7 @@ func WriteCommandEnvelope(cmd *cobra.Command, env *Envelope) error {
 	return err
 }
 
-func (v *jqValue) project(parent context.Context, env *Envelope) ([]byte, error) {
+func (v *jqValue) project(parent context.Context, env any) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(parent, jqTimeout)
 	defer cancel()
 	data, err := json.Marshal(env)

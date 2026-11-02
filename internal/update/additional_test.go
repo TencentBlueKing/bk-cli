@@ -20,6 +20,7 @@ package update
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -30,7 +31,11 @@ import (
 
 var _ = Describe("GitHubSource", func() {
 	BeforeEach(func() {
+		originalClient := githubHTTPClient
 		githubHTTPClient = &http.Client{}
+		DeferCleanup(func() {
+			githubHTTPClient = originalClient
+		})
 	})
 
 	It("checks the latest release successfully", func() {
@@ -78,6 +83,45 @@ var _ = Describe("GitHubSource", func() {
 		Expect(err).To(MatchError(ContainSubstring("version check returned status 502")))
 	})
 
+	It("uses the default API endpoint and preserves transport errors", func() {
+		transportErr := errors.New("transport unavailable")
+		githubHTTPClient = &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				Expect(req.Method).To(Equal(http.MethodGet))
+				Expect(req.URL.Scheme).To(Equal("https"))
+				Expect(req.URL.Host).To(Equal("api.github.com"))
+				Expect(req.URL.Path).To(Equal("/repos/TencentBlueKing/bk-cli/releases/latest"))
+				return nil, transportErr
+			}),
+		}
+
+		source := &GitHubSource{Owner: "TencentBlueKing", Repo: "bk-cli"}
+		info, err := source.CheckLatest(context.Background())
+		Expect(info).To(BeNil())
+		Expect(err).To(MatchError(ContainSubstring("failed to check for updates")))
+		Expect(errors.Is(err, transportErr)).To(BeTrue())
+	})
+
+	DescribeTable("rejects incomplete release metadata", func(payload, message string) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(payload))
+		}))
+		DeferCleanup(server.Close)
+		githubHTTPClient = server.Client()
+
+		source := &GitHubSource{Owner: "TencentBlueKing", Repo: "bk-cli", APIBase: server.URL}
+		info, err := source.CheckLatest(context.Background())
+		Expect(info).To(BeNil())
+		Expect(err).To(MatchError(ContainSubstring(message)))
+	},
+		Entry("missing version tag", `{"assets":[]}`, "latest release has no tag name"),
+		Entry("matching asset without a download URL",
+			`{"tag_name":"v1.2.3","assets":[{"name":"`+
+				expectedReleaseAssetName("v1.2.3", runtime.GOOS, runtime.GOARCH)+`"}]}`,
+			"has no download URL"),
+	)
+
 	It("returns an error when the request URL is invalid", func() {
 		source := &GitHubSource{Owner: "TencentBlueKing", Repo: "bk-cli", APIBase: "://bad-url"}
 		_, err := source.CheckLatest(context.Background())
@@ -102,7 +146,11 @@ var _ = Describe("GitHubSource", func() {
 	It("returns an error when the platform asset is missing", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"tag_name":"v1.2.3","assets":[{"name":"bk-cli_v1.2.3_darwin_amd64.tar.gz","browser_download_url":"https://example.com/other"}]}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"tag_name":"v1.2.3","assets":[{"name":"bk-cli_v1.2.3_darwin_amd64.tar.gz","browser_download_url":"https://example.com/other"}]}`,
+				),
+			)
 		}))
 		DeferCleanup(server.Close)
 

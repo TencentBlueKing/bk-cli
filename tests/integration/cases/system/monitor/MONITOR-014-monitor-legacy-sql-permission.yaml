@@ -1,0 +1,19 @@
+id: MONITOR-014
+name: Accept an explicit legacy SQL permission for the exact business
+tags: [coverage-system_go, suite-integration]
+steps:
+  - name: init
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: check legacy space permission without executing SQL
+    command: [monitor, permission, check, --bk_biz_id, '100100', --tool, execute_sql_query]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.decision, equals: ready}
+        - {path: data.steps.2.authorization_source, equals: legacy_mcp}
