@@ -28,8 +28,6 @@ import (
 	systemcmd "github.com/TencentBlueKing/bk-cli/internal/systemcmd"
 )
 
-const monitorDescription = "BlueKing Monitor user-mode observability commands"
-
 var catalogData, toolsByName, catalogErr = loadCatalog()
 
 func init() {
@@ -47,7 +45,7 @@ func init() {
 func NewSystemSpec() systemcmd.SystemSpec {
 	if catalogErr != nil {
 		return systemcmd.SystemSpec{
-			Name: "monitor", Description: monitorDescription,
+			Name: "monitor", Description: "BlueKing Monitor user-mode observability commands",
 			RegisterGoActions: func(*cobra.Command, systemcmd.BuildDeps) error { return catalogErr },
 		}
 	}
@@ -68,18 +66,10 @@ func NewSystemSpec() systemcmd.SystemSpec {
 			},
 		})
 	}
-	// System labels belong in the root command list, not inside monitor help.
-	for i, spec := range subsystems {
-		subsystems[i].RegisterGoActions = func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
-			parent.Short = spec.Description
-			return spec.RegisterGoActions(parent, deps)
-		}
-	}
 	return systemcmd.SystemSpec{
 		Name:        "monitor",
-		Description: monitorDescription,
+		Description: "BlueKing Monitor user-mode observability commands",
 		RegisterGoActions: func(parent *cobra.Command, deps systemcmd.BuildDeps) error {
-			parent.Long = monitorDescription
 			parent.AddCommand(newStatusCmd(deps))
 			return nil
 		},

@@ -186,6 +186,9 @@ func markRootCommand(cmd *cobra.Command) *cobra.Command {
 		return nil
 	}
 	if cmd.Short != "" && !strings.HasPrefix(cmd.Short, rootCommandPrefix) {
+		if cmd.Long == "" {
+			cmd.Long = cmd.Short
+		}
 		cmd.Short = rootCommandPrefix + cmd.Short
 	}
 	return cmd

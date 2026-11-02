@@ -168,6 +168,22 @@ var _ = Describe("version command", func() {
 		)
 	})
 
+	It("keeps command labels out of help below the root", func() {
+		cmd := newRootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		queue := cmd.Commands()
+		for len(queue) > 0 {
+			child := queue[0]
+			queue = queue[1:]
+			out.Reset()
+			Expect(child.Help()).To(Succeed(), child.CommandPath())
+			Expect(out.String()).NotTo(ContainSubstring("[root]"), child.CommandPath())
+			Expect(out.String()).NotTo(ContainSubstring("[system]"), child.CommandPath())
+			queue = append(queue, child.Commands()...)
+		}
+	})
+
 	DescribeTable(
 		"help examples preserve literal values in Bash",
 		func(args []string, exampleValue string) {
