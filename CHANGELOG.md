@@ -17,7 +17,6 @@ All notable changes to this project will be documented in this file.
 ### Fixes
 
 - **限制网关权限申请的认证方式**：`apigateway apply_gateway_permission` 要求含非空应用代码和密钥的 `app_user` 凭据，本地拒绝 access token、个人 token、Bearer 请求头及不符合要求的认证头覆盖，dry-run 同样执行检查。([#52](https://github.com/TencentBlueKing/bk-cli/pull/52), @wklken)
-- 移除 monitor 内部各层帮助中的 `[system]` 标识，保留顶层命令列表中的系统标识。
 
 ### Upgrade Guide
 
