@@ -1,11 +1,11 @@
 ---
 name: bk-cli-apigateway
-description: 当需要通过 `bk-cli apigateway` 发现 BlueKing API Gateway 中所有公开网关、浏览某个网关公开的 API/资源列表、获取 OpenAPI/Schema、判断某个接口该怎么调用、申请网关或批量 API 权限，或在 `apigateway` 子命令与 `bk-cli api` 之间做选择时使用。尤其是当用户还不知道或不确定该调用哪个网关、哪个公开接口、接口名可能是什么、只知道业务目标/关键词/资源名片段，或遇到网关资源权限不足时，也应优先使用这个 skill，先搜索再确认，而不是直接猜测接口。
+description: 当需要通过 `bk-cli apigateway` 发现 BlueKing API Gateway 中所有公开网关、浏览某个网关公开的 API/资源列表、获取 OpenAPI/Schema、判断某个接口该怎么调用、查询当前应用已有网关或资源权限、申请网关或批量 API 权限，或在 `apigateway` 子命令与 `bk-cli api` 之间做选择时使用。尤其是当用户还不知道或不确定该调用哪个网关、哪个公开接口、接口名可能是什么、只知道业务目标/关键词/资源名片段，或遇到网关资源权限不足时，也应优先使用这个 skill，先搜索再确认，而不是直接猜测接口。
 ---
 
 # bk-cli apigateway — API Gateway 管理
 
-用于发现网关、浏览网关 API、获取 OpenAPI Schema，以及在用户明确确认后申请网关或批量 API 权限。
+用于发现网关、浏览网关 API、获取 OpenAPI Schema、查询当前应用已有权限，以及在用户明确确认后申请网关或批量 API 权限。
 
 CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`。共享 skill 负责认证、context、tenant、stage、header/body、dry-run、verbose 等通用使用规则；本 skill 只补充 `apigateway` 命令自己的探索、调用与权限申请路径。
 
@@ -24,7 +24,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 2. 再用 `list_gateway_apis` 浏览该网关公开资源，缩小到候选 API。
 3. 如果结果不唯一，向用户展示候选网关/API，并明确说明你为什么认为它们相关，请用户确认最终目标。
 4. 用 `retrieve_gateway_api_details` 查看完整 Schema、认证要求、方法、路径、请求/响应结构。
-5. 如果目标已经有合适的 `apigateway` 子命令，就继续使用该命令；权限申请按下文 `apply_gateway_permission` 的确认流程执行。
+5. 如果目标已经有合适的 `apigateway` 子命令，就继续使用该命令；遇到权限不足时先用 `list_current_app_permissions` 查询网关和资源两个维度，确认缺少有效授权后再按下文 `apply_gateway_permission` 的确认流程申请。
 6. 如果需要真正调用某个公开 API，或目标接口尚未映射成 `apigateway` 子命令，就根据详情里的协议信息切换到 `bk-cli api` 做原始调用。
 
 ## Agent 工作方式
@@ -47,7 +47,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 
 ### 从发现切换到调用
 
-- `bk-cli apigateway` 负责“找网关、找接口、看详情、看 Schema”，也提供需用户明确确认的 `apply_gateway_permission` 权限申请命令。
+- `bk-cli apigateway` 负责“找网关、找接口、看详情、看 Schema、查当前应用权限”，也提供需用户明确确认的 `apply_gateway_permission` 权限申请命令。
 - `bk-cli api` 负责“按真实 method/path/query/body/header 发请求”。
 - 只有在看过 `retrieve_gateway_api_details` 的结果之后，才去组装 `bk-cli api` 调用更稳妥。
 - 首次调用、排障、或用户自己也不确定参数时，优先先生成 `bk-cli api ... --dry-run`，确认 URL、headers、body 后再真正发请求。
@@ -215,6 +215,46 @@ bk-cli apigateway retrieve_gateway_api_details --gateway_name <name> --api_name 
 bk-cli apigateway retrieve_gateway_api_details --gateway_name bk-iam --api_name create_system
 ```
 
+### list_current_app_permissions
+
+查询服务端识别的当前认证应用的网关或资源授权情况，属于只读操作，无需用户确认。通过 `--context` 选择对应应用凭据，无需且不支持 `target_app_code`。认证遵循共享凭据规则：可使用应用凭据、满足应用认证要求的 `access_token`，或部署支持的个人 token；查询对象由服务端确定。下文权限申请命令的专属凭据限制不适用于查询。
+
+```bash
+bk-cli apigateway list_current_app_permissions --grant_dimension <gateway|resource> \
+  [--gateway_name <name>] [--resource_name <name>] [--limit <n>] [--offset <n>]
+```
+
+| Flag | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `--grant_dimension` | string | **是** | `gateway` 按网关查询；`resource` 按资源查询 |
+| `--gateway_name` | string | 否 | 网关名称，精确匹配 |
+| `--resource_name` | string | 否 | 资源名称，精确匹配，仅在 `resource` 维度生效 |
+| `--limit` | int | 否 | 单页大小，接口默认 `10` |
+| `--offset` | int | 否 | 相对于完整列表的起始偏移，接口默认 `0` |
+
+```bash
+# 分别查询网关和资源授权
+bk-cli apigateway list_current_app_permissions --grant_dimension gateway
+bk-cli apigateway list_current_app_permissions --grant_dimension resource
+
+# 查询指定网关、指定资源
+bk-cli apigateway list_current_app_permissions --grant_dimension resource \
+  --gateway_name bk-demo --resource_name user_query
+
+# 查询下一页
+bk-cli apigateway list_current_app_permissions --grant_dimension resource --limit 10 --offset 10
+
+# 选择应用 context 并提取单页结果
+bk-cli apigateway list_current_app_permissions --context my-app \
+  --grant_dimension gateway --jq '.data.data'
+```
+
+响应保持完整 JSON envelope：`data.data.count` 是筛选后的总数，`data.data.results` 是当前页记录，包含 `bk_app_code`、`gateway_name`、`resource_name`、`expires`、`grant_type` 等字段。**命令只返回一页，不自动遍历分页；不能把单页结果当作完整列表。** 逐页增加 `offset` 并结合总数读取后续记录。
+
+**查询结果可能包含已过期授权。** `expires` 为 `null` 表示永久有效；其他值需要结合其中的时区和当前时间判断是否过期，不能仅因记录存在就认定仍有权限。网关和资源维度分别查询，网关维度的 `resource_name` 为空；有效的网关授权也可覆盖该网关的资源，不能因资源维度未查到记录就重复申请。
+
+Agent 应先在两个维度查询并完成分页、有效期检查，再判断是否需要申请。若缺少有效授权，汇总同一网关需要的资源，向用户说明应用、网关、资源范围、有效期和原因，取得本次明确确认后使用 `apply_gateway_permission` 批量申请。提交成功不代表权限已获批，后续仍需关注审批并重新查询。
+
 ### apply_gateway_permission
 
 调用 `v2_open_apply_gateway_permission` 申请网关或批量 API 权限。需要应用身份；`target_app_code` 必须与请求使用的应用一致。
@@ -305,7 +345,7 @@ bk-cli apigateway list_gateway_apis --gateway_name bk-iam \
 ```
 
 说明：
-- `--gateway_name` 会在本地校验 `^[a-z][a-z0-9-]{2,29}$`，不合法时直接返回 `invalid_gateway_name`。
+- `list_gateway_apis`、`retrieve_gateway_api_details` 和 `apply_gateway_permission` 的 `--gateway_name` 会在本地校验 `^[a-z][a-z0-9-]{2,29}$`，不合法时直接返回 `invalid_gateway_name`；`list_current_app_permissions` 的同名参数是精确匹配的查询过滤条件。
 - 其他通用请求输入与排障顺序以 `../bk-cli-shared/SKILL.md` 为准。
 
 ## 原始 API 调用
