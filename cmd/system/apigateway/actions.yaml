@@ -86,6 +86,58 @@ actions:
       - "bk-cli apigateway retrieve_gateway_api_details --gateway_name bk-iam --api_name create_system"
     timeout: 30s
 
+  - name: list_current_app_permissions
+    description: |
+      List gateway or resource permissions for the current authenticated app.
+      The server identifies the app from request credentials; select them with --context.
+      Returns a single page: limit defaults to 10 and offset to 0. Compare data.data.count
+      with data.data.results and increase offset to read subsequent pages.
+      Results may include expired records: expires null means permanent; otherwise check
+      the expiry time before treating a record as a valid permission.
+      Query both dimensions when checking an API: valid gateway grants also authorize
+      its resources, and resource_name is empty in the gateway dimension.
+    method: GET
+    path: "/api/v2/open/app/permissions/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: false
+      resourcePermissionRequired: false
+    params:
+      - name: grant_dimension
+        in: query
+        type: string
+        description: "[Required] Permission dimension: gateway or resource"
+        required: true
+      - name: gateway_name
+        in: query
+        type: string
+        description: "Gateway name filter (exact match)"
+        required: false
+      - name: resource_name
+        in: query
+        type: string
+        description: "Resource name filter (exact match; only effective in resource dimension)"
+        required: false
+      - name: limit
+        in: query
+        type: int
+        description: "Page size (upstream default: 10; returns a single page)"
+        required: false
+        default: "10"
+      - name: offset
+        in: query
+        type: int
+        description: "Offset into the full result list (upstream default: 0)"
+        required: false
+        default: "0"
+    examples:
+      - "bk-cli apigateway list_current_app_permissions --grant_dimension gateway"
+      - "bk-cli apigateway list_current_app_permissions --grant_dimension resource"
+      - "bk-cli apigateway list_current_app_permissions --grant_dimension resource --gateway_name bk-demo --resource_name user_query"
+      - "bk-cli apigateway list_current_app_permissions --grant_dimension resource --limit 10 --offset 10"
+      - "bk-cli apigateway list_current_app_permissions --context my-app --grant_dimension gateway --jq '.data.data'"
+    timeout: 30s
+
   - name: query_log_by_request_id
     description: "Query API gateway log by request ID"
     method: GET

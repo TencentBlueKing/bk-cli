@@ -1,0 +1,88 @@
+id: APIGW-010
+name: current app permission query parameters and shared request behavior
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock context
+    command: [context, init, --bk_api_url_tmpl, "${MOCK_API_BASE_URL}/{gateway_name}"]
+    expect:
+      exit_code: 0
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+  - name: query gateway grants with upstream pagination defaults
+    command: [apigateway, list_current_app_permissions, --grant_dimension, gateway]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 200
+        - path: data.method
+          equals: GET
+        - path: data.path
+          equals: /bk-apigateway/prod/api/v2/open/app/permissions/
+        - path: data.query
+          equals: {grant_dimension: gateway}
+        - path: data.body
+          equals: null
+  - name: filter a resource page with context stage headers and jq
+    command:
+      - apigateway
+      - list_current_app_permissions
+      - --context
+      - default
+      - --grant_dimension
+      - resource
+      - --gateway_name
+      - bk-demo
+      - --resource_name
+      - user_query
+      - --limit
+      - "10"
+      - --offset
+      - "10"
+      - --stage
+      - testing
+      - --header
+      - X-Mock-Scenario:APIGW-010
+      - --jq
+      - .data
+    expect:
+      exit_code: 0
+      checks:
+        - path: gateway
+          equals: bk-apigateway
+        - path: path
+          equals: /bk-apigateway/testing/api/v2/open/app/permissions/
+        - path: scenario
+          equals: APIGW-010
+        - path: query
+          equals: {grant_dimension: resource, gateway_name: bk-demo, resource_name: user_query, limit: "10", offset: "10"}
+  - name: preview without sending a request
+    command: [apigateway, list_current_app_permissions, --grant_dimension, resource, --dry-run, --insecure, --verbose]
+    expect:
+      exit_code: 0
+      checks:
+        - path: dry_run
+          equals: true
+        - path: request.method
+          equals: GET
+        - path: request.params
+          equals: {grant_dimension: resource}
+        - path: request.headers.X-Bkapi-Authorization
+          equals: "{...redacted...}"
+  - name: require a grant dimension
+    command: [apigateway, list_current_app_permissions]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error
+  - name: current app queries do not accept a target app
+    command: [apigateway, list_current_app_permissions, --grant_dimension, gateway, --target_app_code, other-app]
+    expect:
+      exit_code: 1
