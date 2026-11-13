@@ -1,0 +1,19 @@
+id: MCP-004
+name: MCP SSE pagination and unknown execution on timeout
+workspace:
+  seed_config: mcp
+steps:
+  - name: discovers both SSE pages
+    command: [mcp, fixture-sse, --tools]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tool_count, equals: 4}
+        - {path: data.complete, equals: true}
+  - name: finds tool on the second page and reports uncertain outcome
+    command: [mcp, fixture-sse, slow, --text=x, --timeout=150ms]
+    expect:
+      exit_code: 2
+      checks:
+        - {path: error.code, equals: mcp_timeout}
+        - {path: data.execution_state, equals: unknown}
