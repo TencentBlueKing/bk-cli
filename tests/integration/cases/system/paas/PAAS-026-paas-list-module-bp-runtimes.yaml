@@ -1,0 +1,49 @@
+id: PAAS-026
+name: paas list_module_bp_runtimes happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: query module
+    command: ["paas", "list_module_bp_runtimes", "--app_code", "bk-demo", "--module", "api", "--stage", "test"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 200
+        - path: data.method
+          equals: GET
+        - path: data.path
+          equals: /bkpaas3/test/bkapps/applications/bk-demo/modules/api/bp_runtimes/
+  - name: preview default module with jq
+    command: ["paas", "list_module_bp_runtimes", "--app_code", "bk-demo", "--dry-run", "--jq", ".request"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: method
+          equals: GET
+        - path: url
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/bp_runtimes/
+  - name: missing application
+    command: ["paas", "list_module_bp_runtimes"]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error

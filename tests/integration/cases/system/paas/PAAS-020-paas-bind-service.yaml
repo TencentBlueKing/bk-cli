@@ -47,3 +47,17 @@ steps:
           equals: svc-uuid
         - path: data.body.module_name
           equals: default
+  - name: bind static plan
+    command: [paas, bind_service, --body, '{"code":"bk-demo","service_id":"svc-uuid","module_name":"default","plan_id":"plan-shared"}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.body.plan_id
+          equals: plan-shared
+  - name: bind environment-specific plans
+    command: [paas, bind_service, --body, '{"code":"bk-demo","service_id":"svc-uuid","module_name":"default","env_plan_id_map":{"stag":"plan-stag","prod":"plan-prod"}}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: data.body.env_plan_id_map
+          equals: {stag: plan-stag, prod: plan-prod}

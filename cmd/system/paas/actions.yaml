@@ -757,6 +757,163 @@ actions:
       - "bk-cli paas list_module_services --app_code bk-demo"
       - "bk-cli paas list_module_services --app_code bk-demo --module default"
 
+  - name: list_service_possible_plans
+    description: "查询模块绑定增强服务时可选的方案；static_plans 使用 plan_id，env_specific_plans 使用 env_plan_id_map"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/services/{service_id}/possible_plans"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+      - name: service_id
+        in: path
+        type: string
+        description: "增强服务 UUID，来自 list_module_services 的 unbound[].uuid"
+        required: true
+    examples:
+      - "bk-cli paas list_service_possible_plans --app_code bk-demo --module default --service_id svc-uuid"
+
+  - name: get_module_build_config
+    description: "查看模块当前构建配置；修改前先查询，再完整提交 update_module_build_config"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/build_config/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+    examples:
+      - "bk-cli paas get_module_build_config --app_code bk-demo --module default"
+
+  - name: update_module_build_config
+    description: "修改模块构建配置（整体覆盖）；先 get_module_build_config，未传 use_bk_ci_pipeline 会重置为 false，修改后需重新部署"
+    method: POST
+    path: "/bkapps/applications/{app_code}/modules/{module}/build_config/"
+    body_required: true
+    body_schema: |-
+      {
+        "type": "object",
+        "required": [
+          "build_method"
+        ],
+        "properties": {
+          "build_method": {
+            "type": "string",
+            "enum": [
+              "buildpack",
+              "dockerfile",
+              "custom_image"
+            ],
+            "description": "构建方式；custom_image 与其他方式不能互相切换"
+          },
+          "tag_options": {
+            "type": "object",
+            "description": "镜像 Tag 规则，buildpack / dockerfile 必填，包含 prefix、with_version、with_build_time、with_commit_id"
+          },
+          "bp_stack_name": {
+            "type": "string",
+            "description": "基础镜像名，buildpack 必填，取自 list_module_bp_runtimes 的 image"
+          },
+          "buildpacks": {
+            "type": "array",
+            "description": "有序构建工具列表，buildpack 必填；id 必须属于所选基础镜像，同名 buildpack 在不同镜像下 id 不同",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "dockerfile_path": {
+            "type": "string",
+            "description": "Dockerfile 路径，dockerfile 方式使用"
+          },
+          "docker_build_args": {
+            "type": "object",
+            "description": "Docker 构建参数，dockerfile 必填，可为空对象"
+          },
+          "image_repository": {
+            "type": "string",
+            "description": "镜像仓库，custom_image 必填"
+          },
+          "image_credential_name": {
+            "type": "string",
+            "description": "镜像凭证名称，custom_image 使用"
+          },
+          "use_bk_ci_pipeline": {
+            "type": "boolean",
+            "description": "是否通过蓝盾流水线构建；不传会被重置为 false，请显式保留当前值"
+          }
+        }
+      }
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+    examples:
+      - "# 整体覆盖：先 get_module_build_config，修改后完整提交；未传 use_bk_ci_pipeline 会重置为 false"
+      - "# buildpack id 必须属于所选基础镜像；修改配置后需重新部署"
+      - "bk-cli paas update_module_build_config --app_code bk-demo --module default --body @build_config.json"
+
+  - name: list_module_bp_runtimes
+    description: "查询模块可用的基础镜像及构建工具；image 即 bp_stack_name，buildpack id 必须从同一镜像的 buildpacks 中选择"
+    method: GET
+    path: "/bkapps/applications/{app_code}/modules/{module}/bp_runtimes/"
+    authConfig:
+      appVerifiedRequired: true
+      userVerifiedRequired: true
+      resourcePermissionRequired: true
+    params:
+      - name: app_code
+        in: path
+        type: string
+        description: "应用 ID"
+        required: true
+      - name: module
+        in: path
+        type: string
+        description: "模块名，默认模块通常为 default"
+        default: default
+    examples:
+      - "bk-cli paas list_module_bp_runtimes --app_code bk-demo --module default"
+
   - name: bind_service
     description: "绑定应用模块与增强服务"
     method: POST
@@ -781,11 +938,11 @@ actions:
           },
           "plan_id": {
             "type": "string",
-            "description": "手动指定方案 ID。不传则使用平台默认方案"
+            "description": "仅在 list_service_possible_plans 返回 static_plans 时使用其中的 uuid；只有一个可选方案时可不传。返回 env_specific_plans 时必须使用 env_plan_id_map"
           },
           "env_plan_id_map": {
             "type": "object",
-            "description": "分环境方案 ID，例如 {\"stag\": \"<plan_id>\", \"prod\": \"<plan_id>\"}"
+            "description": "list_service_possible_plans 返回 env_specific_plans 时必须为各环境指定该环境列表中的 uuid，例如 {\"stag\": \"<plan_id>\", \"prod\": \"<plan_id>\"}"
           }
         }
       }

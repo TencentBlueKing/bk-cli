@@ -1,11 +1,11 @@
 ---
 name: bk-cli-paas
-description: 当需要通过 `bk-cli paas` 查询蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量、增强服务信息，创建云原生应用或模块，或触发支持多模块的部署动作时使用。
+description: 当需要通过 `bk-cli paas` 查询蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量、增强服务方案与模块构建配置，创建云原生应用或模块，或触发支持多模块的部署动作时使用。
 ---
 
 # bk-cli paas — 蓝鲸 PaaS 应用部署能力
 
-用于通过 `bk-cli paas` 调用蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量和增强服务相关 API。
+用于通过 `bk-cli paas` 调用蓝鲸 PaaS 应用、模块、部署、日志、进程、环境变量、增强服务方案和模块构建配置相关 API。
 
 CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`。共享 skill 负责认证、context、tenant、stage、dry-run、verbose、header/body 和通用请求规则；本 skill 只补充 `paas` 命令自己的语义与输入约定。
 
@@ -31,6 +31,10 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - `get_config_var`
 - `set_config_var_value`
 - `list_module_services`
+- `list_service_possible_plans`
+- `get_module_build_config`
+- `update_module_build_config`
+- `list_module_bp_runtimes`
 - `bind_service`
 - `get_service_instance_by_module`
 - `unbind_service`
@@ -41,7 +45,7 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 - 应用 ID 使用 PaaS 应用 `app_code`，部分接口按上游原始参数名使用 `code`。
 - 模块名使用 PaaS 模块名称；未指定模块时，通常使用默认模块 `default`。相关命令已把 `module` 或 `module_name` 默认值设为 `default`。
 - 环境参数使用接口原始参数名：`env` 或 `environment`，常见值为 `stag` 或 `prod`。写操作默认先用 `stag`，除非用户明确要求 `prod`。
-- `deploy_with_module`、`create_module`、`create_cloud_native_app`、`set_config_var_value`、`bind_service` 等复杂请求体通过共享 `--body '<json>'` 传入；查看完整结构可运行 `bk-cli paas <action> -h --body-schema`。
+- `deploy_with_module`、`create_module`、`create_cloud_native_app`、`set_config_var_value`、`bind_service`、`update_module_build_config` 等复杂请求体通过共享 `--body '<json>'` 传入；查看完整结构可运行 `bk-cli paas <action> -h --body-schema`。
 
 ## 常用工作流
 
@@ -52,8 +56,9 @@ CRITICAL — 开始前 MUST 先用 Read 工具读取 `../bk-cli-shared/SKILL.md`
 5. 部署后用 `get_deployments_list` 找部署任务，再用 `streams_history_events` 查看日志流。
 6. 需要看运行态时，用 `module_env_released_state`、`list_processes` 或 `search_standard_log_with_post`。
 7. 需要管理环境变量时，用 `list_config_vars`、`get_config_var`、`set_config_var_value`。
-8. 需要管理增强服务绑定时，用 `list_module_services`、`bind_service`、`get_service_instance_by_module`、`unbind_service`。
-9. 需要创建云原生应用或模块时，分别使用 `create_cloud_native_app` 或 `create_module`。
+8. 需要管理增强服务绑定时，先用 `list_module_services`、`list_service_possible_plans` 查询，再用 `bind_service`、`get_service_instance_by_module`、`unbind_service`。
+9. 修改模块构建配置前，先用 `get_module_build_config` 读取当前配置；buildpack 方式用 `list_module_bp_runtimes` 选择同一基础镜像下的工具，再完整提交 `update_module_build_config`。
+10. 需要创建云原生应用或模块时，分别使用 `create_cloud_native_app` 或 `create_module`。
 
 ## Commands
 
@@ -274,6 +279,57 @@ bk-cli paas list_module_services --app_code bk-demo --module default
 - 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/services/`
 - 返回通常会按已绑定、共享和未绑定服务分组；绑定前可从未绑定服务中确认 `service_id`。
 
+#### `list_service_possible_plans`
+
+```bash
+bk-cli paas list_service_possible_plans --app_code bk-demo --module default --service_id svc-uuid
+```
+
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/services/{service_id}/possible_plans`。
+- `service_id` 来自 `list_module_services` 的 `unbound[].uuid`。
+- `has_multiple_plans=false` 表示只有一个可选方案，绑定时可不指定方案。
+- 返回 `static_plans` 时，各环境共用方案，通过 `plan_id` 传入选中项的 `uuid`。
+- 返回 `env_specific_plans` 时，用 `env_plan_id_map` 分别传入 `stag`、`prod` 对应列表中的 `uuid`；不能用一个 `plan_id` 代替。
+- 方案元素包含 `uuid`、`name`、`description`。多个方案却不指定时，上游会返回获取可用服务方案失败。
+
+#### `get_module_build_config`
+
+```bash
+bk-cli paas get_module_build_config --app_code bk-demo --module default
+bk-cli paas get_module_build_config --app_code bk-demo --module default --jq '.data' > build_config.json
+```
+
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/build_config/`。
+- 修改前先保存当前配置。输出默认包含 envelope，写入提交文件时通过 `--jq '.data'` 提取配置对象。
+- 返回随构建方式不同：buildpack 包含 `bp_stack_name`、有序 `buildpacks`，dockerfile 包含路径和构建参数，custom_image 包含镜像仓库；同时保留 `tag_options`、`use_bk_ci_pipeline` 等当前配置。
+
+#### `list_module_bp_runtimes`
+
+```bash
+bk-cli paas list_module_bp_runtimes --app_code bk-demo --module default
+```
+
+- 调用路径：`GET /bkapps/applications/{app_code}/modules/{module}/bp_runtimes/`。
+- 每项的 `image` 即 `bp_stack_name`，`slugbuilder.display_name` 是基础镜像展示名，例如 `Ubuntu24`。
+- 每项 `buildpacks` 含 `id`、`name`、`language`、`display_name`。同名 buildpack 在不同基础镜像下 `id` 不同；切换镜像后按语言重新选择对应工具，不能沿用旧镜像的 ID。
+
+#### `update_module_build_config`
+
+```bash
+# 先运行 get_module_build_config，编辑保存的 build_config.json 后预览并提交
+bk-cli paas update_module_build_config --app_code bk-demo --module default --body @build_config.json --dry-run
+bk-cli paas update_module_build_config --app_code bk-demo --module default --body @build_config.json
+bk-cli paas update_module_build_config -h --body-schema
+```
+
+- 调用路径：`POST /bkapps/applications/{app_code}/modules/{module}/build_config/`。成功返回 204，无响应体。
+- 接口整体覆盖配置。先查询当前配置，修改后完整提交；遗漏 `use_bk_ci_pipeline` 会重置为 `false`，需要保留流水线时显式传当前值。CLI 直接提交提供的 body。
+- `build_method` 必填，支持 `buildpack`、`dockerfile`、`custom_image`。
+- buildpack 必填 `tag_options`、`bp_stack_name`、有序的 `buildpacks`（元素为 `{"id": <int>}`）。从 `list_module_bp_runtimes` 的同一个基础镜像项选择工具；列表顺序即构建顺序。
+- dockerfile 必填 `tag_options`、`docker_build_args`（可为空对象），并提供 `dockerfile_path`。
+- custom_image 必填 `image_repository`，可提供 `image_credential_name`；不能与其他构建方式互相切换。
+- 修改后需要重新部署才生效。
+
 #### `bind_service`
 
 ```bash
@@ -284,7 +340,14 @@ bk-cli paas bind_service \
 - 绑定应用模块与增强服务。
 - 调用路径：`POST /services/service-attachments/`
 - 请求体必填字段：`code`、`service_id`；`module_name` 不传时由上游按默认模块处理，建议显式传 `default`。
-- 需要指定服务方案时传 `plan_id`，需要分环境方案时传 `env_plan_id_map`。
+- 先用 `list_service_possible_plans` 查询。`plan_id` 仅用于返回 `static_plans` 的情况，只有一个可选方案时可不传；返回 `env_specific_plans` 时必须传 `env_plan_id_map`，值取各环境方案列表的 `uuid`。
+
+```bash
+# static_plans：各环境共用一个方案
+bk-cli paas bind_service --body '{"code":"bk-demo","service_id":"svc-uuid","module_name":"default","plan_id":"plan-uuid"}'
+# env_specific_plans：分别选择各环境可用的方案
+bk-cli paas bind_service --body '{"code":"bk-demo","service_id":"svc-uuid","module_name":"default","env_plan_id_map":{"stag":"plan-stag","prod":"plan-prod"}}'
+```
 
 #### `get_service_instance_by_module`
 
