@@ -1,0 +1,62 @@
+id: PAAS-025
+name: paas update_module_build_config full body and errors
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: preview full configuration file
+    command: [paas, update_module_build_config, --app_code, bk-demo, --body, '@${FIXTURES_DIR}/files/paas-build-config.json', --dry-run]
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.method
+          equals: POST
+        - path: request.url
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/build_config/
+        - path: request.body.use_bk_ci_pipeline
+          equals: true
+        - path: request.body.buildpacks.0.id
+          equals: 54
+        - path: request.body.buildpacks.1.id
+          equals: 48
+  - name: submit full configuration file
+    command: [paas, update_module_build_config, --app_code, bk-demo, --body, '@${FIXTURES_DIR}/files/paas-build-config.json', --header, 'X-Mock-Scenario:PAAS-025-UPDATE']
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 204
+  - name: missing body
+    command: [paas, update_module_build_config, --app_code, bk-demo]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: missing_param
+  - name: preserve upstream failure with jq
+    command: [paas, update_module_build_config, --app_code, bk-demo, --body, '{"build_method":"buildpack"}', --header, 'X-Mock-Scenario:PAAS-025-ERROR', --jq, .data]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: false
+        - path: status
+          equals: 400
+        - path: data.error
+          equals: invalid_build_config

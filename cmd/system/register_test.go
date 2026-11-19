@@ -879,6 +879,10 @@ actions:
 			{"paas", "get_config_var"},
 			{"paas", "set_config_var_value"},
 			{"paas", "list_module_services"},
+			{"paas", "list_service_possible_plans"},
+			{"paas", "get_module_build_config"},
+			{"paas", "update_module_build_config"},
+			{"paas", "list_module_bp_runtimes"},
 			{"paas", "bind_service"},
 			{"paas", "get_service_instance_by_module"},
 			{"paas", "unbind_service"},
@@ -1139,6 +1143,27 @@ actions:
 		Expect(moduleServices.Flag("app_code")).NotTo(BeNil())
 		Expect(moduleServices.Flag("module")).NotTo(BeNil())
 		Expect(moduleServices.Flag("module").DefValue).To(Equal("default"))
+
+		for _, name := range []string{
+			"list_service_possible_plans", "get_module_build_config",
+			"update_module_build_config", "list_module_bp_runtimes",
+		} {
+			action, _, findErr := root.Find([]string{"paas", name})
+			Expect(findErr).NotTo(HaveOccurred())
+			Expect(action.Name()).To(Equal(name))
+			Expect(action.Flag("app_code")).NotTo(BeNil())
+			Expect(action.Flag("module").DefValue).To(Equal("default"))
+			Expect(action.Flag(syslib.ActionStageFlagName)).NotTo(BeNil())
+			Expect(action.Flag(syslib.ActionHeaderFlagName)).NotTo(BeNil())
+			Expect(action.Flag("jq")).NotTo(BeNil())
+		}
+		possiblePlans, _, err := root.Find([]string{"paas", "list_service_possible_plans"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(possiblePlans.Flag("service_id")).NotTo(BeNil())
+		updateBuildConfig, _, err := root.Find([]string{"paas", "update_module_build_config"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updateBuildConfig.Flag(syslib.ActionBodyFlagName).Usage).To(ContainSubstring("[Required]"))
+		Expect(updateBuildConfig.Flag(syslib.ActionBodySchemaFlagName)).NotTo(BeNil())
 
 		bindService, _, err := root.Find([]string{
 			"paas",

@@ -1,0 +1,56 @@
+id: PAAS-023
+name: paas list_service_possible_plans happy path
+tags:
+  - coverage-system_yaml
+  - suite-integration
+steps:
+  - name: init mock-backed context
+    command: [context, init, --bk_api_url_tmpl, '${MOCK_API_BASE_URL}/{gateway_name}']
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: login
+    command: [auth, login, --access_token, integration-token]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+  - name: query module
+    command: ["paas", "list_service_possible_plans", "--app_code", "bk-demo", "--module", "api", "--stage", "test", "--service_id", "svc-uuid"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: ok
+          equals: true
+        - path: status
+          equals: 200
+        - path: data.method
+          equals: GET
+        - path: data.path
+          equals: /bkpaas3/test/bkapps/applications/bk-demo/modules/api/services/svc-uuid/possible_plans
+  - name: preview default module with jq
+    command: ["paas", "list_service_possible_plans", "--app_code", "bk-demo", "--dry-run", "--jq", ".request", "--service_id", "svc-uuid"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: method
+          equals: GET
+        - path: url
+          contains: /bkpaas3/prod/bkapps/applications/bk-demo/modules/default/services/svc-uuid/possible_plans
+  - name: missing application
+    command: ["paas", "list_service_possible_plans", "--service_id", "svc-uuid"]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error
+  - name: missing service
+    command: [paas, list_service_possible_plans, --app_code, bk-demo]
+    expect:
+      exit_code: 1
+      checks:
+        - path: error.code
+          equals: command_error
