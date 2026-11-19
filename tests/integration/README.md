@@ -2,7 +2,7 @@
 
 这个目录包含 `bk-cli` 的仓库内集成测试 harness。
 
-它会在 Docker Compose 中运行真实构建出的 CLI，只与本地配套服务通信，并根据仓库内提交的 YAML 用例文件校验行为。
+它通过仓库内提交的 YAML 用例文件校验真实构建出的 CLI，只与本地配套服务通信。默认使用 Docker Compose 提供隔离服务；无可用 Docker 时，可以按下面的规则在本地执行相同用例。
 
 ## 覆盖策略
 
@@ -40,9 +40,10 @@
 
 ## 前置要求
 
-- 已安装 Docker，并可通过 `docker compose` 使用 Compose v2
 - 与仓库基线一致的 Go 工具链
 - GNU Make
+- Compose 执行需要 Docker、Compose v2 和可访问的 Docker daemon
+- 本地执行需要用例依赖的本地服务；下面的 PaaS 示例需要 curl、Python 和 Flask，Flask 版本参考 `mock_api/Dockerfile`
 
 ## 基本命令
 
@@ -75,6 +76,54 @@ make test-integration CASE=tests/integration/cases/system/devops/SYSGO-001-devop
 ```bash
 make test-integration-down
 ```
+
+## 无可用 Docker 时的本地验证
+
+仓库的环境选择与交付规则以 [AGENTS.md 的 Verification Workflow](AGENTS.md#verification-workflow) 为准。
+对于 CLI、YAML 用例、fixture、mock 响应或 runner 逻辑变更，无可用 Docker 时，本地真实 CLI 与现有 runner 执行相同用例并通过，即满足本地集成检查；无需逐任务申请 Docker 豁免。
+其他适用检查仍需通过。Compose 配置、Dockerfile、容器入口、网络、挂载或服务启动的变更仍需在可用环境完成 Compose 验证。
+
+下面以只依赖现有 `mock_api` 的 `PAAS-001` 为例。所有命令均从仓库根目录执行。
+先在一个终端启动现有 mock 服务，结束验证后停止该进程：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m flask \
+  --app tests/integration/mock_api/app.py run --host 127.0.0.1 --port 8080
+```
+
+在另一个终端执行：
+
+```bash
+mkdir -p ./bin/integration
+make build BINARY=./bin/integration/bk-cli BK_TE_DOMAIN=te.example
+go build -o ./bin/integration/bk-cli-int ./tests/integration/cmd/inttest
+
+set -a
+. tests/integration/fixtures/env/common.env
+set +a
+export MOCK_API_BASE_URL=http://127.0.0.1:8080
+export BK_CLI_BIN="$PWD/bin/integration/bk-cli"
+export RUNNER_BIN="$PWD/bin/integration/bk-cli-int"
+export CASES_DIR="$PWD/tests/integration/cases"
+export FIXTURES_DIR="$PWD/tests/integration/fixtures"
+
+curl --fail --silent --show-error "$MOCK_API_BASE_URL/healthz"
+
+REPORT_DIR="$PWD/tests/integration/artifacts/native/PAAS-001" \
+  SCENARIO=PAAS-001 CASE= sh tests/integration/runner/entrypoint.sh
+REPORT_DIR="$PWD/tests/integration/artifacts/native/PAAS-001-path" \
+  SCENARIO= CASE=tests/integration/cases/system/paas/PAAS-001-paas-get-deployment-result.yaml \
+  sh tests/integration/runner/entrypoint.sh
+```
+
+`te.example` 对应 Makefile 中 `INTEGRATION_BK_TE_DOMAIN` 的默认值；若任务使用其他值，本地构建也要使用相同值。
+按上述方式运行所有受影响的场景，并至少按精确路径运行一个变更的 system 用例。
+保留原 YAML 步骤和断言，只调整本地路径、服务地址等环境值。
+依赖 `httpbin` 的用例还需启动对应的本地服务，并将 `HTTPBIN_BASE_URL` 设置为其地址；无法提供所需服务时，要记录尚未完成的检查。
+
+保存执行命令、退出码、`results.json`、`results.xml` 和步骤日志，并说明本地执行尚未验证容器编排。
+无可用 Docker 时，Compose 不作为这些变更的必需本地检查；未执行不能记为通过，已失败的尝试也应如实保留。
+现有集成 CI 继续运行 Compose 全套用例，其结果与本地结果分别报告。
 
 ## 报告
 
@@ -151,18 +200,20 @@ steps:
 
 ## 验证
 
-修改 harness 或新增用例后，按下面顺序执行：
+修改 runner 或新增、修改用例后，先执行：
 
 ```bash
 go test ./tests/integration/runner -count=1
-make test-integration SCENARIO=<SCENARIO_ID>
 ```
 
-如果你改动的是某个 system 用例，还要执行：
+有可用 Docker 时执行：
 
 ```bash
+make test-integration SCENARIO=<SCENARIO_ID>
 make test-integration CASE=tests/integration/cases/system/<system>/<file>.yaml
 ```
+
+无可用 Docker 时，按上面的本地验证示例执行所有受影响场景，并至少按精确路径执行一个变更的 system 用例。
 
 ## 需要避免的事情
 

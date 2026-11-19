@@ -628,8 +628,11 @@ make fmt
 make lint
 make test
 make build
-make test-integration SCENARIO=<SCENARIO_ID>
 ```
+
+集成验证按 [tests/integration/AGENTS.md 的 Verification Workflow](../../../tests/integration/AGENTS.md#verification-workflow) 执行。
+有可用 Docker 时运行 Compose；无可用 Docker 时，按该规则使用真实 CLI、现有 runner 和本地配套服务执行相同 YAML 用例。
+替代检查通过后继续已有授权的交付，无需逐任务询问 Docker 豁免；容器相关变更的验证要求以主规则为准。
 
 ## 排障顺序
 
