@@ -6,10 +6,11 @@
 
 `bk-cli` 是一个和 BlueKing 平台 API 交互的命令行工具。
 
-你可以把它理解成两种用法：
+你可以把它理解成三种用法：
 
 1. 直接调用任意网关接口：`bk-cli api ...`
 2. 使用已经封装好的高层命令：`bk-cli apigateway ...`、`bk-cli cmdb ...`、`bk-cli job ...`
+3. 发现并调用远程 MCP 工具：`bk-cli mcp <server> ...`，使用独立配置，不依赖 context/auth 登录
 
 如果你是第一次接触，建议先记住这几个点：
 
@@ -550,7 +551,7 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/ | jq .
 
 ### 内置 jq 筛选
 
-raw API 和所有 system action 可以直接用 `--jq` 查询完整最终 envelope：
+raw API、MCP 和所有 system action 可以直接用 `--jq` 查询完整最终 envelope：
 
 ```bash
 # 提取网关名称，每个名称是一行带引号的 JSON 字符串
@@ -657,3 +658,97 @@ bk-cli api bk-apigateway GET /api/v2/open/gateways/{gateway_name}/resources/ \
 - 项目简介与快速入口：[README.md](https://github.com/TencentBlueKing/bk-cli/blob/master/README.md)
 - 常见问题：[docs/faq.md](faq.md)
 - 开发者视角的扩展指南：[docs/develop-extension-guide.md](https://github.com/TencentBlueKing/bk-cli/blob/master/docs/develop-extension-guide.md)
+
+## 11. 远程 MCP 工具
+
+`mcp` 直接连接远程 Streamable HTTP server。它不使用 `auth login` 保存的凭据，也不继承 context 的 URL、tenant、stage 或 timeout。切换 context 不会切换 MCP 身份；显式使用 `--context` 会报错。
+
+### 配置与认证
+
+默认读取 `~/.bk-cli/mcp.json`；设置 `BK_CLI_CONFIG_DIR` 后读取该目录的 `mcp.json`。使用 `--config ./mcp.json` 时只读取这个文件，不自动查找或合并其他客户端配置。文件必须为严格 JSON，URL 保持原样；一期只支持 `type: "http"`。
+
+```json
+{
+  "mcpServers": {
+    "demo": {
+      "type": "http",
+      "url": "https://mcp.example.com/demo/mcp/",
+      "headers": {"Authorization": "Bearer your-personal-token"}
+    },
+    "demo-app": {
+      "type": "http",
+      "url": "https://mcp.example.com/demo/mcp/",
+      "headers": {"X-Bkapi-Authorization": "{\"access_token\":\"your-access-token\"}"}
+    },
+    "public-docs": {
+      "type": "http",
+      "url": "https://mcp.example.com/public/mcp/"
+    }
+  }
+}
+```
+
+配置文件中的 header 字符串就是最终发送值，不做环境变量展开或模板渲染。请直接填写凭据；`${NAME}` 和 `$${NAME}` 没有特殊含义，也不会读取对应环境变量。蓝鲸 `X-Bkapi-Authorization` 的值是 JSON 对象字符串，支持以下三种独立形态（写进配置时需转义内层引号）：
+
+```json
+{"bk_app_code":"your_app","bk_app_secret":"your_secret","bk_ticket":"your_ticket"}
+{"bk_app_code":"your_app","bk_app_secret":"your_secret","bk_token":"your_token"}
+{"access_token":"your_access_token"}
+```
+
+不要同时配置 `Authorization` 与 `X-Bkapi-Authorization`。自定义 API key header 和第三方合法 Authorization scheme 也可透传。空认证值、重复配置字段或不支持的配置选项会明确失败，不自动回退匿名或其他身份。无认证 server 可以省略 headers。不会执行 shell 或读取 `.env`。
+
+含真实票据的文件应仅允许当前用户读写，不提交版本库。配置和错误诊断中的全部 header 值都显示为 `***`；工具返回的业务数据原样保留，仍应按其敏感程度处理。
+
+### 检查、发现、帮助与调用
+
+```bash
+# 本地帮助，只展示用法；不连接远端
+bk-cli mcp
+bk-cli mcp demo
+
+# 查看当前配置文件中的服务列表，不联网；header 值统一脱敏
+bk-cli mcp --list
+bk-cli mcp --config ./mcp.json --list
+
+# 检查协议和完整目录；查看完整工具定义
+bk-cli mcp demo --check
+bk-cli mcp demo --tools
+bk-cli mcp demo search --help
+
+# 按远端 Schema 的原始字段名传参；布尔值显式赋值
+bk-cli mcp demo search --keyword '网关错误' --limit 20 --enabled=false
+
+# 完整 arguments 对象，不是 JSON-RPC 报文；覆盖全部具名参数
+bk-cli mcp demo search --body '{"keyword":"网关错误","limit":20}'
+bk-cli mcp demo search --body @params.json
+bk-cli mcp demo search --body - < params.json
+
+# 只用指定配置；提取最终结果
+bk-cli mcp --config ./mcp.json demo --tools --jq '.data.tools[].name'
+bk-cli mcp demo search --body @params.json --jq '.data.result'
+
+# 完全离线的预览；无参数工具也要显式提供 {}
+bk-cli mcp demo search --body @params.json --dry-run
+```
+
+示例 server/tool/字段名需换成实际配置和发现结果，名称大小写敏感，保留下划线、连字符和点号。工具帮助会联网获取 Schema，但不会调用工具或读取 body/stdin。`--list` 不接受 server/tool 或其他执行模式；`--check`、`--tools`、tool 调用互斥；不提供 `--header/--stage/--tenant`。复杂 Schema、无法映射的名字以及 `body/help/config` 等保留名字段使用完整 body，不自动改名。具名数组和对象使用 JSON，不能用逗号分隔代替。只发送显式值，不注入 Schema default。body 顶层必须是对象，无参数用 `{}`。
+
+`--timeout 90s` 设置本次连接、所有发现页和工具调用的总时间，默认 60 秒。`--verbose` 在 stderr 输出已脱敏的诊断；`--insecure` 仅用于明确需要跳过证书验证的环境。重定向不会被跟随，应直接配置最终 endpoint。
+
+### 判断结果与排错
+
+| 情况 | 输出与下一步 |
+| --- | --- |
+| 本地配置/参数错误 | stderr 结构化错误，退出 1；修正配置或参数，工具未调用 |
+| check/tools 成功 | stdout `ok:true`、`complete:true`；只证明本次连接/发现成功，不证明所有业务权限 |
+| 同步工具成功 | stdout `data.result`，退出 0；仍按工具业务契约判断数据，任务 ID 不代表任务已完成 |
+| 401 / 403 | 退出 2；分别检查所选配置 headers 的认证和该身份的服务/工具/业务权限，不会自动登录或切换凭据 |
+| 工具 `isError:true` | 退出 2，保留原始结果；检查 `data.result` |
+| `mcp_capability_unsupported` | 退出 2，保留输入要求或 task 标识；不自动补充输入、轮询或再次调用 |
+| `data.execution_state: "unknown"` | 工具请求可能已执行，但完整结果丢失；先通过业务查询核实，不能直接重跑写操作 |
+| jq 运行或输出错误 | 退出 2，尽可能保留完整原结果；展示失败不表示调用未执行，不自动重发 |
+
+每次 CLI 执行最多发送一次 `tools/call`。一期不支持 OAuth 自动登录、stdio、旧 HTTP+SSE、sampling/elicitation、input_required 接续或异步 task 轮询。HTTP 200 不单独代表成功；失败 envelope 不被 jq 隐藏。默认结果及简单 jq 字段提取保留收到的 JSON 数字精度，涉及计算的 jq 表达式仍遵循 gojq 数值语义。
+
+固定限制为单个 JSON 输入/响应或 SSE 事件 16 MiB，累计发现目录 32 MiB，最多 100 页，JSON 最多嵌套 128 层。超过响应/目录上限报 `mcp_response_too_large`，超过分页上限报 `mcp_discovery_incomplete`，不会静默截断。离线 dry-run 只能校验配置、认证格式和 body 结构，不能证明远端工具存在、Schema 合法、票据有效或业务权限足够。
