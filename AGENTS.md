@@ -56,6 +56,11 @@ go build -o bk-cli .
 go build -ldflags="-s -w" -o bk-cli .
 ```
 
+For integration coverage, follow the [Verification Workflow](tests/integration/AGENTS.md#verification-workflow).
+It defines the required checks for both Docker Compose and local execution
+without usable Docker. Use that policy when extending systems or applying
+the checklist in `.agents/skills/create-bk-cli-system/SKILL.md`.
+
 ## Core mental model
 
 `bk-cli` is a Go CLI for BlueKing APIs with an **agent-first** contract:

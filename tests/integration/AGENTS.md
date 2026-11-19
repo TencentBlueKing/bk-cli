@@ -6,8 +6,10 @@ from the current harness contract.
 
 ## Purpose
 
-The integration harness runs the real built `bk-cli` binary inside
-Docker Compose and validates behavior through declarative YAML cases.
+The integration harness validates the real built `bk-cli` binary through
+declarative YAML cases. Docker Compose provides the default isolated services;
+the Verification Workflow below also permits local execution when Docker
+is unavailable.
 
 Coverage expectation:
 
@@ -95,7 +97,7 @@ Examples:
 3. Add one baseline happy-path YAML scenario for every public action.
 4. Use `${MOCK_API_BASE_URL}` when the action expects domain-shaped data.
 5. Prefer `${HTTPBIN_BASE_URL}` only for protocol-style request/response checks.
-6. Run `make test-integration SCENARIO=<SCENARIO_ID>`.
+6. Run the new scenarios using the Verification Workflow below.
 
 For a brand-new public system, a good first case should prove:
 
@@ -112,7 +114,7 @@ For a brand-new public system, a good first case should prove:
 3. Choose one scenario file per user-visible behavior.
 4. Keep one happy-path case first; add edge/failure cases only when they add value.
 5. If the action has synthetic upstream behavior requirements, add a scenario-keyed branch in `mock_api/app.py`.
-6. Run the case in isolation by scenario ID and by case path.
+6. Run the case in isolation by scenario ID and by case path using the Verification Workflow below.
 
 ## When To Use `httpbin` vs `mock_api`
 
@@ -178,15 +180,50 @@ When adding a new mock-backed case:
 
 ## Verification Workflow
 
-After adding or changing a case, run:
+After changing the runner or adding or changing a case, run:
 
 ```bash
 go test ./tests/integration/runner -count=1
+```
+
+Select the execution environment before running the affected scenarios:
+
+- With usable Docker Compose and a reachable Docker daemon, run the commands below.
+- Without usable Docker, run the same checked-in YAML cases against the locally
+  built CLI through `tests/integration/cmd/inttest`, using the existing fixtures
+  and local instances of the services required by those cases. Follow the
+  [local execution example](README.md#无可用-docker-时的本地验证) for setup.
+
+```bash
 make test-integration SCENARIO=<SCENARIO_ID>
 make test-integration CASE=tests/integration/cases/system/<system>/<file>.yaml
 ```
 
-Use the exact case path variant for at least one changed system case.
+In either environment, run every affected scenario by ID and at least one
+changed system case by its exact case path. Preserve the case steps and
+expectations; change only environment values needed for local paths and service
+addresses. Use the same build settings as `make test-integration`, including
+`INTEGRATION_BK_TE_DOMAIN`, so legacy gateway checks retain their coverage.
+
+For CLI, YAML case, fixture, mock response or runner logic changes, passing local
+execution satisfies the repository's required local integration checks when
+Docker is unavailable. This is a standing repository policy: continue already
+authorized commit, push and PR delivery without requesting a per-task Docker
+waiver. Other applicable checks still must pass. If a required service or
+scenario cannot run, report that remaining verification blocker.
+
+Changes to Compose configuration, Dockerfiles, container entrypoints, container
+networking, mounts or service startup still require Compose verification in a
+capable environment. Local execution alone does not verify those contracts.
+The integration CI workflow continues to run the Compose suite.
+
+Record the execution mode, commands, exit codes and report paths in the handoff
+or PR. In a structured verification result, mark the applicable local checks as
+required and report their actual results. Record an unexecuted Compose check as
+not required for this local policy, with its environment reason; never report
+it as passed. Preserve any failed Compose attempt as failure evidence. Disclose
+that container orchestration remains unverified locally, and report CI status
+separately from local results.
 
 ## Common Mistakes To Avoid
 

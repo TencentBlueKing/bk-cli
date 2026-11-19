@@ -189,7 +189,7 @@ $ codex or claude or cursor
 ## 开发完成后的检查
 
 - AGENT 有按要求实现对应代码/单元测试文件 (`_test.go`)/集成测试配置
-- `make lint` / `make test` / `make test-integration`  等全部成功
+- `make lint` / `make test` 等适用检查全部成功；集成验证按 [tests/integration/AGENTS.md 的 Verification Workflow](../tests/integration/AGENTS.md#verification-workflow) 选择 Compose 或无可用 Docker 时的本地执行方式
 - `make build` 后本地做测试（注意，变更类操作请在对应测试环境验证，避免生产环境误操作）
 - 确定有没有修改 skills 中对应系统的 SKILL.md, 需要补充或更新变更
 - 换一个模型，进行 code review (例如：如果用 gpt-5.4 开发的，换 opus review)
