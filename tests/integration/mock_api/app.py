@@ -65,6 +65,10 @@ NEGATIVE_SCENARIOS: dict[str, tuple[int, dict[str, Any]]] = {
             "message": "Synthetic SOPS task rejection",
         },
     ),
+    "PAAS-025-ERROR": (
+        400,
+        {"error": "invalid_build_config", "message": "Synthetic invalid build configuration"},
+    ),
 }
 
 
@@ -237,6 +241,25 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         negative = maybe_negative_response(gateway, stage, tail)
         if negative is not None:
             return negative
+
+        if active_scenario() == "PAAS-025-UPDATE":
+            expected = {
+                "build_method": "buildpack",
+                "tag_options": {"prefix": None, "with_version": True, "with_build_time": True, "with_commit_id": False},
+                "bp_stack_name": "stack-a",
+                "buildpacks": [{"id": 54}, {"id": 48}],
+                "use_bk_ci_pipeline": True,
+            }
+            if (
+                gateway != "bkpaas3"
+                or stage != "prod"
+                or tail != "bkapps/applications/bk-demo/modules/default/build_config/"
+                or request.method != "POST"
+                or request.get_json(silent=True) != expected
+                or not request.headers.get("X-Bkapi-Authorization")
+            ):
+                return jsonify({"error": "unexpected_build_config_request"}), 400
+            return "", 204
 
         if gateway == "bk-monitor" and active_scenario() == "MONITOR-012":
             if stage != "testing" or request.headers.get("X-Example") != "preflight":

@@ -44,3 +44,31 @@ steps:
           equals: true
         - path: request.url
           contains: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/deployments/12345/result/
+  - name: preview list_service_possible_plans legacy gateway
+    command: ["paas", "list_service_possible_plans", "--app_code", "bk-demo", "--dry-run", "--service_id", "svc-uuid"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.url
+          equals: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/services/svc-uuid/possible_plans
+  - name: preview get_module_build_config legacy gateway
+    command: ["paas", "get_module_build_config", "--app_code", "bk-demo", "--dry-run"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.url
+          equals: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/build_config/
+  - name: preview update_module_build_config legacy gateway
+    command: ["paas", "update_module_build_config", "--app_code", "bk-demo", "--dry-run", "--body", "@${FIXTURES_DIR}/files/paas-build-config.json"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.url
+          equals: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/build_config/
+  - name: preview list_module_bp_runtimes legacy gateway
+    command: ["paas", "list_module_bp_runtimes", "--app_code", "bk-demo", "--dry-run"]
+    expect:
+      exit_code: 0
+      checks:
+        - path: request.url
+          equals: https://paasv3.apigw.te.example/prod/bkapps/applications/bk-demo/modules/default/bp_runtimes/

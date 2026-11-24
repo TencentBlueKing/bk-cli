@@ -1,0 +1,19 @@
+{
+  "build_method": "buildpack",
+  "tag_options": {
+    "prefix": null,
+    "with_version": true,
+    "with_build_time": true,
+    "with_commit_id": false
+  },
+  "bp_stack_name": "stack-a",
+  "buildpacks": [
+    {
+      "id": 54
+    },
+    {
+      "id": 48
+    }
+  ],
+  "use_bk_ci_pipeline": true
+}
