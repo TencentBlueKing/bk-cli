@@ -1,0 +1,45 @@
+id: MCP-001
+name: MCP connection discovery help and explicit call
+workspace:
+  seed_config: mcp
+steps:
+  - name: list configured servers offline
+    command: [mcp, --list]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.server_count, equals: 4}
+        - {path: data.servers.0.name, equals: denied}
+        - {path: data.servers.0.headers.Authorization, equals: '***'}
+  - name: root help without credentials
+    command: [mcp, --help]
+    expect:
+      exit_code: 0
+  - name: server help without credentials
+    command: [mcp, fixture, --help]
+    expect:
+      exit_code: 0
+  - name: check connection and complete discovery
+    command: [mcp, fixture, --check]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.checks.protocol, equals: passed}
+        - {path: data.complete, equals: true}
+        - {path: data.tool_count, equals: 4}
+  - name: list tools
+    command: [mcp, fixture, --tools]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.tools, kind: list, length_at_least: 4}
+  - name: dynamic help
+    command: [mcp, fixture, echo, --help]
+    expect:
+      exit_code: 0
+  - name: explicit tool call
+    command: [mcp, fixture, echo, --text, 中文]
+    expect:
+      exit_code: 0
+      checks:
+        - {path: data.result.structuredContent.arguments.text, equals: 中文}
